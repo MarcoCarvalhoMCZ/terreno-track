@@ -41,8 +41,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Search, Pencil, Trash2, TrendingUp } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, TrendingUp, Calendar, Save, ChevronLeft, ChevronRight } from "lucide-react";
+import { format, parse, startOfMonth, addMonths, subMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Indicador {
   id: string;
@@ -52,6 +55,13 @@ interface Indicador {
   periodicidade: string | null;
   ativo: boolean | null;
   created_at: string | null;
+}
+
+interface IndicadorValor {
+  id: string;
+  indicador_id: string | null;
+  competencia: string;
+  fator: number;
 }
 
 interface IndicadorForm {
@@ -77,6 +87,9 @@ const periodicidadeOptions = [
   { value: "outro", label: "Outro" },
 ];
 
+// Nomes dos indicadores principais que terão valores mensais
+const INDICADORES_NOMES = ["IGPM", "INCC", "INPC", "IPCA"];
+
 export default function Indicadores() {
   const { canEdit } = useAuth();
   const queryClient = useQueryClient();
@@ -85,6 +98,9 @@ export default function Indicadores() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedIndicador, setSelectedIndicador] = useState<Indicador | null>(null);
   const [form, setForm] = useState<IndicadorForm>(initialForm);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [editingCell, setEditingCell] = useState<{ indicadorId: string; competencia: string } | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   // Fetch indicadores
   const { data: indicadores, isLoading } = useQuery({
@@ -98,6 +114,28 @@ export default function Indicadores() {
       return data as Indicador[];
     },
   });
+
+  // Fetch valores for current year
+  const { data: valores, isLoading: isLoadingValores } = useQuery({
+    queryKey: ["indicadores-valores", currentYear],
+    queryFn: async () => {
+      const startDate = `${currentYear}-01-01`;
+      const endDate = `${currentYear}-12-31`;
+      const { data, error } = await supabase
+        .from("indicadores_atualizacao_valores")
+        .select("*")
+        .gte("competencia", startDate)
+        .lte("competencia", endDate)
+        .order("competencia");
+      if (error) throw error;
+      return data as IndicadorValor[];
+    },
+  });
+
+  // Get indicadores principais (IGPM, INCC, INPC, IPCA)
+  const indicadoresPrincipais = indicadores?.filter(ind => 
+    INDICADORES_NOMES.includes(ind.nome.toUpperCase())
+  ) || [];
 
   // Create mutation
   const createMutation = useMutation({
@@ -167,6 +205,36 @@ export default function Indicadores() {
     },
   });
 
+  // Upsert valor mutation
+  const upsertValorMutation = useMutation({
+    mutationFn: async ({ indicadorId, competencia, fator }: { indicadorId: string; competencia: string; fator: number }) => {
+      // Check if exists
+      const existing = valores?.find(v => v.indicador_id === indicadorId && v.competencia === competencia);
+      
+      if (existing) {
+        const { error } = await supabase
+          .from("indicadores_atualizacao_valores")
+          .update({ fator, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("indicadores_atualizacao_valores")
+          .insert({ indicador_id: indicadorId, competencia, fator });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["indicadores-valores"] });
+      toast.success("Valor salvo com sucesso!");
+      setEditingCell(null);
+      setEditValue("");
+    },
+    onError: (error) => {
+      toast.error("Erro ao salvar valor: " + error.message);
+    },
+  });
+
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setSelectedIndicador(null);
@@ -229,6 +297,67 @@ export default function Indicadores() {
     return periodicidadeOptions.find((p) => p.value === value)?.label || value || "-";
   };
 
+  // Generate months for the current year
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const date = new Date(currentYear, i, 1);
+    return {
+      value: format(date, "yyyy-MM-dd"),
+      label: format(date, "MMM", { locale: ptBR }).toUpperCase(),
+      fullLabel: format(date, "MMMM/yyyy", { locale: ptBR }),
+    };
+  });
+
+  // Get valor for a specific indicador and competencia
+  const getValor = (indicadorId: string, competencia: string): number | null => {
+    const valor = valores?.find(v => v.indicador_id === indicadorId && v.competencia === competencia);
+    return valor?.fator ?? null;
+  };
+
+  // Calculate média for a specific competência
+  const getMedia = (competencia: string): number | null => {
+    const valoresDoMes = indicadoresPrincipais
+      .map(ind => getValor(ind.id, competencia))
+      .filter((v): v is number => v !== null);
+    
+    if (valoresDoMes.length === 0) return null;
+    return valoresDoMes.reduce((a, b) => a + b, 0) / valoresDoMes.length;
+  };
+
+  const handleCellClick = (indicadorId: string, competencia: string) => {
+    if (!canEdit) return;
+    const currentValue = getValor(indicadorId, competencia);
+    setEditingCell({ indicadorId, competencia });
+    setEditValue(currentValue !== null ? currentValue.toString() : "");
+  };
+
+  const handleCellSave = () => {
+    if (!editingCell) return;
+    const fator = parseFloat(editValue.replace(",", "."));
+    if (isNaN(fator)) {
+      toast.error("Valor inválido");
+      return;
+    }
+    upsertValorMutation.mutate({
+      indicadorId: editingCell.indicadorId,
+      competencia: editingCell.competencia,
+      fator,
+    });
+  };
+
+  const handleCellKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleCellSave();
+    } else if (e.key === "Escape") {
+      setEditingCell(null);
+      setEditValue("");
+    }
+  };
+
+  const formatFator = (fator: number | null): string => {
+    if (fator === null) return "-";
+    return fator.toFixed(8);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -246,95 +375,238 @@ export default function Indicadores() {
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Lista de Indicadores
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Search */}
-          <div className="mb-4">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, descrição..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
+      <Tabs defaultValue="indicadores" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="indicadores">
+            <TrendingUp className="mr-2 h-4 w-4" />
+            Indicadores
+          </TabsTrigger>
+          <TabsTrigger value="valores">
+            <Calendar className="mr-2 h-4 w-4" />
+            Valores Mensais
+          </TabsTrigger>
+        </TabsList>
 
-          {/* Table */}
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <span className="text-muted-foreground">Carregando...</span>
-            </div>
-          ) : filteredIndicadores?.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <TrendingUp className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">Nenhum indicador encontrado</p>
-              {canEdit && (
-                <Button variant="link" onClick={handleOpenCreate}>
-                  Criar primeiro indicador
-                </Button>
+        <TabsContent value="indicadores">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Lista de Indicadores
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Search */}
+              <div className="mb-4">
+                <div className="relative max-w-sm">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, descrição..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Table */}
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <span className="text-muted-foreground">Carregando...</span>
+                </div>
+              ) : filteredIndicadores?.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <TrendingUp className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">Nenhum indicador encontrado</p>
+                  {canEdit && (
+                    <Button variant="link" onClick={handleOpenCreate}>
+                      Criar primeiro indicador
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Periodicidade</TableHead>
+                        <TableHead>Status</TableHead>
+                        {canEdit && <TableHead className="w-[100px]">Ações</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredIndicadores?.map((indicador) => (
+                        <TableRow key={indicador.id}>
+                          <TableCell className="font-medium">{indicador.nome}</TableCell>
+                          <TableCell className="max-w-[300px] truncate">
+                            {indicador.descricao || "-"}
+                          </TableCell>
+                          <TableCell>{getPeriodicidadeLabel(indicador.periodicidade)}</TableCell>
+                          <TableCell>
+                            <Badge variant={indicador.ativo ? "default" : "secondary"}>
+                              {indicador.ativo ? "Ativo" : "Inativo"}
+                            </Badge>
+                          </TableCell>
+                          {canEdit && (
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenEdit(indicador)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenDelete(indicador)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Periodicidade</TableHead>
-                    <TableHead>Status</TableHead>
-                    {canEdit && <TableHead className="w-[100px]">Ações</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredIndicadores?.map((indicador) => (
-                    <TableRow key={indicador.id}>
-                      <TableCell className="font-medium">{indicador.nome}</TableCell>
-                      <TableCell className="max-w-[300px] truncate">
-                        {indicador.descricao || "-"}
-                      </TableCell>
-                      <TableCell>{getPeriodicidadeLabel(indicador.periodicidade)}</TableCell>
-                      <TableCell>
-                        <Badge variant={indicador.ativo ? "default" : "secondary"}>
-                          {indicador.ativo ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </TableCell>
-                      {canEdit && (
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenEdit(indicador)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenDelete(indicador)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="valores">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Valores Mensais - {currentYear}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentYear(y => y - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-lg font-semibold min-w-[60px] text-center">{currentYear}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentYear(y => y + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {indicadoresPrincipais.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <TrendingUp className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">
+                    Cadastre os indicadores IGPM, INCC, INPC e IPCA para gerenciar os valores mensais
+                  </p>
+                  {canEdit && (
+                    <Button variant="link" onClick={handleOpenCreate}>
+                      Criar indicador
+                    </Button>
+                  )}
+                </div>
+              ) : isLoadingValores ? (
+                <div className="flex justify-center py-8">
+                  <span className="text-muted-foreground">Carregando...</span>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="sticky left-0 bg-background z-10 min-w-[100px]">
+                          Indicador
+                        </TableHead>
+                        {months.map((month) => (
+                          <TableHead key={month.value} className="text-center min-w-[110px]">
+                            {month.label}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {indicadoresPrincipais.map((indicador) => (
+                        <TableRow key={indicador.id}>
+                          <TableCell className="sticky left-0 bg-background z-10 font-medium">
+                            {indicador.nome}
+                          </TableCell>
+                          {months.map((month) => {
+                            const isEditing = editingCell?.indicadorId === indicador.id && 
+                                              editingCell?.competencia === month.value;
+                            const valor = getValor(indicador.id, month.value);
+                            
+                            return (
+                              <TableCell 
+                                key={month.value} 
+                                className={`text-center cursor-pointer hover:bg-muted/50 transition-colors ${
+                                  canEdit ? "cursor-pointer" : ""
+                                }`}
+                                onClick={() => !isEditing && handleCellClick(indicador.id, month.value)}
+                              >
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      autoFocus
+                                      value={editValue}
+                                      onChange={(e) => setEditValue(e.target.value)}
+                                      onKeyDown={handleCellKeyDown}
+                                      onBlur={() => {
+                                        if (editValue !== "") handleCellSave();
+                                        else { setEditingCell(null); setEditValue(""); }
+                                      }}
+                                      className="h-8 w-24 text-center text-xs"
+                                      placeholder="0.00000000"
+                                    />
+                                  </div>
+                                ) : (
+                                  <span className={valor === null ? "text-muted-foreground" : ""}>
+                                    {formatFator(valor)}
+                                  </span>
+                                )}
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      ))}
+                      {/* Linha da Média */}
+                      <TableRow className="bg-muted/30 font-medium">
+                        <TableCell className="sticky left-0 bg-muted/30 z-10">
+                          MÉDIA
                         </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                        {months.map((month) => (
+                          <TableCell key={month.value} className="text-center">
+                            {formatFator(getMedia(month.value))}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              
+              {canEdit && indicadoresPrincipais.length > 0 && (
+                <p className="text-sm text-muted-foreground mt-4">
+                  💡 Clique em uma célula para editar o valor. Pressione Enter para salvar ou Esc para cancelar.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
