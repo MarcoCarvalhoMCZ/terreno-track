@@ -16,6 +16,10 @@ export type Database = {
     Tables: {
       configuracoes: {
         Row: {
+          agencia: string | null
+          banco: string | null
+          chave_pix: string | null
+          conta_corrente: string | null
           created_at: string | null
           created_by: string | null
           data_criacao_app: string | null
@@ -23,12 +27,17 @@ export type Database = {
           observacoes: string | null
           padrao_corretor_pessoa_id: string | null
           padrao_percentual_corretagem: number | null
+          representante_legal_2_pessoa_id: string | null
           representante_legal_pessoa_id: string | null
           updated_at: string | null
           updated_by: string | null
           vendedor_pessoa_id: string | null
         }
         Insert: {
+          agencia?: string | null
+          banco?: string | null
+          chave_pix?: string | null
+          conta_corrente?: string | null
           created_at?: string | null
           created_by?: string | null
           data_criacao_app?: string | null
@@ -36,12 +45,17 @@ export type Database = {
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
+          representante_legal_2_pessoa_id?: string | null
           representante_legal_pessoa_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
           vendedor_pessoa_id?: string | null
         }
         Update: {
+          agencia?: string | null
+          banco?: string | null
+          chave_pix?: string | null
+          conta_corrente?: string | null
           created_at?: string | null
           created_by?: string | null
           data_criacao_app?: string | null
@@ -49,6 +63,7 @@ export type Database = {
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
+          representante_legal_2_pessoa_id?: string | null
           representante_legal_pessoa_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
@@ -58,6 +73,13 @@ export type Database = {
           {
             foreignKeyName: "configuracoes_padrao_corretor_pessoa_id_fkey"
             columns: ["padrao_corretor_pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "pessoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "configuracoes_representante_legal_2_pessoa_id_fkey"
+            columns: ["representante_legal_2_pessoa_id"]
             isOneToOne: false
             referencedRelation: "pessoas"
             referencedColumns: ["id"]

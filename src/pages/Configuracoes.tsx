@@ -59,9 +59,14 @@ export default function Configuracoes() {
       setFormData({
         data_criacao_app: configuracao.data_criacao_app || "",
         representante_legal_pessoa_id: configuracao.representante_legal_pessoa_id || null,
+        representante_legal_2_pessoa_id: (configuracao as any).representante_legal_2_pessoa_id || null,
         padrao_corretor_pessoa_id: configuracao.padrao_corretor_pessoa_id || null,
         padrao_percentual_corretagem: configuracao.padrao_percentual_corretagem || null,
         vendedor_pessoa_id: configuracao.vendedor_pessoa_id || null,
+        banco: (configuracao as any).banco || "",
+        agencia: (configuracao as any).agencia || "",
+        conta_corrente: (configuracao as any).conta_corrente || "",
+        chave_pix: (configuracao as any).chave_pix || "",
         observacoes: configuracao.observacoes || "",
       });
       setHasChanges(false);
@@ -134,9 +139,14 @@ export default function Configuracoes() {
       setFormData({
         data_criacao_app: configuracao.data_criacao_app || "",
         representante_legal_pessoa_id: configuracao.representante_legal_pessoa_id || null,
+        representante_legal_2_pessoa_id: (configuracao as any).representante_legal_2_pessoa_id || null,
         padrao_corretor_pessoa_id: configuracao.padrao_corretor_pessoa_id || null,
         padrao_percentual_corretagem: configuracao.padrao_percentual_corretagem || null,
         vendedor_pessoa_id: configuracao.vendedor_pessoa_id || null,
+        banco: (configuracao as any).banco || "",
+        agencia: (configuracao as any).agencia || "",
+        conta_corrente: (configuracao as any).conta_corrente || "",
+        chave_pix: (configuracao as any).chave_pix || "",
         observacoes: configuracao.observacoes || "",
       });
       setHasChanges(false);
@@ -288,7 +298,7 @@ export default function Configuracoes() {
 
                 <div className="space-y-2">
                   <Label htmlFor="representante_legal_pessoa_id">
-                    Representante Legal
+                    Representante Legal 1
                   </Label>
                   <Select
                     value={formData.representante_legal_pessoa_id || "none"}
@@ -308,6 +318,83 @@ export default function Configuracoes() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="representante_legal_2_pessoa_id">
+                    Representante Legal 2
+                  </Label>
+                  <Select
+                    value={(formData as any).representante_legal_2_pessoa_id || "none"}
+                    onValueChange={(value) =>
+                      handleChange("representante_legal_2_pessoa_id" as any, value === "none" ? null : value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um representante" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {pessoas?.map((pessoa) => (
+                        <SelectItem key={pessoa.id} value={pessoa.id}>
+                          {pessoa.nome_razao}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Dados Bancários */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Dados Bancários</CardTitle>
+              <CardDescription>
+                Informações bancárias para recebimento de valores
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="banco">Banco</Label>
+                  <Input
+                    id="banco"
+                    value={(formData as any).banco || ""}
+                    onChange={(e) => handleChange("banco" as any, e.target.value)}
+                    placeholder="Ex: Banco do Brasil"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="agencia">Código da Agência</Label>
+                  <Input
+                    id="agencia"
+                    value={(formData as any).agencia || ""}
+                    onChange={(e) => handleChange("agencia" as any, e.target.value)}
+                    placeholder="Ex: 1234-5"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="conta_corrente">Número da C/C</Label>
+                  <Input
+                    id="conta_corrente"
+                    value={(formData as any).conta_corrente || ""}
+                    onChange={(e) => handleChange("conta_corrente" as any, e.target.value)}
+                    placeholder="Ex: 12345-6"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="chave_pix">Chave PIX</Label>
+                  <Input
+                    id="chave_pix"
+                    value={(formData as any).chave_pix || ""}
+                    onChange={(e) => handleChange("chave_pix" as any, e.target.value)}
+                    placeholder="CPF, CNPJ, Email ou Telefone"
+                  />
                 </div>
               </div>
             </CardContent>
