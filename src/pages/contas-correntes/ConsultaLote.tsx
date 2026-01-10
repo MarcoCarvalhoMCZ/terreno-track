@@ -233,17 +233,52 @@ export default function ConsultaLote() {
     enabled: !!selectedLoteId && venda !== undefined,
   });
 
-  // Fetch configurações para QR Code PIX
-  const { data: configuracao } = useQuery({
-    queryKey: ["configuracoes-pix"],
+  // Fetch configurações e dados do vendedor padrão para QR Code PIX
+  const { data: pixConfig } = useQuery({
+    queryKey: ["configuracoes-pix-vendedor"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Buscar configurações
+      const { data: config, error: configError } = await supabase
         .from("configuracoes")
-        .select("chave_pix, nome_beneficiario, cidade_beneficiario")
+        .select("chave_pix, vendedor_pessoa_id")
         .limit(1)
         .maybeSingle();
-      if (error) throw error;
-      return data as { chave_pix: string | null; nome_beneficiario: string | null; cidade_beneficiario: string | null } | null;
+      if (configError) throw configError;
+      if (!config?.vendedor_pessoa_id) return { chave_pix: config?.chave_pix || null, nome_beneficiario: null, cidade_beneficiario: null };
+
+      // Buscar nome do vendedor padrão
+      const { data: vendedor, error: vendedorError } = await supabase
+        .from("pessoas")
+        .select("nome_razao")
+        .eq("id", config.vendedor_pessoa_id)
+        .single();
+      if (vendedorError) throw vendedorError;
+
+      // Buscar cidade do endereço principal do vendedor
+      const { data: endereco, error: enderecoError } = await supabase
+        .from("enderecos")
+        .select("cidade")
+        .eq("pessoa_id", config.vendedor_pessoa_id)
+        .eq("principal", true)
+        .maybeSingle();
+      
+      // Se não tem endereço principal, buscar qualquer endereço
+      let cidade = endereco?.cidade || null;
+      if (!cidade && !enderecoError) {
+        const { data: qualquerEndereco } = await supabase
+          .from("enderecos")
+          .select("cidade")
+          .eq("pessoa_id", config.vendedor_pessoa_id)
+          .limit(1)
+          .maybeSingle();
+        cidade = qualquerEndereco?.cidade || null;
+      }
+
+      return {
+        chave_pix: config.chave_pix,
+        nome_beneficiario: vendedor?.nome_razao || null,
+        cidade_beneficiario: cidade,
+      };
     },
   });
 
@@ -251,7 +286,7 @@ export default function ConsultaLote() {
 
   // Gerar payload PIX
   const pixPayload = useMemo(() => {
-    if (!configuracao?.chave_pix || !configuracao?.nome_beneficiario || !configuracao?.cidade_beneficiario) {
+    if (!pixConfig?.chave_pix || !pixConfig?.nome_beneficiario || !pixConfig?.cidade_beneficiario) {
       return null;
     }
     if (!resumo || resumo.qtdParcelasAPagar <= 0 || resumo.valorProximaParcela <= 0) {
@@ -269,9 +304,9 @@ export default function ConsultaLote() {
       );
       
       return generatePixPayload({
-        chavePix: configuracao.chave_pix,
-        nomeBeneficiario: configuracao.nome_beneficiario,
-        cidadeBeneficiario: configuracao.cidade_beneficiario,
+        chavePix: pixConfig.chave_pix,
+        nomeBeneficiario: pixConfig.nome_beneficiario,
+        cidadeBeneficiario: pixConfig.cidade_beneficiario,
         valor: resumo.valorProximaParcela,
         txid,
         descricao: `Q${selectedLote.quadra}L${selectedLote.numero_lote}`,
@@ -280,7 +315,7 @@ export default function ConsultaLote() {
       console.error("Erro ao gerar payload PIX:", error);
       return null;
     }
-  }, [configuracao, resumo, selectedLote]);
+  }, [pixConfig, resumo, selectedLote]);
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return "-";
@@ -715,13 +750,13 @@ export default function ConsultaLote() {
               </>
             )}
 
-            {resumo && resumo.qtdParcelasAPagar > 0 && !pixPayload && configuracao && (
+            {resumo && resumo.qtdParcelasAPagar > 0 && !pixPayload && pixConfig && (
               <>
                 <Separator />
                 <div className="flex flex-col items-center gap-2 p-6 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
                   <QrCode className="h-8 w-8 text-amber-600" />
                   <p className="text-amber-800 dark:text-amber-200 text-center">
-                    Para gerar o QR Code PIX, configure a <strong>Chave PIX</strong>, <strong>Nome do Beneficiário</strong> e <strong>Cidade</strong> em Configurações.
+                    Para gerar o QR Code PIX, configure a <strong>Chave PIX</strong> em Configurações, e cadastre um <strong>endereço com cidade</strong> para o Vendedor Padrão.
                   </p>
                 </div>
               </>
