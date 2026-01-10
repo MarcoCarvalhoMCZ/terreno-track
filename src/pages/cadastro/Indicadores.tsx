@@ -355,7 +355,7 @@ export default function Indicadores() {
 
   const formatFator = (fator: number | null): string => {
     if (fator === null) return "-";
-    return fator.toFixed(2);
+    return `${fator.toFixed(2)}%`;
   };
 
   return (
