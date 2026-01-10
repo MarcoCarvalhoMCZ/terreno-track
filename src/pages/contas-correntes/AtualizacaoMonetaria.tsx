@@ -203,8 +203,10 @@ export default function AtualizacaoMonetaria() {
     return `${value.toFixed(4)}%`;
   };
 
-  const formatCompetencia = (comp: string) => {
+  const formatCompetencia = (comp: string | null | undefined) => {
+    if (!comp || !comp.includes("-")) return "-";
     const [year, month] = comp.split("-");
+    if (!year || !month || isNaN(Number(year)) || isNaN(Number(month))) return "-";
     const date = new Date(Number(year), Number(month) - 1, 1);
     return format(date, "MMMM/yyyy", { locale: ptBR });
   };
