@@ -238,6 +238,12 @@ export default function ConsultaLote() {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
   };
 
+  // Format number without "R$" prefix for PDF optimization
+  const formatNumber = (value: number | null) => {
+    if (value === null || value === undefined) return "-";
+    return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  };
+
   const formatDate = (date: string | Date | null) => {
     if (!date) return "-";
     const d = typeof date === 'string' ? new Date(date) : date;
@@ -304,15 +310,15 @@ export default function ConsultaLote() {
       formatHistorico(m.descricao, m.referencia),
       formatDate(m.vencimento),
       formatPercent(m.percentual_calculo),
-      m.debito && m.debito > 0 ? formatCurrency(m.debito) : "",
-      m.credito && m.credito > 0 ? formatCurrency(m.credito) : "",
-      formatCurrency(m.saldo),
+      m.debito && m.debito > 0 ? formatNumber(m.debito) : "",
+      m.credito && m.credito > 0 ? formatNumber(m.credito) : "",
+      formatNumber(m.saldo),
       (m.saldo || 0) >= 0 ? "D" : "C",
     ]) || [];
 
     autoTable(doc, {
       startY: yPos,
-      head: [["Data", "Histórico", "Vencimento", "Cálculo", "Débitos", "Créditos", "Saldo", "D/C"]],
+      head: [["Data", "Histórico", "Vencimento", "Cálculo", "Débitos(R$)", "Créditos(R$)", "Saldo(R$)", "D/C"]],
       body: tableData,
       styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [66, 66, 66] },
@@ -320,7 +326,7 @@ export default function ConsultaLote() {
         0: { cellWidth: 22 },
         1: { cellWidth: 55 },
         2: { cellWidth: 22 },
-        3: { cellWidth: 18 },
+        3: { cellWidth: 18, halign: 'right' },
         4: { cellWidth: 22, halign: 'right' },
         5: { cellWidth: 22, halign: 'right' },
         6: { cellWidth: 22, halign: 'right' },
@@ -347,46 +353,49 @@ export default function ConsultaLote() {
     const rightCol = 110;
     const colWidth = 90;
     
+    const valueColLeft = leftCol + 90;
+    const valueColRight = rightCol + 75;
+    
     // Left column - Financial
     doc.text(`Total da Venda`, leftCol, yPos);
-    doc.text(formatCurrency(resumo?.totalVenda || 0), leftCol + 55, yPos);
+    doc.text(formatNumber(resumo?.totalVenda || 0), valueColLeft, yPos, { align: 'right' });
     // Right column - Parcelas
     doc.text(`Qtde de parcelas contratadas`, rightCol, yPos);
-    doc.text(`${resumo?.qtdParcelasContratadas || 0}`, rightCol + 65, yPos);
+    doc.text(`${resumo?.qtdParcelasContratadas || 0}`, valueColRight, yPos, { align: 'right' });
     yPos += 6;
 
     doc.text(`Total Atualizações Monetárias`, leftCol, yPos);
-    doc.text(formatCurrency(resumo?.totalAtualizacoes || 0), leftCol + 55, yPos);
+    doc.text(formatNumber(resumo?.totalAtualizacoes || 0), valueColLeft, yPos, { align: 'right' });
     doc.text(`Qtde de parcelas já pagas`, rightCol, yPos);
-    doc.text(`${resumo?.qtdParcelasPagas || 0}`, rightCol + 65, yPos);
+    doc.text(`${resumo?.qtdParcelasPagas || 0}`, valueColRight, yPos, { align: 'right' });
     yPos += 6;
 
     doc.text(`Total Juros de Mora`, leftCol, yPos);
-    doc.text(formatCurrency(resumo?.totalJurosMora || 0), leftCol + 55, yPos);
+    doc.text(formatNumber(resumo?.totalJurosMora || 0), valueColLeft, yPos, { align: 'right' });
     doc.text(`Qtde de parcelas a pagar`, rightCol, yPos);
-    doc.text(`${resumo?.qtdParcelasAPagar || 0}`, rightCol + 65, yPos);
+    doc.text(`${resumo?.qtdParcelasAPagar || 0}`, valueColRight, yPos, { align: 'right' });
     yPos += 6;
 
     doc.text(`Total Multas de Mora`, leftCol, yPos);
-    doc.text(formatCurrency(resumo?.totalMultasMora || 0), leftCol + 55, yPos);
+    doc.text(formatNumber(resumo?.totalMultasMora || 0), valueColLeft, yPos, { align: 'right' });
     yPos += 6;
 
     doc.text(`Total Recebido`, leftCol, yPos);
-    doc.text(formatCurrency(-(resumo?.totalRecebido || 0)), leftCol + 55, yPos);
+    doc.text(formatNumber(-(resumo?.totalRecebido || 0)), valueColLeft, yPos, { align: 'right' });
     // Right column - Reforços
     doc.text(`Qtde de reforços contratados`, rightCol, yPos);
-    doc.text(`${resumo?.qtdReforcosContratados || 0}`, rightCol + 65, yPos);
+    doc.text(`${resumo?.qtdReforcosContratados || 0}`, valueColRight, yPos, { align: 'right' });
     yPos += 6;
 
     doc.text(`Saldo a Receber`, leftCol, yPos);
-    doc.text(formatCurrency(resumo?.saldoReceber || 0), leftCol + 55, yPos);
+    doc.text(formatNumber(resumo?.saldoReceber || 0), valueColLeft, yPos, { align: 'right' });
     doc.text(`Qtde de reforços já pagos`, rightCol, yPos);
-    doc.text(`${resumo?.qtdReforcosPagos || 0}`, rightCol + 65, yPos);
+    doc.text(`${resumo?.qtdReforcosPagos || 0}`, valueColRight, yPos, { align: 'right' });
     yPos += 6;
 
     doc.text(``, leftCol, yPos);
     doc.text(`Qtde de reforços a pagar`, rightCol, yPos);
-    doc.text(`${resumo?.qtdReforcosAPagar || 0}`, rightCol + 65, yPos);
+    doc.text(`${resumo?.qtdReforcosAPagar || 0}`, valueColRight, yPos, { align: 'right' });
     yPos += 10;
 
     // Next installment (bold) - highlighted box
@@ -395,10 +404,10 @@ export default function ConsultaLote() {
     doc.rect(rightCol - 2, yPos - 4, 90, 16, 'F');
     
     doc.text(`Valor da próxima parcela`, rightCol, yPos);
-    doc.text(formatCurrency(resumo?.valorProximaParcela || 0), rightCol + 65, yPos);
+    doc.text(formatNumber(resumo?.valorProximaParcela || 0), valueColRight, yPos, { align: 'right' });
     yPos += 6;
     doc.text(`Vencimento da próxima parcela`, rightCol, yPos);
-    doc.text(resumo?.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-", rightCol + 65, yPos);
+    doc.text(resumo?.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-", valueColRight, yPos, { align: 'right' });
 
     // Save
     doc.save(`consulta_lote_${selectedLote.quadra}_${selectedLote.numero_lote}.pdf`);
@@ -493,9 +502,9 @@ export default function ConsultaLote() {
                       <TableHead>Histórico</TableHead>
                       <TableHead>Vencimento</TableHead>
                       <TableHead className="text-right">Cálculo</TableHead>
-                      <TableHead className="text-right">Débitos</TableHead>
-                      <TableHead className="text-right">Créditos</TableHead>
-                      <TableHead className="text-right">Saldo</TableHead>
+                      <TableHead className="text-right">Débitos(R$)</TableHead>
+                      <TableHead className="text-right">Créditos(R$)</TableHead>
+                      <TableHead className="text-right">Saldo(R$)</TableHead>
                       <TableHead className="text-center">D/C</TableHead>
                     </TableRow>
                   </TableHeader>
