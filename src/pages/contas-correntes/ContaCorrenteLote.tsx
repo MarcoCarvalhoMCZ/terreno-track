@@ -57,6 +57,7 @@ interface ContaCorrenteComRelacionamentos extends ContaCorrente {
 }
 
 const tiposMovimento = [
+  { value: "VENDA", label: "Venda do Lote" },
   { value: "ENTRADA_PARCELA", label: "Entrada de Parcela" },
   { value: "PAGAMENTO_PARCELA", label: "Pagamento de Parcela" },
   { value: "SINAL", label: "Sinal / Arras" },

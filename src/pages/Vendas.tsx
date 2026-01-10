@@ -51,7 +51,6 @@ type VendaUpdate = TablesUpdate<"vendas">;
 type Lote = Tables<"lotes">;
 type Pessoa = Tables<"pessoas">;
 type Indicador = Tables<"indicadores_atualizacao">;
-type ContaRecebimento = Tables<"contas_recebimento_vendedor">;
 
 // Extend Venda type with new fields and relationships
 type VendaExtended = Venda & {
@@ -69,7 +68,6 @@ interface VendaComRelacionamentos extends Omit<VendaExtended, 'tipo_atualizacao'
   vendedor?: Pessoa;
   corretor?: Pessoa;
   indicador?: Indicador;
-  conta_recebimento?: ContaRecebimento;
   tipo_atualizacao?: string | null;
   defasagem_indice?: number | null;
   comprador_nome_1?: string | null;
@@ -103,10 +101,8 @@ type TipoAtualizacao = "IGPM" | "MEDIA";
 interface VendaFormData extends Partial<VendaInsert> {
   tipo_atualizacao?: TipoAtualizacao;
   defasagem_indice?: number;
-  comprador_nome_1?: string;
-  comprador_cpf_1?: string;
-  comprador_nome_2?: string;
-  comprador_cpf_2?: string;
+  comprador_solidario_1_id?: string;
+  comprador_solidario_2_id?: string;
 }
 
 const emptyVenda: VendaFormData = {
@@ -119,15 +115,12 @@ const emptyVenda: VendaFormData = {
   valor_venda: 0,
   valor_arras: null,
   indicador_atualizacao_id: "",
-  conta_recebimento_vendedor_id: "",
   status: "ATIVA",
   observacoes: "",
   tipo_atualizacao: "IGPM",
   defasagem_indice: 1,
-  comprador_nome_1: "",
-  comprador_cpf_1: "",
-  comprador_nome_2: "",
-  comprador_cpf_2: "",
+  comprador_solidario_1_id: "",
+  comprador_solidario_2_id: "",
 };
 
 export default function Vendas() {
@@ -153,12 +146,11 @@ export default function Vendas() {
           comprador:pessoas!vendas_comprador_pessoa_id_fkey(id, nome_razao),
           vendedor:pessoas!vendas_vendedor_pessoa_id_fkey(id, nome_razao),
           corretor:pessoas!vendas_corretor_pessoa_id_fkey(id, nome_razao),
-          indicador:indicadores_atualizacao(id, nome),
-          conta_recebimento:contas_recebimento_vendedor(id, descricao)
+          indicador:indicadores_atualizacao(id, nome)
         `)
         .order("data_venda", { ascending: false });
       if (error) throw error;
-      return data as VendaComRelacionamentos[];
+      return data as unknown as VendaComRelacionamentos[];
     },
   });
 
@@ -215,20 +207,6 @@ export default function Vendas() {
         .order("nome");
       if (error) throw error;
       return data as Indicador[];
-    },
-  });
-
-  // Fetch contas recebimento
-  const { data: contasRecebimento } = useQuery({
-    queryKey: ["contas-recebimento"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contas_recebimento_vendedor")
-        .select("*")
-        .eq("ativo", true)
-        .order("descricao");
-      if (error) throw error;
-      return data as ContaRecebimento[];
     },
   });
 
@@ -340,6 +318,11 @@ export default function Vendas() {
 
   const handleEdit = (venda: VendaComRelacionamentos) => {
     setEditingVenda(venda);
+    
+    // Find pessoa IDs from names if they exist
+    const comprador1 = pessoas?.find(p => p.nome_razao === venda.comprador_nome_1);
+    const comprador2 = pessoas?.find(p => p.nome_razao === venda.comprador_nome_2);
+    
     setFormData({
       lote_id: venda.lote_id,
       data_venda: venda.data_venda,
@@ -350,15 +333,12 @@ export default function Vendas() {
       valor_venda: venda.valor_venda,
       valor_arras: venda.valor_arras,
       indicador_atualizacao_id: venda.indicador_atualizacao_id || "",
-      conta_recebimento_vendedor_id: venda.conta_recebimento_vendedor_id || "",
       status: venda.status || "ATIVA",
       observacoes: venda.observacoes || "",
       tipo_atualizacao: (venda.tipo_atualizacao as TipoAtualizacao) || "IGPM",
       defasagem_indice: venda.defasagem_indice || 1,
-      comprador_nome_1: venda.comprador_nome_1 || "",
-      comprador_cpf_1: venda.comprador_cpf_1 || "",
-      comprador_nome_2: venda.comprador_nome_2 || "",
-      comprador_cpf_2: venda.comprador_cpf_2 || "",
+      comprador_solidario_1_id: comprador1?.id || "",
+      comprador_solidario_2_id: comprador2?.id || "",
     });
     setDialogOpen(true);
   };
@@ -382,6 +362,10 @@ export default function Vendas() {
       return;
     }
 
+    // Get names from selected pessoas for compradores solidários
+    const comprador1 = pessoas?.find(p => p.id === formData.comprador_solidario_1_id);
+    const comprador2 = pessoas?.find(p => p.id === formData.comprador_solidario_2_id);
+
     const dataToSave: any = {
       lote_id: formData.lote_id,
       data_venda: formData.data_venda,
@@ -392,15 +376,14 @@ export default function Vendas() {
       vendedor_pessoa_id: formData.vendedor_pessoa_id || null,
       corretor_pessoa_id: formData.corretor_pessoa_id || null,
       indicador_atualizacao_id: formData.indicador_atualizacao_id || null,
-      conta_recebimento_vendedor_id: formData.conta_recebimento_vendedor_id || null,
       status: formData.status,
       observacoes: formData.observacoes || null,
       tipo_atualizacao: formData.tipo_atualizacao || "IGPM",
       defasagem_indice: formData.defasagem_indice || 1,
-      comprador_nome_1: formData.comprador_nome_1 || null,
-      comprador_cpf_1: formData.comprador_cpf_1 || null,
-      comprador_nome_2: formData.comprador_nome_2 || null,
-      comprador_cpf_2: formData.comprador_cpf_2 || null,
+      comprador_nome_1: comprador1?.nome_razao || null,
+      comprador_cpf_1: comprador1?.cpf_cnpj || null,
+      comprador_nome_2: comprador2?.nome_razao || null,
+      comprador_cpf_2: comprador2?.cpf_cnpj || null,
     };
 
     if (editingVenda) {
@@ -628,42 +611,46 @@ export default function Vendas() {
                   <Label className="text-base font-semibold">Compradores Solidários</Label>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="comprador_nome_1">Nome 1º Comprador</Label>
-                      <Input
-                        id="comprador_nome_1"
-                        value={formData.comprador_nome_1 || ""}
-                        onChange={(e) => setFormData({ ...formData, comprador_nome_1: e.target.value })}
-                        placeholder="Nome completo"
-                      />
+                      <Label htmlFor="comprador_solidario_1_id">1º Comprador Solidário</Label>
+                      <Select
+                        value={formData.comprador_solidario_1_id || "none"}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, comprador_solidario_1_id: value === "none" ? "" : value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o 1º comprador" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          {pessoas?.map((pessoa) => (
+                            <SelectItem key={pessoa.id} value={pessoa.id}>
+                              {pessoa.nome_razao} {pessoa.cpf_cnpj ? `(${pessoa.cpf_cnpj})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="comprador_cpf_1">CPF 1º Comprador</Label>
-                      <Input
-                        id="comprador_cpf_1"
-                        value={formData.comprador_cpf_1 || ""}
-                        onChange={(e) => setFormData({ ...formData, comprador_cpf_1: e.target.value })}
-                        placeholder="000.000.000-00"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="comprador_nome_2">Nome 2º Comprador (opcional)</Label>
-                      <Input
-                        id="comprador_nome_2"
-                        value={formData.comprador_nome_2 || ""}
-                        onChange={(e) => setFormData({ ...formData, comprador_nome_2: e.target.value })}
-                        placeholder="Nome completo"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="comprador_cpf_2">CPF 2º Comprador (opcional)</Label>
-                      <Input
-                        id="comprador_cpf_2"
-                        value={formData.comprador_cpf_2 || ""}
-                        onChange={(e) => setFormData({ ...formData, comprador_cpf_2: e.target.value })}
-                        placeholder="000.000.000-00"
-                      />
+                      <Label htmlFor="comprador_solidario_2_id">2º Comprador Solidário (opcional)</Label>
+                      <Select
+                        value={formData.comprador_solidario_2_id || "none"}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, comprador_solidario_2_id: value === "none" ? "" : value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o 2º comprador" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          {pessoas?.map((pessoa) => (
+                            <SelectItem key={pessoa.id} value={pessoa.id}>
+                              {pessoa.nome_razao} {pessoa.cpf_cnpj ? `(${pessoa.cpf_cnpj})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
@@ -705,29 +692,6 @@ export default function Vendas() {
                       }
                     />
                   </div>
-                </div>
-
-                {/* Conta Recebimento */}
-                <div className="space-y-2">
-                  <Label htmlFor="conta_recebimento_vendedor_id">Conta de Recebimento</Label>
-                  <Select
-                    value={formData.conta_recebimento_vendedor_id || "none"}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, conta_recebimento_vendedor_id: value === "none" ? "" : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a conta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhuma</SelectItem>
-                      {contasRecebimento?.map((conta) => (
-                        <SelectItem key={conta.id} value={conta.id}>
-                          {conta.descricao}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 {/* Status */}
