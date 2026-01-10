@@ -166,13 +166,13 @@ export default function ResumoOperacoes() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-success/10 rounded-full">
-                <TrendingUp className="h-6 w-6 text-success" />
+              <div className="p-3 bg-destructive/10 rounded-full">
+                <TrendingDown className="h-6 w-6 text-destructive" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Créditos</p>
-                <p className="text-2xl font-bold text-success">
-                  {formatCurrency(totaisConsolidado?.creditos || 0)}
+                <p className="text-sm text-muted-foreground">Total Faturado (Débitos)</p>
+                <p className="text-2xl font-bold text-destructive">
+                  {formatCurrency(totaisConsolidado?.debitos || 0)}
                 </p>
               </div>
             </div>
@@ -181,13 +181,13 @@ export default function ResumoOperacoes() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-destructive/10 rounded-full">
-                <TrendingDown className="h-6 w-6 text-destructive" />
+              <div className="p-3 bg-success/10 rounded-full">
+                <TrendingUp className="h-6 w-6 text-success" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Débitos</p>
-                <p className="text-2xl font-bold text-destructive">
-                  {formatCurrency(totaisConsolidado?.debitos || 0)}
+                <p className="text-sm text-muted-foreground">Total Recebido (Créditos)</p>
+                <p className="text-2xl font-bold text-success">
+                  {formatCurrency(totaisConsolidado?.creditos || 0)}
                 </p>
               </div>
             </div>
@@ -200,9 +200,9 @@ export default function ResumoOperacoes() {
                 <Wallet className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Saldo Período</p>
-                <p className={`text-2xl font-bold ${(totaisConsolidado?.saldo || 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
-                  {formatCurrency(totaisConsolidado?.saldo || 0)}
+                <p className="text-sm text-muted-foreground">Saldo Devedor</p>
+                <p className={`text-2xl font-bold ${((totaisConsolidado?.debitos || 0) - (totaisConsolidado?.creditos || 0)) > 0 ? 'text-destructive' : 'text-success'}`}>
+                  {formatCurrency((totaisConsolidado?.debitos || 0) - (totaisConsolidado?.creditos || 0))}
                 </p>
               </div>
             </div>
@@ -272,8 +272,8 @@ export default function ResumoOperacoes() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>COMPETÊNCIA</TableHead>
-                      <TableHead className="text-right">CRÉDITOS</TableHead>
                       <TableHead className="text-right">DÉBITOS</TableHead>
+                      <TableHead className="text-right">CRÉDITOS</TableHead>
                       <TableHead className="text-right">SALDO</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -283,28 +283,28 @@ export default function ResumoOperacoes() {
                         <TableCell className="font-medium capitalize">
                           {formatCompetencia(item.competencia)}
                         </TableCell>
-                        <TableCell className="text-right text-success">
-                          {formatCurrency(item.total_creditos)}
-                        </TableCell>
                         <TableCell className="text-right text-destructive">
                           {formatCurrency(item.total_debitos)}
                         </TableCell>
-                        <TableCell className={`text-right font-semibold ${(item.saldo_final || 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
-                          {formatCurrency(item.saldo_final)}
+                        <TableCell className="text-right text-success">
+                          {formatCurrency(item.total_creditos)}
+                        </TableCell>
+                        <TableCell className={`text-right font-semibold ${((item.total_debitos || 0) - (item.total_creditos || 0)) > 0 ? 'text-destructive' : 'text-success'}`}>
+                          {formatCurrency((item.total_debitos || 0) - (item.total_creditos || 0))}
                         </TableCell>
                       </TableRow>
                     ))}
                     {/* Totals Row */}
                     <TableRow className="bg-muted/50 font-bold">
                       <TableCell>TOTAL</TableCell>
-                      <TableCell className="text-right text-success">
-                        {formatCurrency(totaisConsolidado?.creditos || 0)}
-                      </TableCell>
                       <TableCell className="text-right text-destructive">
                         {formatCurrency(totaisConsolidado?.debitos || 0)}
                       </TableCell>
-                      <TableCell className={`text-right ${(totaisConsolidado?.saldo || 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
-                        {formatCurrency(totaisConsolidado?.saldo || 0)}
+                      <TableCell className="text-right text-success">
+                        {formatCurrency(totaisConsolidado?.creditos || 0)}
+                      </TableCell>
+                      <TableCell className={`text-right ${((totaisConsolidado?.debitos || 0) - (totaisConsolidado?.creditos || 0)) > 0 ? 'text-destructive' : 'text-success'}`}>
+                        {formatCurrency((totaisConsolidado?.debitos || 0) - (totaisConsolidado?.creditos || 0))}
                       </TableCell>
                     </TableRow>
                   </TableBody>
@@ -368,8 +368,8 @@ export default function ResumoOperacoes() {
                       <TableHead>COMPETÊNCIA</TableHead>
                       <TableHead>QUADRA</TableHead>
                       <TableHead>LOTE</TableHead>
-                      <TableHead className="text-right">CRÉDITOS</TableHead>
                       <TableHead className="text-right">DÉBITOS</TableHead>
+                      <TableHead className="text-right">CRÉDITOS</TableHead>
                       <TableHead className="text-right">SALDO</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -381,28 +381,28 @@ export default function ResumoOperacoes() {
                         </TableCell>
                         <TableCell className="font-medium">{item.quadra}</TableCell>
                         <TableCell>{item.numero_lote}</TableCell>
-                        <TableCell className="text-right text-success">
-                          {formatCurrency(item.total_creditos)}
-                        </TableCell>
                         <TableCell className="text-right text-destructive">
                           {formatCurrency(item.total_debitos)}
                         </TableCell>
-                        <TableCell className={`text-right font-semibold ${(item.saldo_periodo || 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
-                          {formatCurrency(item.saldo_periodo)}
+                        <TableCell className="text-right text-success">
+                          {formatCurrency(item.total_creditos)}
+                        </TableCell>
+                        <TableCell className={`text-right font-semibold ${((item.total_debitos || 0) - (item.total_creditos || 0)) > 0 ? 'text-destructive' : 'text-success'}`}>
+                          {formatCurrency((item.total_debitos || 0) - (item.total_creditos || 0))}
                         </TableCell>
                       </TableRow>
                     ))}
                     {/* Totals Row */}
                     <TableRow className="bg-muted/50 font-bold">
                       <TableCell colSpan={3}>TOTAL</TableCell>
-                      <TableCell className="text-right text-success">
-                        {formatCurrency(totaisPorLote?.creditos || 0)}
-                      </TableCell>
                       <TableCell className="text-right text-destructive">
                         {formatCurrency(totaisPorLote?.debitos || 0)}
                       </TableCell>
-                      <TableCell className={`text-right ${(totaisPorLote?.saldo || 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
-                        {formatCurrency(totaisPorLote?.saldo || 0)}
+                      <TableCell className="text-right text-success">
+                        {formatCurrency(totaisPorLote?.creditos || 0)}
+                      </TableCell>
+                      <TableCell className={`text-right ${((totaisPorLote?.debitos || 0) - (totaisPorLote?.creditos || 0)) > 0 ? 'text-destructive' : 'text-success'}`}>
+                        {formatCurrency((totaisPorLote?.debitos || 0) - (totaisPorLote?.creditos || 0))}
                       </TableCell>
                     </TableRow>
                   </TableBody>

@@ -410,23 +410,7 @@ export default function ContaCorrenteLote() {
                 {/* Valores */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="credito">Crédito (Entrada)</Label>
-                    <Input
-                      id="credito"
-                      type="number"
-                      step="0.01"
-                      value={formData.credito || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          credito: e.target.value ? Number(e.target.value) : null,
-                        })
-                      }
-                      placeholder="Ex: 1000.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="debito">Débito (Saída)</Label>
+                    <Label htmlFor="debito">Débito (Faturado)</Label>
                     <Input
                       id="debito"
                       type="number"
@@ -436,6 +420,22 @@ export default function ContaCorrenteLote() {
                         setFormData({
                           ...formData,
                           debito: e.target.value ? Number(e.target.value) : null,
+                        })
+                      }
+                      placeholder="Ex: 1000.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="credito">Crédito (Recebido)</Label>
+                    <Input
+                      id="credito"
+                      type="number"
+                      step="0.01"
+                      value={formData.credito || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          credito: e.target.value ? Number(e.target.value) : null,
                         })
                       }
                       placeholder="Ex: 500.00"
@@ -526,13 +526,13 @@ export default function ContaCorrenteLote() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-success/10 rounded-full">
-                <TrendingUp className="h-6 w-6 text-success" />
+              <div className="p-3 bg-destructive/10 rounded-full">
+                <TrendingDown className="h-6 w-6 text-destructive" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Créditos</p>
-                <p className="text-2xl font-bold text-success">
-                  {formatCurrency(totais?.creditos || 0)}
+                <p className="text-sm text-muted-foreground">Total Faturado (Débitos)</p>
+                <p className="text-2xl font-bold text-destructive">
+                  {formatCurrency(totais?.debitos || 0)}
                 </p>
               </div>
             </div>
@@ -541,13 +541,13 @@ export default function ContaCorrenteLote() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-destructive/10 rounded-full">
-                <TrendingDown className="h-6 w-6 text-destructive" />
+              <div className="p-3 bg-success/10 rounded-full">
+                <TrendingUp className="h-6 w-6 text-success" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Débitos</p>
-                <p className="text-2xl font-bold text-destructive">
-                  {formatCurrency(totais?.debitos || 0)}
+                <p className="text-sm text-muted-foreground">Total Recebido (Créditos)</p>
+                <p className="text-2xl font-bold text-success">
+                  {formatCurrency(totais?.creditos || 0)}
                 </p>
               </div>
             </div>
@@ -560,9 +560,9 @@ export default function ContaCorrenteLote() {
                 <Wallet className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Saldo</p>
-                <p className={`text-2xl font-bold ${((totais?.creditos || 0) - (totais?.debitos || 0)) >= 0 ? 'text-success' : 'text-destructive'}`}>
-                  {formatCurrency((totais?.creditos || 0) - (totais?.debitos || 0))}
+                <p className="text-sm text-muted-foreground">Saldo Devedor</p>
+                <p className={`text-2xl font-bold ${((totais?.debitos || 0) - (totais?.creditos || 0)) > 0 ? 'text-destructive' : 'text-success'}`}>
+                  {formatCurrency((totais?.debitos || 0) - (totais?.creditos || 0))}
                 </p>
               </div>
             </div>
@@ -636,8 +636,8 @@ export default function ContaCorrenteLote() {
                     <TableHead>TIPO</TableHead>
                     <TableHead>DESCRIÇÃO</TableHead>
                     <TableHead>REFERÊNCIA</TableHead>
-                    <TableHead className="text-right">CRÉDITO</TableHead>
                     <TableHead className="text-right">DÉBITO</TableHead>
+                    <TableHead className="text-right">CRÉDITO</TableHead>
                     {canEdit && <TableHead className="text-right">AÇÕES</TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -657,11 +657,11 @@ export default function ContaCorrenteLote() {
                         {mov.descricao || "-"}
                       </TableCell>
                       <TableCell>{mov.referencia || "-"}</TableCell>
-                      <TableCell className="text-right text-success">
-                        {mov.credito ? formatCurrency(mov.credito) : "-"}
-                      </TableCell>
                       <TableCell className="text-right text-destructive">
                         {mov.debito ? formatCurrency(mov.debito) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right text-success">
+                        {mov.credito ? formatCurrency(mov.credito) : "-"}
                       </TableCell>
                       {canEdit && (
                         <TableCell className="text-right">
