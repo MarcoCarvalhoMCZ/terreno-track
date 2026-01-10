@@ -19,11 +19,13 @@ export type Database = {
           agencia: string | null
           banco: string | null
           chave_pix: string | null
+          cidade_beneficiario: string | null
           conta_corrente: string | null
           created_at: string | null
           created_by: string | null
           data_criacao_app: string | null
           id: string
+          nome_beneficiario: string | null
           observacoes: string | null
           padrao_corretor_pessoa_id: string | null
           padrao_percentual_corretagem: number | null
@@ -37,11 +39,13 @@ export type Database = {
           agencia?: string | null
           banco?: string | null
           chave_pix?: string | null
+          cidade_beneficiario?: string | null
           conta_corrente?: string | null
           created_at?: string | null
           created_by?: string | null
           data_criacao_app?: string | null
           id?: string
+          nome_beneficiario?: string | null
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
@@ -55,11 +59,13 @@ export type Database = {
           agencia?: string | null
           banco?: string | null
           chave_pix?: string | null
+          cidade_beneficiario?: string | null
           conta_corrente?: string | null
           created_at?: string | null
           created_by?: string | null
           data_criacao_app?: string | null
           id?: string
+          nome_beneficiario?: string | null
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
