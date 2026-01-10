@@ -767,11 +767,15 @@ export type Database = {
           created_by: string | null
           data_venda: string
           defasagem_indice: number | null
+          frequencia_parcelas_meses: number | null
+          frequencia_reforcos_meses: number | null
           id: string
           indicador_atualizacao_id: string | null
           lote_id: string
           observacoes: string | null
           percentual_corretagem: number | null
+          qtd_parcelas: number | null
+          qtd_reforcos: number | null
           status: string | null
           tipo_atualizacao:
             | Database["public"]["Enums"]["tipo_atualizacao_monetaria"]
@@ -779,6 +783,8 @@ export type Database = {
           updated_at: string | null
           updated_by: string | null
           valor_arras: number | null
+          valor_parcelamento: number | null
+          valor_reforco: number | null
           valor_venda: number
           vendedor_pessoa_id: string | null
         }
@@ -794,11 +800,15 @@ export type Database = {
           created_by?: string | null
           data_venda: string
           defasagem_indice?: number | null
+          frequencia_parcelas_meses?: number | null
+          frequencia_reforcos_meses?: number | null
           id?: string
           indicador_atualizacao_id?: string | null
           lote_id: string
           observacoes?: string | null
           percentual_corretagem?: number | null
+          qtd_parcelas?: number | null
+          qtd_reforcos?: number | null
           status?: string | null
           tipo_atualizacao?:
             | Database["public"]["Enums"]["tipo_atualizacao_monetaria"]
@@ -806,6 +816,8 @@ export type Database = {
           updated_at?: string | null
           updated_by?: string | null
           valor_arras?: number | null
+          valor_parcelamento?: number | null
+          valor_reforco?: number | null
           valor_venda: number
           vendedor_pessoa_id?: string | null
         }
@@ -821,11 +833,15 @@ export type Database = {
           created_by?: string | null
           data_venda?: string
           defasagem_indice?: number | null
+          frequencia_parcelas_meses?: number | null
+          frequencia_reforcos_meses?: number | null
           id?: string
           indicador_atualizacao_id?: string | null
           lote_id?: string
           observacoes?: string | null
           percentual_corretagem?: number | null
+          qtd_parcelas?: number | null
+          qtd_reforcos?: number | null
           status?: string | null
           tipo_atualizacao?:
             | Database["public"]["Enums"]["tipo_atualizacao_monetaria"]
@@ -833,6 +849,8 @@ export type Database = {
           updated_at?: string | null
           updated_by?: string | null
           valor_arras?: number | null
+          valor_parcelamento?: number | null
+          valor_reforco?: number | null
           valor_venda?: number
           vendedor_pessoa_id?: string | null
         }
