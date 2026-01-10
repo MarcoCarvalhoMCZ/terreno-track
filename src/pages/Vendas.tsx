@@ -60,20 +60,45 @@ type VendaExtended = Venda & {
   comprador_cpf_1?: string | null;
   comprador_nome_2?: string | null;
   comprador_cpf_2?: string | null;
+  valor_parcelamento?: number | null;
+  qtd_parcelas?: number | null;
+  frequencia_parcelas_meses?: number | null;
+  valor_reforco?: number | null;
+  qtd_reforcos?: number | null;
+  frequencia_reforcos_meses?: number | null;
 };
 
-interface VendaComRelacionamentos extends Omit<VendaExtended, 'tipo_atualizacao' | 'defasagem_indice' | 'comprador_nome_1' | 'comprador_cpf_1' | 'comprador_nome_2' | 'comprador_cpf_2'> {
-  lote?: Lote;
-  comprador?: Pessoa;
-  vendedor?: Pessoa;
-  corretor?: Pessoa;
-  indicador?: Indicador;
+interface VendaComRelacionamentos {
+  id: string;
+  lote_id: string;
+  data_venda: string;
+  comprador_pessoa_id: string;
+  vendedor_pessoa_id?: string | null;
+  valor_venda: number;
+  valor_arras?: number | null;
+  indicador_atualizacao_id?: string | null;
+  status?: string | null;
+  observacoes?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
+  lote?: { id: string; quadra: string; numero_lote: string };
+  comprador?: { id: string; nome_razao: string };
+  vendedor?: { id: string; nome_razao: string };
+  indicador?: { id: string; nome: string };
   tipo_atualizacao?: string | null;
   defasagem_indice?: number | null;
   comprador_nome_1?: string | null;
   comprador_cpf_1?: string | null;
   comprador_nome_2?: string | null;
   comprador_cpf_2?: string | null;
+  valor_parcelamento?: number | null;
+  qtd_parcelas?: number | null;
+  frequencia_parcelas_meses?: number | null;
+  valor_reforco?: number | null;
+  qtd_reforcos?: number | null;
+  frequencia_reforcos_meses?: number | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -103,6 +128,12 @@ interface VendaFormData extends Partial<VendaInsert> {
   defasagem_indice?: number;
   comprador_solidario_1_id?: string;
   comprador_solidario_2_id?: string;
+  valor_parcelamento?: number;
+  qtd_parcelas?: number;
+  frequencia_parcelas_meses?: number;
+  valor_reforco?: number;
+  qtd_reforcos?: number;
+  frequencia_reforcos_meses?: number;
 }
 
 const emptyVenda: VendaFormData = {
@@ -110,8 +141,6 @@ const emptyVenda: VendaFormData = {
   data_venda: new Date().toISOString().split("T")[0],
   comprador_pessoa_id: "",
   vendedor_pessoa_id: "",
-  corretor_pessoa_id: "",
-  percentual_corretagem: null,
   valor_venda: 0,
   valor_arras: null,
   indicador_atualizacao_id: "",
@@ -121,6 +150,12 @@ const emptyVenda: VendaFormData = {
   defasagem_indice: 1,
   comprador_solidario_1_id: "",
   comprador_solidario_2_id: "",
+  valor_parcelamento: undefined,
+  qtd_parcelas: 1,
+  frequencia_parcelas_meses: 1,
+  valor_reforco: undefined,
+  qtd_reforcos: undefined,
+  frequencia_reforcos_meses: undefined,
 };
 
 export default function Vendas() {
@@ -145,7 +180,6 @@ export default function Vendas() {
           lote:lotes(id, quadra, numero_lote),
           comprador:pessoas!vendas_comprador_pessoa_id_fkey(id, nome_razao),
           vendedor:pessoas!vendas_vendedor_pessoa_id_fkey(id, nome_razao),
-          corretor:pessoas!vendas_corretor_pessoa_id_fkey(id, nome_razao),
           indicador:indicadores_atualizacao(id, nome)
         `)
         .order("data_venda", { ascending: false });
@@ -328,8 +362,6 @@ export default function Vendas() {
       data_venda: venda.data_venda,
       comprador_pessoa_id: venda.comprador_pessoa_id,
       vendedor_pessoa_id: venda.vendedor_pessoa_id || "",
-      corretor_pessoa_id: venda.corretor_pessoa_id || "",
-      percentual_corretagem: venda.percentual_corretagem,
       valor_venda: venda.valor_venda,
       valor_arras: venda.valor_arras,
       indicador_atualizacao_id: venda.indicador_atualizacao_id || "",
@@ -339,6 +371,12 @@ export default function Vendas() {
       defasagem_indice: venda.defasagem_indice || 1,
       comprador_solidario_1_id: comprador1?.id || "",
       comprador_solidario_2_id: comprador2?.id || "",
+      valor_parcelamento: venda.valor_parcelamento || undefined,
+      qtd_parcelas: venda.qtd_parcelas || 1,
+      frequencia_parcelas_meses: venda.frequencia_parcelas_meses || 1,
+      valor_reforco: venda.valor_reforco || undefined,
+      qtd_reforcos: venda.qtd_reforcos || undefined,
+      frequencia_reforcos_meses: venda.frequencia_reforcos_meses || undefined,
     });
     setDialogOpen(true);
   };
@@ -372,9 +410,7 @@ export default function Vendas() {
       comprador_pessoa_id: formData.comprador_pessoa_id,
       valor_venda: Number(formData.valor_venda),
       valor_arras: formData.valor_arras ? Number(formData.valor_arras) : null,
-      percentual_corretagem: formData.percentual_corretagem ? Number(formData.percentual_corretagem) : null,
       vendedor_pessoa_id: formData.vendedor_pessoa_id || null,
-      corretor_pessoa_id: formData.corretor_pessoa_id || null,
       indicador_atualizacao_id: formData.indicador_atualizacao_id || null,
       status: formData.status,
       observacoes: formData.observacoes || null,
@@ -384,6 +420,12 @@ export default function Vendas() {
       comprador_cpf_1: comprador1?.cpf_cnpj || null,
       comprador_nome_2: comprador2?.nome_razao || null,
       comprador_cpf_2: comprador2?.cpf_cnpj || null,
+      valor_parcelamento: formData.valor_parcelamento ? Number(formData.valor_parcelamento) : null,
+      qtd_parcelas: formData.qtd_parcelas ? Number(formData.qtd_parcelas) : 1,
+      frequencia_parcelas_meses: formData.frequencia_parcelas_meses ? Number(formData.frequencia_parcelas_meses) : 1,
+      valor_reforco: formData.valor_reforco ? Number(formData.valor_reforco) : null,
+      qtd_reforcos: formData.qtd_reforcos ? Number(formData.qtd_reforcos) : null,
+      frequencia_reforcos_meses: formData.frequencia_reforcos_meses ? Number(formData.frequencia_reforcos_meses) : null,
     };
 
     if (editingVenda) {
@@ -529,47 +571,6 @@ export default function Vendas() {
                   </div>
                 </div>
 
-                {/* Corretor e Percentual */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="corretor_pessoa_id">Corretor</Label>
-                    <Select
-                      value={formData.corretor_pessoa_id || "none"}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, corretor_pessoa_id: value === "none" ? "" : value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o corretor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {pessoas?.map((pessoa) => (
-                          <SelectItem key={pessoa.id} value={pessoa.id}>
-                            {pessoa.nome_razao}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="percentual_corretagem">% Corretagem</Label>
-                    <Input
-                      id="percentual_corretagem"
-                      type="number"
-                      step="0.01"
-                      value={formData.percentual_corretagem || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          percentual_corretagem: e.target.value ? Number(e.target.value) : null,
-                        })
-                      }
-                      placeholder="Ex: 5.00"
-                    />
-                  </div>
-                </div>
-
                 {/* Valores */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -603,6 +604,112 @@ export default function Vendas() {
                       }
                       placeholder="Ex: 10000.00"
                     />
+                  </div>
+                </div>
+
+                {/* Parcelamento */}
+                <div className="border rounded-lg p-4 space-y-4">
+                  <Label className="text-base font-semibold">Parcelamento</Label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="valor_parcelamento">Valor Parcela</Label>
+                      <Input
+                        id="valor_parcelamento"
+                        type="number"
+                        step="0.01"
+                        value={formData.valor_parcelamento || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            valor_parcelamento: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                        placeholder="Ex: 5000.00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="qtd_parcelas">Qtd. Parcelas</Label>
+                      <Input
+                        id="qtd_parcelas"
+                        type="number"
+                        min="1"
+                        value={formData.qtd_parcelas || 1}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            qtd_parcelas: e.target.value ? Number(e.target.value) : 1,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="frequencia_parcelas_meses">Frequência (meses)</Label>
+                      <Input
+                        id="frequencia_parcelas_meses"
+                        type="number"
+                        min="1"
+                        value={formData.frequencia_parcelas_meses || 1}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            frequencia_parcelas_meses: e.target.value ? Number(e.target.value) : 1,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reforços */}
+                <div className="border rounded-lg p-4 space-y-4">
+                  <Label className="text-base font-semibold">Reforços (opcional)</Label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="valor_reforco">Valor Reforço</Label>
+                      <Input
+                        id="valor_reforco"
+                        type="number"
+                        step="0.01"
+                        value={formData.valor_reforco || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            valor_reforco: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                        placeholder="Ex: 10000.00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="qtd_reforcos">Qtd. Reforços</Label>
+                      <Input
+                        id="qtd_reforcos"
+                        type="number"
+                        min="0"
+                        value={formData.qtd_reforcos || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            qtd_reforcos: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="frequencia_reforcos_meses">Frequência (meses)</Label>
+                      <Input
+                        id="frequencia_reforcos_meses"
+                        type="number"
+                        min="1"
+                        value={formData.frequencia_reforcos_meses || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            frequencia_reforcos_meses: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -801,7 +908,7 @@ export default function Vendas() {
                     <TableHead>COMPRADOR</TableHead>
                     <TableHead>VALOR VENDA</TableHead>
                     <TableHead>ARRAS</TableHead>
-                    <TableHead>CORRETAGEM</TableHead>
+                    <TableHead>PARCELAS</TableHead>
                     <TableHead>STATUS</TableHead>
                     {canEdit && <TableHead className="text-right">AÇÕES</TableHead>}
                   </TableRow>
@@ -816,7 +923,9 @@ export default function Vendas() {
                       <TableCell>{venda.comprador?.nome_razao || "-"}</TableCell>
                       <TableCell>{formatCurrency(venda.valor_venda)}</TableCell>
                       <TableCell>{formatCurrency(venda.valor_arras)}</TableCell>
-                      <TableCell>{formatPercent(venda.percentual_corretagem)}</TableCell>
+                      <TableCell>
+                        {venda.qtd_parcelas ? `${venda.qtd_parcelas}x` : "-"}
+                      </TableCell>
                       <TableCell>
                         <Badge className={statusColors[venda.status || "ATIVA"]}>
                           {statusLabels[venda.status || "ATIVA"]}
