@@ -14,6 +14,7 @@ import {
   Info,
   ChevronDown,
   LogOut,
+  FileSearch,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -46,6 +47,7 @@ const cadastroItems = [
 
 const contaCorrenteItems = [
   { title: "Conta Corrente do Lote", url: "/contas-correntes/lote", icon: Wallet },
+  { title: "Consulta de Lote", url: "/contas-correntes/consulta", icon: FileSearch },
   { title: "Atualização Monetária", url: "/contas-correntes/atualizacao", icon: TrendingUp },
   { title: "Resumo das Operações", url: "/contas-correntes/resumo", icon: FileSpreadsheet },
 ];
