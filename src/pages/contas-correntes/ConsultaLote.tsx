@@ -24,7 +24,7 @@ import { FileDown, Search, QrCode } from "lucide-react";
 import { format, addMonths } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { generatePixPayload, generateTxId } from "@/lib/pix";
 
 interface ResumoLote {
@@ -493,6 +493,45 @@ export default function ConsultaLote() {
     doc.text(`Vencimento da próxima parcela`, rightCol, yPos);
     doc.text(resumo?.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-", valueColRight, yPos, { align: 'right' });
 
+    // QR Code PIX
+    if (pixPayload && resumo && resumo.qtdParcelasAPagar > 0) {
+      yPos += 20;
+      
+      // Check if we need a new page
+      if (yPos > 240) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      // Draw separator
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, yPos - 5, 196, yPos - 5);
+      
+      // Title for QR Code section
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("QR Code PIX - Próxima Parcela", 14, yPos);
+      yPos += 10;
+
+      // Get QR Code canvas and convert to image
+      const qrCanvas = document.getElementById('qr-code-pdf-canvas') as HTMLCanvasElement;
+      if (qrCanvas) {
+        const qrDataUrl = qrCanvas.toDataURL('image/png');
+        const qrSize = 50; // Size in mm
+        doc.addImage(qrDataUrl, 'PNG', 14, yPos, qrSize, qrSize);
+        
+        // Add info next to QR Code
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        const infoX = 14 + qrSize + 10;
+        doc.text(`Valor: ${formatCurrency(resumo.valorProximaParcela)}`, infoX, yPos + 10);
+        doc.text(`Vencimento: ${resumo.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-"}`, infoX, yPos + 18);
+        doc.setFontSize(8);
+        doc.text(`Escaneie o QR Code acima com o app`, infoX, yPos + 30);
+        doc.text(`do seu banco para pagar a parcela.`, infoX, yPos + 36);
+      }
+    }
+
     // Save
     doc.save(`consulta_lote_${selectedLote.quadra}_${selectedLote.numero_lote}.pdf`);
   };
@@ -726,6 +765,16 @@ export default function ConsultaLote() {
                     <QRCodeSVG 
                       value={pixPayload} 
                       size={200}
+                      level="M"
+                      includeMargin={true}
+                    />
+                  </div>
+                  {/* Hidden canvas for PDF export */}
+                  <div className="hidden">
+                    <QRCodeCanvas 
+                      id="qr-code-pdf-canvas"
+                      value={pixPayload} 
+                      size={300}
                       level="M"
                       includeMargin={true}
                     />
