@@ -32,12 +32,21 @@ interface ResumoLote {
   totalMultasMora: number;
   totalRecebido: number;
   saldoReceber: number;
-  totalParcelasContratadas: number;
-  totalParcelasPagas: number;
-  totalParcelasAPagar: number;
+  // Parcelas
+  qtdParcelasContratadas: number;
+  qtdParcelasPagas: number;
+  qtdParcelasAPagar: number;
+  // Reforços
+  qtdReforcosContratados: number;
+  qtdReforcosPagos: number;
+  qtdReforcosAPagar: number;
+  // Próxima parcela/reforço
   valorProximaParcela: number;
   vencimentoProximaParcela: Date | null;
-  primeiroVencimento: Date | null;
+  valorProximoReforco: number;
+  vencimentoProximoReforco: Date | null;
+  primeiroVencimentoParcela: Date | null;
+  primeiroVencimentoReforco: Date | null;
 }
 
 export default function ConsultaLote() {
@@ -135,33 +144,67 @@ export default function ConsultaLote() {
       const ultimoMovimento = allMovimentos.length > 0 ? allMovimentos[allMovimentos.length - 1] : null;
       const saldoReceber = ultimoMovimento?.saldo || 0;
 
-      // Count installments from movements (PARCELA type), excluding Arras/Sinal
+      // Helper to check if referencia contains Arras/Sinal
+      const isArrasSinal = (referencia: string | null) => {
+        if (!referencia) return false;
+        const lower = referencia.toLowerCase();
+        return lower.includes("arras") || lower.includes("sinal");
+      };
+
+      // Count PARCELAS paid (excluding Arras/Sinal)
       const parcelasPagas = allMovimentos.filter(m => 
         m.tipo_mov === "PARCELA" && 
         (m.credito || 0) > 0 &&
-        !["Arras", "ARRAS", "arras", "Sinal", "SINAL", "sinal"].includes(m.referencia || "")
+        !isArrasSinal(m.referencia)
       );
-      const totalParcelasPagas = parcelasPagas.length;
+      const qtdParcelasPagas = parcelasPagas.length;
 
-      // Total contracted installments from venda (parcelas + reforços, Arras/Sinal não é parcela)
-      const totalParcelasContratadas = (venda?.qtd_parcelas || 0) + (venda?.qtd_reforcos || 0);
-      const totalParcelasAPagar = Math.max(0, totalParcelasContratadas - totalParcelasPagas);
-
-      // Calculate next installment value and due date
-      const valorProximaParcela = totalParcelasAPagar > 0 ? saldoReceber / totalParcelasAPagar : 0;
-
-      // Find first installment due date
-      const primeiraParcelaVencimento = allMovimentos.find(m => 
-        m.tipo_mov === "PARCELA" && m.vencimento
+      // Count REFORCOS paid
+      const reforcosPagos = allMovimentos.filter(m => 
+        m.tipo_mov === "REFORCO" && 
+        (m.credito || 0) > 0
       );
-      const primeiroVencimento = primeiraParcelaVencimento?.vencimento 
-        ? new Date(primeiraParcelaVencimento.vencimento) 
+      const qtdReforcosPagos = reforcosPagos.length;
+
+      // Contracted from venda
+      const qtdParcelasContratadas = venda?.qtd_parcelas || 0;
+      const qtdReforcosContratados = venda?.qtd_reforcos || 0;
+      
+      const qtdParcelasAPagar = Math.max(0, qtdParcelasContratadas - qtdParcelasPagas);
+      const qtdReforcosAPagar = Math.max(0, qtdReforcosContratados - qtdReforcosPagos);
+
+      // Calculate next installment value
+      const totalAPagar = qtdParcelasAPagar + qtdReforcosAPagar;
+      const valorProximaParcela = qtdParcelasAPagar > 0 ? saldoReceber / totalAPagar : 0;
+      const valorProximoReforco = qtdReforcosAPagar > 0 ? saldoReceber / totalAPagar : 0;
+
+      // Find first PARCELA due date
+      const primeiraParcelaVenc = allMovimentos.find(m => 
+        m.tipo_mov === "PARCELA" && m.vencimento && !isArrasSinal(m.referencia)
+      );
+      const primeiroVencimentoParcela = primeiraParcelaVenc?.vencimento 
+        ? new Date(primeiraParcelaVenc.vencimento) 
         : null;
 
-      // Calculate next due date: first due date + (paid installments) months
+      // Find first REFORCO due date
+      const primeiroReforcoVenc = allMovimentos.find(m => 
+        m.tipo_mov === "REFORCO" && m.vencimento
+      );
+      const primeiroVencimentoReforco = primeiroReforcoVenc?.vencimento 
+        ? new Date(primeiroReforcoVenc.vencimento) 
+        : null;
+
+      // Calculate next due dates
       let vencimentoProximaParcela: Date | null = null;
-      if (primeiroVencimento && totalParcelasAPagar > 0) {
-        vencimentoProximaParcela = addMonths(primeiroVencimento, totalParcelasPagas);
+      if (primeiroVencimentoParcela && qtdParcelasAPagar > 0) {
+        const freqParcelas = venda?.frequencia_parcelas_meses || 1;
+        vencimentoProximaParcela = addMonths(primeiroVencimentoParcela, qtdParcelasPagas * freqParcelas);
+      }
+
+      let vencimentoProximoReforco: Date | null = null;
+      if (primeiroVencimentoReforco && qtdReforcosAPagar > 0) {
+        const freqReforcos = venda?.frequencia_reforcos_meses || 12;
+        vencimentoProximoReforco = addMonths(primeiroVencimentoReforco, qtdReforcosPagos * freqReforcos);
       }
 
       return { 
@@ -171,12 +214,18 @@ export default function ConsultaLote() {
         totalMultasMora,
         totalRecebido,
         saldoReceber,
-        totalParcelasContratadas,
-        totalParcelasPagas,
-        totalParcelasAPagar,
+        qtdParcelasContratadas,
+        qtdParcelasPagas,
+        qtdParcelasAPagar,
+        qtdReforcosContratados,
+        qtdReforcosPagos,
+        qtdReforcosAPagar,
         valorProximaParcela,
         vencimentoProximaParcela,
-        primeiroVencimento
+        valorProximoReforco,
+        vencimentoProximoReforco,
+        primeiroVencimentoParcela,
+        primeiroVencimentoReforco
       };
     },
     enabled: !!selectedLoteId && venda !== undefined,
@@ -193,6 +242,19 @@ export default function ConsultaLote() {
     if (!date) return "-";
     const d = typeof date === 'string' ? new Date(date) : date;
     return format(d, "dd/MM/yyyy");
+  };
+
+  const formatPercent = (value: number | null) => {
+    if (value === null || value === undefined) return "";
+    return `${(value * 100).toFixed(2)}%`;
+  };
+
+  // Format Histórico: Descrição + (Referência)
+  const formatHistorico = (descricao: string | null, referencia: string | null) => {
+    if (!descricao && !referencia) return "-";
+    if (!referencia) return descricao || "-";
+    if (!descricao) return `(${referencia})`;
+    return `${descricao} (${referencia})`;
   };
 
   const exportToPDF = () => {
@@ -214,15 +276,14 @@ export default function ConsultaLote() {
     doc.text(`Vendedor: ${venda?.vendedor?.nome_razao || "Não informado"}`, 14, yPos);
     yPos += 7;
     
-    doc.text(`Comprador 1: ${venda?.comprador_nome_1 || venda?.comprador?.nome_razao || "Não informado"}`, 14, yPos);
-    yPos += 6;
-    doc.text(`CPF: ${venda?.comprador_cpf_1 || venda?.comprador?.cpf_cnpj || "Não informado"}`, 14, yPos);
+    const comprador1 = venda?.comprador_nome_1 || venda?.comprador?.nome_razao || "Não informado";
+    const cpf1 = venda?.comprador_cpf_1 || venda?.comprador?.cpf_cnpj || "";
+    doc.text(`Comprador: ${comprador1}${cpf1 ? ` (CPF ${cpf1})` : ""}`, 14, yPos);
     yPos += 7;
     
     if (venda?.comprador_nome_2) {
-      doc.text(`Comprador 2: ${venda.comprador_nome_2}`, 14, yPos);
-      yPos += 6;
-      doc.text(`CPF: ${venda.comprador_cpf_2 || "Não informado"}`, 14, yPos);
+      const cpf2 = venda.comprador_cpf_2 || "";
+      doc.text(`          ${venda.comprador_nome_2}${cpf2 ? ` (CPF ${cpf2})` : ""}`, 14, yPos);
       yPos += 7;
     }
 
@@ -235,35 +296,35 @@ export default function ConsultaLote() {
     // Transactions table
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Últimos 12 Movimentos", 14, yPos);
+    doc.text("Últimos 12 movimentos (PARCELAMENTO):", 14, yPos);
     yPos += 8;
 
     const tableData = movimentos?.map(m => [
       formatDate(m.data_mov),
-      m.tipo_mov,
-      m.descricao || "-",
-      m.referencia || "-",
+      formatHistorico(m.descricao, m.referencia),
       formatDate(m.vencimento),
-      formatCurrency(m.debito),
-      formatCurrency(m.credito),
+      formatPercent(m.percentual_calculo),
+      m.debito && m.debito > 0 ? formatCurrency(m.debito) : "",
+      m.credito && m.credito > 0 ? formatCurrency(m.credito) : "",
       formatCurrency(m.saldo),
+      (m.saldo || 0) >= 0 ? "D" : "C",
     ]) || [];
 
     autoTable(doc, {
       startY: yPos,
-      head: [["Data", "Tipo", "Descrição", "Referência", "Vencimento", "Débito", "Crédito", "Saldo"]],
+      head: [["Data", "Histórico", "Vencimento", "Cálculo", "Débitos", "Créditos", "Saldo", "D/C"]],
       body: tableData,
       styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [66, 66, 66] },
       columnStyles: {
-        0: { cellWidth: 20 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 22 },
-        6: { cellWidth: 22 },
-        7: { cellWidth: 22 },
+        0: { cellWidth: 22 },
+        1: { cellWidth: 55 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 18 },
+        4: { cellWidth: 22, halign: 'right' },
+        5: { cellWidth: 22, halign: 'right' },
+        6: { cellWidth: 22, halign: 'right' },
+        7: { cellWidth: 10, halign: 'center' },
       },
     });
 
@@ -273,46 +334,71 @@ export default function ConsultaLote() {
     doc.line(14, yPos, 196, yPos);
     yPos += 10;
 
-    // Summary
-    doc.setFontSize(12);
+    // Summary - Two columns layout
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("Resumo das Operações do Lote", 14, yPos);
-    yPos += 10;
+    doc.text("Resumo:", 14, yPos);
+    yPos += 8;
 
-    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
     
-    // Financial summary
-    doc.text(`Total da Venda (parcelamento/reforço): ${formatCurrency(resumo?.totalVenda || 0)}`, 14, yPos);
+    const leftCol = 14;
+    const rightCol = 110;
+    const colWidth = 90;
+    
+    // Left column - Financial
+    doc.text(`Total da Venda`, leftCol, yPos);
+    doc.text(formatCurrency(resumo?.totalVenda || 0), leftCol + 55, yPos);
+    // Right column - Parcelas
+    doc.text(`Qtde de parcelas contratadas`, rightCol, yPos);
+    doc.text(`${resumo?.qtdParcelasContratadas || 0}`, rightCol + 65, yPos);
     yPos += 6;
-    doc.text(`Total Atualizações Monetárias: ${formatCurrency(resumo?.totalAtualizacoes || 0)}`, 14, yPos);
+
+    doc.text(`Total Atualizações Monetárias`, leftCol, yPos);
+    doc.text(formatCurrency(resumo?.totalAtualizacoes || 0), leftCol + 55, yPos);
+    doc.text(`Qtde de parcelas já pagas`, rightCol, yPos);
+    doc.text(`${resumo?.qtdParcelasPagas || 0}`, rightCol + 65, yPos);
     yPos += 6;
-    doc.text(`Juros por Mora: ${formatCurrency(resumo?.totalJurosMora || 0)}`, 14, yPos);
+
+    doc.text(`Total Juros de Mora`, leftCol, yPos);
+    doc.text(formatCurrency(resumo?.totalJurosMora || 0), leftCol + 55, yPos);
+    doc.text(`Qtde de parcelas a pagar`, rightCol, yPos);
+    doc.text(`${resumo?.qtdParcelasAPagar || 0}`, rightCol + 65, yPos);
     yPos += 6;
-    doc.text(`Multas por Mora: ${formatCurrency(resumo?.totalMultasMora || 0)}`, 14, yPos);
+
+    doc.text(`Total Multas de Mora`, leftCol, yPos);
+    doc.text(formatCurrency(resumo?.totalMultasMora || 0), leftCol + 55, yPos);
     yPos += 6;
-    doc.text(`Valores Recebidos: ${formatCurrency(resumo?.totalRecebido || 0)}`, 14, yPos);
+
+    doc.text(`Total Recebido`, leftCol, yPos);
+    doc.text(formatCurrency(-(resumo?.totalRecebido || 0)), leftCol + 55, yPos);
+    // Right column - Reforços
+    doc.text(`Qtde de reforços contratados`, rightCol, yPos);
+    doc.text(`${resumo?.qtdReforcosContratados || 0}`, rightCol + 65, yPos);
     yPos += 6;
-    doc.text(`Saldo a Receber: ${formatCurrency(resumo?.saldoReceber || 0)}`, 14, yPos);
+
+    doc.text(`Saldo a Receber`, leftCol, yPos);
+    doc.text(formatCurrency(resumo?.saldoReceber || 0), leftCol + 55, yPos);
+    doc.text(`Qtde de reforços já pagos`, rightCol, yPos);
+    doc.text(`${resumo?.qtdReforcosPagos || 0}`, rightCol + 65, yPos);
+    yPos += 6;
+
+    doc.text(``, leftCol, yPos);
+    doc.text(`Qtde de reforços a pagar`, rightCol, yPos);
+    doc.text(`${resumo?.qtdReforcosAPagar || 0}`, rightCol + 65, yPos);
     yPos += 10;
 
-    // Separator
-    doc.line(14, yPos, 196, yPos);
-    yPos += 10;
-
-    // Installments summary
-    doc.text(`Total parcelas contratadas (parcelas + reforços): ${resumo?.totalParcelasContratadas || 0}`, 14, yPos);
-    yPos += 6;
-    doc.text(`Total parcelas já pagas: ${resumo?.totalParcelasPagas || 0}`, 14, yPos);
-    yPos += 6;
-    doc.text(`Total parcelas a pagar: ${resumo?.totalParcelasAPagar || 0}`, 14, yPos);
-    yPos += 10;
-
-    // Next installment (bold)
+    // Next installment (bold) - highlighted box
     doc.setFont("helvetica", "bold");
-    doc.text(`Valor da Próxima Parcela: ${formatCurrency(resumo?.valorProximaParcela || 0)}`, 14, yPos);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(rightCol - 2, yPos - 4, 90, 16, 'F');
+    
+    doc.text(`Valor da próxima parcela`, rightCol, yPos);
+    doc.text(formatCurrency(resumo?.valorProximaParcela || 0), rightCol + 65, yPos);
     yPos += 6;
-    doc.text(`Vencimento da Próxima Parcela: ${resumo?.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-"}`, 14, yPos);
+    doc.text(`Vencimento da próxima parcela`, rightCol, yPos);
+    doc.text(resumo?.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-", rightCol + 65, yPos);
 
     // Save
     doc.save(`consulta_lote_${selectedLote.quadra}_${selectedLote.numero_lote}.pdf`);
@@ -375,49 +461,42 @@ export default function ConsultaLote() {
               <span>{venda?.vendedor?.nome_razao || "Não informado"}</span>
             </div>
 
-            {/* Comprador 1 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="font-semibold">Comprador 1:</span>{" "}
-                <span>{venda?.comprador_nome_1 || venda?.comprador?.nome_razao || "Não informado"}</span>
-              </div>
-              <div>
-                <span className="font-semibold">CPF:</span>{" "}
-                <span>{venda?.comprador_cpf_1 || venda?.comprador?.cpf_cnpj || "Não informado"}</span>
-              </div>
+            {/* Compradores */}
+            <div>
+              <span className="font-semibold">Compradores:</span>{" "}
+              <span>
+                {venda?.comprador_nome_1 || venda?.comprador?.nome_razao || "Não informado"}
+                {(venda?.comprador_cpf_1 || venda?.comprador?.cpf_cnpj) && 
+                  ` (CPF ${venda?.comprador_cpf_1 || venda?.comprador?.cpf_cnpj})`}
+              </span>
+              {venda?.comprador_nome_2 && (
+                <>
+                  <br />
+                  <span className="ml-24">
+                    {venda.comprador_nome_2}
+                    {venda.comprador_cpf_2 && ` (CPF ${venda.comprador_cpf_2})`}
+                  </span>
+                </>
+              )}
             </div>
-
-            {/* Comprador 2 */}
-            {venda?.comprador_nome_2 && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="font-semibold">Comprador 2:</span>{" "}
-                  <span>{venda.comprador_nome_2}</span>
-                </div>
-                <div>
-                  <span className="font-semibold">CPF:</span>{" "}
-                  <span>{venda.comprador_cpf_2 || "Não informado"}</span>
-                </div>
-              </div>
-            )}
 
             <Separator />
 
             {/* Tabela de Movimentos */}
             <div>
-              <h3 className="font-semibold text-lg mb-3">Últimos 12 Movimentos</h3>
+              <h3 className="font-semibold text-lg mb-3">Últimos 12 movimentos (PARCELAMENTO):</h3>
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Data</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Referência</TableHead>
+                      <TableHead>Histórico</TableHead>
                       <TableHead>Vencimento</TableHead>
-                      <TableHead className="text-right">Débito</TableHead>
-                      <TableHead className="text-right">Crédito</TableHead>
+                      <TableHead className="text-right">Cálculo</TableHead>
+                      <TableHead className="text-right">Débitos</TableHead>
+                      <TableHead className="text-right">Créditos</TableHead>
                       <TableHead className="text-right">Saldo</TableHead>
+                      <TableHead className="text-center">D/C</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -431,13 +510,13 @@ export default function ConsultaLote() {
                       movimentos?.map((mov) => (
                         <TableRow key={mov.id}>
                           <TableCell>{formatDate(mov.data_mov)}</TableCell>
-                          <TableCell>{mov.tipo_mov}</TableCell>
-                          <TableCell>{mov.descricao || "-"}</TableCell>
-                          <TableCell>{mov.referencia || "-"}</TableCell>
+                          <TableCell>{formatHistorico(mov.descricao, mov.referencia)}</TableCell>
                           <TableCell>{formatDate(mov.vencimento)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(mov.debito)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(mov.credito)}</TableCell>
+                          <TableCell className="text-right">{formatPercent(mov.percentual_calculo)}</TableCell>
+                          <TableCell className="text-right">{mov.debito && mov.debito > 0 ? formatCurrency(mov.debito) : ""}</TableCell>
+                          <TableCell className="text-right">{mov.credito && mov.credito > 0 ? formatCurrency(mov.credito) : ""}</TableCell>
                           <TableCell className="text-right">{formatCurrency(mov.saldo)}</TableCell>
+                          <TableCell className="text-center">{(mov.saldo || 0) >= 0 ? "D" : "C"}</TableCell>
                         </TableRow>
                       ))
                     )}
@@ -448,68 +527,97 @@ export default function ConsultaLote() {
 
             <Separator />
 
-            {/* Resumo Financeiro */}
+            {/* Resumo - Two column layout */}
             <div>
-              <h3 className="font-semibold text-lg mb-3">Resumo das Operações do Lote</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">Total da Venda (parcelamento/reforço)</p>
-                  <p className="text-2xl font-bold">{formatCurrency(resumo?.totalVenda || 0)}</p>
+              <h3 className="font-semibold text-lg mb-3">Resumo:</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left column - Financial */}
+                <div className="space-y-2">
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Total da Venda</span>
+                    <span className="font-medium">{formatCurrency(resumo?.totalVenda || 0)}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Total Atualizações Monetárias</span>
+                    <span className="font-medium">{formatCurrency(resumo?.totalAtualizacoes || 0)}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Total Juros de Mora</span>
+                    <span className="font-medium">{formatCurrency(resumo?.totalJurosMora || 0)}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Total Multas de Mora</span>
+                    <span className="font-medium">{formatCurrency(resumo?.totalMultasMora || 0)}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Total Recebido</span>
+                    <span className="font-medium text-destructive">{formatCurrency(-(resumo?.totalRecebido || 0))}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Saldo a Receber</span>
+                    <span className="font-medium text-amber-600">{formatCurrency(resumo?.saldoReceber || 0)}</span>
+                  </div>
                 </div>
-                <div className="p-4 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">Total Atualizações Monetárias</p>
-                  <p className="text-2xl font-bold">{formatCurrency(resumo?.totalAtualizacoes || 0)}</p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">Juros por Mora</p>
-                  <p className="text-2xl font-bold">{formatCurrency(resumo?.totalJurosMora || 0)}</p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">Multas por Mora</p>
-                  <p className="text-2xl font-bold">{formatCurrency(resumo?.totalMultasMora || 0)}</p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">Valores Recebidos</p>
-                  <p className="text-2xl font-bold text-green-600">{formatCurrency(resumo?.totalRecebido || 0)}</p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">Saldo a Receber</p>
-                  <p className="text-2xl font-bold text-amber-600">{formatCurrency(resumo?.saldoReceber || 0)}</p>
+
+                {/* Right column - Quantities */}
+                <div className="space-y-2">
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Qtde de parcelas contratadas</span>
+                    <span className="font-medium">{resumo?.qtdParcelasContratadas || 0}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Qtde de parcelas já pagas</span>
+                    <span className="font-medium text-destructive">{resumo?.qtdParcelasPagas || 0}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Qtde de parcelas a pagar</span>
+                    <span className="font-medium">{resumo?.qtdParcelasAPagar || 0}</span>
+                  </div>
+                  <div className="h-4" />
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Qtde de reforços contratados</span>
+                    <span className="font-medium">{resumo?.qtdReforcosContratados || 0}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Qtde de reforços já pagos</span>
+                    <span className="font-medium text-destructive">{resumo?.qtdReforcosPagos || 0}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span>Qtde de reforços a pagar</span>
+                    <span className="font-medium">{resumo?.qtdReforcosAPagar || 0}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             <Separator />
 
-            {/* Resumo de Parcelas */}
-            <div>
-              <h3 className="font-semibold text-lg mb-3">Situação das Parcelas</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                <div className="p-4 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">Total Parcelas Contratadas</p>
-                  <p className="text-2xl font-bold">{resumo?.totalParcelasContratadas || 0}</p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">Total Parcelas Pagas</p>
-                  <p className="text-2xl font-bold text-green-600">{resumo?.totalParcelasPagas || 0}</p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">Total Parcelas a Pagar</p>
-                  <p className="text-2xl font-bold text-amber-600">{resumo?.totalParcelasAPagar || 0}</p>
-                </div>
-              </div>
-
-              {/* Próxima Parcela - Destaque */}
-              <div className="grid grid-cols-2 gap-4">
+            {/* Próxima Parcela/Reforço - Destaque */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {resumo && resumo.qtdParcelasAPagar > 0 && (
                 <div className="p-4 rounded-lg bg-primary/10 border-2 border-primary">
-                  <p className="text-sm text-muted-foreground">Valor da Próxima Parcela</p>
-                  <p className="text-2xl font-bold">{formatCurrency(resumo?.valorProximaParcela || 0)}</p>
+                  <div className="flex justify-between mb-2">
+                    <span className="font-bold">Valor da próxima parcela</span>
+                    <span className="font-bold">{formatCurrency(resumo.valorProximaParcela)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-bold">Vencimento da próxima parcela</span>
+                    <span className="font-bold">{resumo.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-"}</span>
+                  </div>
                 </div>
-                <div className="p-4 rounded-lg bg-primary/10 border-2 border-primary">
-                  <p className="text-sm text-muted-foreground">Vencimento da Próxima Parcela</p>
-                  <p className="text-2xl font-bold">{resumo?.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-"}</p>
+              )}
+              {resumo && resumo.qtdReforcosAPagar > 0 && (
+                <div className="p-4 rounded-lg bg-secondary/30 border-2 border-secondary">
+                  <div className="flex justify-between mb-2">
+                    <span className="font-bold">Valor do próximo reforço</span>
+                    <span className="font-bold">{formatCurrency(resumo.valorProximoReforco)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-bold">Vencimento do próximo reforço</span>
+                    <span className="font-bold">{resumo.vencimentoProximoReforco ? formatDate(resumo.vencimentoProximoReforco) : "-"}</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
