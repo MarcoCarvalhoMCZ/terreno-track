@@ -135,13 +135,15 @@ export default function ConsultaLote() {
       const ultimoMovimento = allMovimentos.length > 0 ? allMovimentos[allMovimentos.length - 1] : null;
       const saldoReceber = ultimoMovimento?.saldo || 0;
 
-      // Count installments from movements (PARCELA type)
+      // Count installments from movements (PARCELA type), excluding Arras/Sinal
       const parcelasPagas = allMovimentos.filter(m => 
-        m.tipo_mov === "PARCELA" && (m.credito || 0) > 0
+        m.tipo_mov === "PARCELA" && 
+        (m.credito || 0) > 0 &&
+        !["Arras", "ARRAS", "arras", "Sinal", "SINAL", "sinal"].includes(m.referencia || "")
       );
       const totalParcelasPagas = parcelasPagas.length;
 
-      // Total contracted installments from venda
+      // Total contracted installments from venda (parcelas + reforços, Arras/Sinal não é parcela)
       const totalParcelasContratadas = (venda?.qtd_parcelas || 0) + (venda?.qtd_reforcos || 0);
       const totalParcelasAPagar = Math.max(0, totalParcelasContratadas - totalParcelasPagas);
 
