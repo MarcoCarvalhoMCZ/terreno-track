@@ -348,12 +348,16 @@ export default function Importacao() {
 
             <div className="space-y-2">
               <Label htmlFor="venda">Venda (opcional)</Label>
-              <Select value={selectedVendaId} onValueChange={setSelectedVendaId} disabled={!selectedLoteId || vendas.length === 0}>
+              <Select 
+                value={selectedVendaId} 
+                onValueChange={(val) => setSelectedVendaId(val === '__none__' ? '' : val)} 
+                disabled={!selectedLoteId || vendas.length === 0}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder={vendas.length === 0 ? "Nenhuma venda" : "Selecione a venda"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma</SelectItem>
+                  <SelectItem value="__none__">Nenhuma</SelectItem>
                   {vendas.map((venda) => (
                     <SelectItem key={venda.id} value={venda.id}>
                       {new Date(venda.data_venda).toLocaleDateString('pt-BR')} - {formatCurrency(venda.valor_venda)} ({venda.status})
