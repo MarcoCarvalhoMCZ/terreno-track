@@ -12,6 +12,7 @@ import Pessoas from "./pages/cadastro/Pessoas";
 import Indicadores from "./pages/cadastro/Indicadores";
 import Vendas from "./pages/Vendas";
 import ContaCorrenteLote from "./pages/contas-correntes/ContaCorrenteLote";
+import ConsultaLote from "./pages/contas-correntes/ConsultaLote";
 import ResumoOperacoes from "./pages/contas-correntes/ResumoOperacoes";
 import AtualizacaoMonetaria from "./pages/contas-correntes/AtualizacaoMonetaria";
 import EventosContabeis from "./pages/contabilidade/EventosContabeis";
@@ -54,6 +55,7 @@ function AppRoutes() {
       <Route path="/cadastro/indicadores" element={<ProtectedRoute><Indicadores /></ProtectedRoute>} />
       <Route path="/vendas" element={<ProtectedRoute><Vendas /></ProtectedRoute>} />
       <Route path="/contas-correntes/lote" element={<ProtectedRoute><ContaCorrenteLote /></ProtectedRoute>} />
+      <Route path="/contas-correntes/consulta" element={<ProtectedRoute><ConsultaLote /></ProtectedRoute>} />
       <Route path="/contas-correntes/resumo" element={<ProtectedRoute><ResumoOperacoes /></ProtectedRoute>} />
       <Route path="/contas-correntes/atualizacao" element={<ProtectedRoute><AtualizacaoMonetaria /></ProtectedRoute>} />
       <Route path="/contabilidade/eventos" element={<ProtectedRoute><EventosContabeis /></ProtectedRoute>} />
