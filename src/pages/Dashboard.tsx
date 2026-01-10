@@ -20,21 +20,19 @@ import {
   ChevronRight,
 } from "lucide-react";
 import {
-  PieChart,
-  Pie,
-  Cell,
   ResponsiveContainer,
-  Legend,
   Tooltip,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
+  Legend,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
+import { format, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { LoteamentoMap } from "@/components/LoteamentoMap";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -55,6 +53,20 @@ export default function Dashboard() {
     },
   });
 
+  // Buscar todos os lotes para o mapa
+  const { data: lotes } = useQuery({
+    queryKey: ["lotes-mapa"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lotes")
+        .select("id, quadra, numero_lote, status")
+        .order("quadra")
+        .order("numero_lote");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Stats de lotes
   const { data: lotesStats } = useQuery({
     queryKey: ["lotes-stats"],
@@ -66,27 +78,31 @@ export default function Dashboard() {
       const disponivel = data.filter((l) => l.status === "DISPONIVEL").length;
       const vendido = data.filter((l) => l.status === "VENDIDO").length;
       const reservado = data.filter((l) => l.status === "RESERVADO").length;
-      const cancelado = data.filter((l) => l.status === "CANCELADO").length;
+      const quitado = data.filter((l) => l.status === "QUITADO").length;
 
       return {
         total,
         disponivel,
         vendido,
         reservado,
-        cancelado,
+        quitado,
         percentVendido: total > 0 ? ((vendido / total) * 100).toFixed(0) : 0,
         percentDisponivel: total > 0 ? ((disponivel / total) * 100).toFixed(0) : 0,
       };
     },
   });
 
-  // Stats de vendas
+  // Calcular data de 12 meses atrás
+  const dataInicio12Meses = format(subMonths(new Date(), 12), "yyyy-MM-dd");
+
+  // Stats de vendas (últimos 12 meses)
   const { data: vendasStats } = useQuery({
-    queryKey: ["vendas-stats"],
+    queryKey: ["vendas-stats-12m"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendas")
-        .select("valor_venda, status");
+        .select("valor_venda, status, data_venda")
+        .gte("data_venda", dataInicio12Meses);
       if (error) throw error;
 
       const ativas = data.filter((v) => v.status === "ATIVA");
@@ -103,13 +119,14 @@ export default function Dashboard() {
     },
   });
 
-  // Total recebido
+  // Total recebido (últimos 12 meses)
   const { data: recebidoStats } = useQuery({
-    queryKey: ["recebido-stats"],
+    queryKey: ["recebido-stats-12m"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conta_corrente_lote")
-        .select("credito, data_mov");
+        .select("credito, data_mov")
+        .gte("data_mov", dataInicio12Meses);
       if (error) throw error;
 
       const total = data.reduce((sum, c) => sum + Number(c.credito || 0), 0);
@@ -132,21 +149,23 @@ export default function Dashboard() {
     },
   });
 
-  // Inadimplência - parcelas vencidas e não pagas
+  // Inadimplência - parcelas vencidas e não pagas (últimos 12 meses)
   const { data: inadimplencia } = useQuery({
-    queryKey: ["inadimplencia-stats"],
+    queryKey: ["inadimplencia-stats-12m"],
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
       const { data: vencidas, error } = await supabase
         .from("parcelas")
         .select("*, plano:planos_pagamento(venda_id)")
         .eq("status", "ABERTA")
-        .lt("vencimento", today);
+        .lt("vencimento", today)
+        .gte("vencimento", dataInicio12Meses);
       if (error) throw error;
 
       const { data: totalParcelas } = await supabase
         .from("parcelas")
-        .select("id");
+        .select("id")
+        .gte("vencimento", dataInicio12Meses);
 
       const percentual =
         totalParcelas && totalParcelas.length > 0
@@ -166,15 +185,15 @@ export default function Dashboard() {
     },
   });
 
-  // Recebimentos mensais (últimos 6 meses)
+  // Recebimentos mensais (últimos 12 meses)
   const { data: recebimentosMensais } = useQuery({
-    queryKey: ["recebimentos-mensais"],
+    queryKey: ["recebimentos-mensais-12m"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vw_totalizacao_mensal_consolidada")
         .select("*")
-        .order("competencia", { ascending: true })
-        .limit(6);
+        .gte("competencia", dataInicio12Meses)
+        .order("competencia", { ascending: true });
       if (error) throw error;
       return data || [];
     },
@@ -200,32 +219,9 @@ export default function Dashboard() {
     },
   });
 
-  const chartData = [
-    {
-      name: "Vendidos",
-      value: lotesStats?.vendido || 0,
-      color: "hsl(142, 70%, 45%)",
-    },
-    {
-      name: "Disponíveis",
-      value: lotesStats?.disponivel || 0,
-      color: "hsl(200, 80%, 50%)",
-    },
-    {
-      name: "Reservados",
-      value: lotesStats?.reservado || 0,
-      color: "hsl(45, 90%, 50%)",
-    },
-    {
-      name: "Cancelados",
-      value: lotesStats?.cancelado || 0,
-      color: "hsl(0, 70%, 50%)",
-    },
-  ].filter((d) => d.value > 0);
-
   const barChartData = (recebimentosMensais || []).map((item) => ({
     mes: item.competencia
-      ? format(new Date(item.competencia + "T00:00:00"), "MMM", { locale: ptBR })
+      ? format(new Date(item.competencia + "T00:00:00"), "MMM/yy", { locale: ptBR })
       : "",
     previsto: Number(item.total_debitos || 0),
     recebido: Number(item.total_creditos || 0),
@@ -240,7 +236,7 @@ export default function Dashboard() {
 
   const formatCompactCurrency = (value: number) => {
     if (value >= 1000000) {
-      return `R$ ${(value / 1000000).toFixed(0)} mi`;
+      return `R$ ${(value / 1000000).toFixed(1)} mi`;
     }
     if (value >= 1000) {
       return `R$ ${(value / 1000).toFixed(0)} mil`;
@@ -346,17 +342,17 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Recebido no Mês */}
+        {/* Recebido (12 meses) */}
         <Card className="border-t-4 border-t-primary bg-white shadow-sm">
           <CardContent className="pt-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Recebido (Mês)</p>
+                <p className="text-sm text-muted-foreground">Recebido (12m)</p>
                 <p className="text-2xl font-bold">
-                  {formatCompactCurrency(recebidoStats?.totalMes || 0)}
+                  {formatCompactCurrency(recebidoStats?.total || 0)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Total: {formatCompactCurrency(recebidoStats?.total || 0)}
+                  Mês: {formatCompactCurrency(recebidoStats?.totalMes || 0)}
                 </p>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -376,7 +372,7 @@ export default function Dashboard() {
                   {inadimplencia?.percentual || 0}%
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {inadimplencia?.contratos || 0} contratos
+                  {inadimplencia?.contratos || 0} contratos (12m)
                 </p>
               </div>
               <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center">
@@ -393,10 +389,10 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm text-muted-foreground">Saldo a Receber</p>
                 <p className="text-2xl font-bold">
-                  {formatCompactCurrency(saldoAReceber)}
+                  {formatCompactCurrency(saldoAReceber > 0 ? saldoAReceber : 0)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Todos os contratos
+                  Últimos 12 meses
                 </p>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -407,116 +403,63 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Situação dos Lotes - Donut */}
-        <Card className="border-t-4 border-t-primary bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Situação dos Lotes</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[280px]">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="45%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ value }) => value}
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend
-                    layout="horizontal"
-                    verticalAlign="bottom"
-                    align="center"
-                  />
-                  {/* Centro com total */}
-                  <text
-                    x="50%"
-                    y="45%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="text-2xl font-bold"
-                    fill="currentColor"
-                  >
-                    {lotesStats?.total || 0}
-                  </text>
-                  <text
-                    x="50%"
-                    y="52%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="text-xs"
-                    fill="gray"
-                  >
-                    Total
-                  </text>
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                Nenhum lote cadastrado
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Mapa do Loteamento */}
+      <Card className="border-t-4 border-t-primary bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Mapa do Loteamento</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LoteamentoMap lotes={lotes || []} />
+        </CardContent>
+      </Card>
 
-        {/* Recebimentos Mensais - Barras */}
-        <Card className="border-t-4 border-t-primary bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Recebimentos Mensais</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[280px]">
-            {barChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barChartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="mes"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => formatCompactCurrency(value)}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey="previsto"
-                    name="Previsto"
-                    fill="hsl(0, 0%, 20%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="recebido"
-                    name="Recebido"
-                    fill="hsl(142, 70%, 45%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                Nenhum dado disponível
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Recebimentos Mensais - Barras */}
+      <Card className="border-t-4 border-t-primary bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Recebimentos Mensais (Últimos 12 meses)</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[280px]">
+          {barChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barChartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="mes"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(value) => formatCompactCurrency(value)}
+                />
+                <Tooltip
+                  formatter={(value: number) => formatCurrency(value)}
+                />
+                <Legend />
+                <Bar
+                  dataKey="previsto"
+                  name="Previsto"
+                  fill="hsl(0, 0%, 20%)"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="recebido"
+                  name="Recebido"
+                  fill="hsl(142, 70%, 45%)"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              Nenhum dado disponível
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Contratos Recentes */}
       <Card className="border-t-4 border-t-primary bg-white shadow-sm">
