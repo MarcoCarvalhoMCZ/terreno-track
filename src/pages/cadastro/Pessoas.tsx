@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -39,13 +41,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Search, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Users, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 type Pessoa = Tables<"pessoas">;
 type PessoaInsert = TablesInsert<"pessoas">;
 type PessoaUpdate = TablesUpdate<"pessoas">;
+type Endereco = Tables<"enderecos">;
+type EnderecoInsert = TablesInsert<"enderecos">;
 
 const emptyPessoa: Partial<PessoaInsert> = {
   tipo: "PF",
@@ -57,6 +61,18 @@ const emptyPessoa: Partial<PessoaInsert> = {
   observacoes: "",
 };
 
+const emptyEndereco: Partial<EnderecoInsert> = {
+  tipo: "residencial",
+  logradouro: "",
+  numero: "",
+  complemento: "",
+  bairro: "",
+  cidade: "",
+  uf: "",
+  cep: "",
+  principal: true,
+};
+
 export default function Pessoas() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -64,9 +80,11 @@ export default function Pessoas() {
   const [pessoaToDelete, setPessoaToDelete] = useState<Pessoa | null>(null);
   const [editingPessoa, setEditingPessoa] = useState<Pessoa | null>(null);
   const [formData, setFormData] = useState<Partial<PessoaInsert>>(emptyPessoa);
+  const [enderecoData, setEnderecoData] = useState<Partial<EnderecoInsert>>(emptyEndereco);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTipo, setFilterTipo] = useState<string>("TODOS");
 
+  // Fetch pessoas with their addresses
   const { data: pessoas, isLoading } = useQuery({
     queryKey: ["pessoas"],
     queryFn: async () => {
@@ -79,15 +97,42 @@ export default function Pessoas() {
     },
   });
 
+  // Fetch endereco for editing
+  const fetchEndereco = async (pessoaId: string) => {
+    const { data, error } = await supabase
+      .from("enderecos")
+      .select("*")
+      .eq("pessoa_id", pessoaId)
+      .eq("principal", true)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  };
+
   const createMutation = useMutation({
-    mutationFn: async (pessoa: PessoaInsert) => {
-      const { data, error } = await supabase
+    mutationFn: async ({ pessoa, endereco }: { pessoa: PessoaInsert; endereco: Partial<EnderecoInsert> }) => {
+      // First, create the pessoa
+      const { data: pessoaData, error: pessoaError } = await supabase
         .from("pessoas")
         .insert(pessoa)
         .select()
         .single();
-      if (error) throw error;
-      return data;
+      if (pessoaError) throw pessoaError;
+
+      // Then, create the address if any field is filled
+      const hasEnderecoData = endereco.logradouro || endereco.cidade || endereco.cep;
+      if (hasEnderecoData) {
+        const { error: enderecoError } = await supabase
+          .from("enderecos")
+          .insert({
+            ...endereco,
+            pessoa_id: pessoaData.id,
+            principal: true,
+          } as EnderecoInsert);
+        if (enderecoError) throw enderecoError;
+      }
+
+      return pessoaData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pessoas"] });
@@ -100,7 +145,18 @@ export default function Pessoas() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: PessoaUpdate }) => {
+    mutationFn: async ({ 
+      id, 
+      updates, 
+      endereco,
+      existingEnderecoId 
+    }: { 
+      id: string; 
+      updates: PessoaUpdate; 
+      endereco: Partial<EnderecoInsert>;
+      existingEnderecoId?: string;
+    }) => {
+      // Update pessoa
       const { data, error } = await supabase
         .from("pessoas")
         .update(updates)
@@ -108,6 +164,40 @@ export default function Pessoas() {
         .select()
         .single();
       if (error) throw error;
+
+      // Handle endereco update/create
+      const hasEnderecoData = endereco.logradouro || endereco.cidade || endereco.cep;
+      
+      if (hasEnderecoData) {
+        if (existingEnderecoId) {
+          // Update existing address
+          const { error: enderecoError } = await supabase
+            .from("enderecos")
+            .update({
+              tipo: endereco.tipo,
+              logradouro: endereco.logradouro,
+              numero: endereco.numero,
+              complemento: endereco.complemento,
+              bairro: endereco.bairro,
+              cidade: endereco.cidade,
+              uf: endereco.uf,
+              cep: endereco.cep,
+            })
+            .eq("id", existingEnderecoId);
+          if (enderecoError) throw enderecoError;
+        } else {
+          // Create new address
+          const { error: enderecoError } = await supabase
+            .from("enderecos")
+            .insert({
+              ...endereco,
+              pessoa_id: id,
+              principal: true,
+            } as EnderecoInsert);
+          if (enderecoError) throw enderecoError;
+        }
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -122,6 +212,14 @@ export default function Pessoas() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // First delete related addresses
+      const { error: enderecoError } = await supabase
+        .from("enderecos")
+        .delete()
+        .eq("pessoa_id", id);
+      if (enderecoError) throw enderecoError;
+
+      // Then delete the pessoa
       const { error } = await supabase.from("pessoas").delete().eq("id", id);
       if (error) throw error;
     },
@@ -136,13 +234,17 @@ export default function Pessoas() {
     },
   });
 
+  const [existingEnderecoId, setExistingEnderecoId] = useState<string | undefined>();
+
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingPessoa(null);
     setFormData(emptyPessoa);
+    setEnderecoData(emptyEndereco);
+    setExistingEnderecoId(undefined);
   };
 
-  const handleEdit = (pessoa: Pessoa) => {
+  const handleEdit = async (pessoa: Pessoa) => {
     setEditingPessoa(pessoa);
     setFormData({
       tipo: pessoa.tipo,
@@ -153,6 +255,32 @@ export default function Pessoas() {
       telefone: pessoa.telefone || "",
       observacoes: pessoa.observacoes || "",
     });
+
+    // Fetch existing address
+    try {
+      const endereco = await fetchEndereco(pessoa.id);
+      if (endereco) {
+        setExistingEnderecoId(endereco.id);
+        setEnderecoData({
+          tipo: endereco.tipo || "residencial",
+          logradouro: endereco.logradouro || "",
+          numero: endereco.numero || "",
+          complemento: endereco.complemento || "",
+          bairro: endereco.bairro || "",
+          cidade: endereco.cidade || "",
+          uf: endereco.uf || "",
+          cep: endereco.cep || "",
+          principal: endereco.principal || true,
+        });
+      } else {
+        setEnderecoData(emptyEndereco);
+        setExistingEnderecoId(undefined);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar endereço:", error);
+      setEnderecoData(emptyEndereco);
+    }
+
     setDialogOpen(true);
   };
 
@@ -179,9 +307,14 @@ export default function Pessoas() {
       updateMutation.mutate({
         id: editingPessoa.id,
         updates: formData as PessoaUpdate,
+        endereco: enderecoData,
+        existingEnderecoId,
       });
     } else {
-      createMutation.mutate(formData as PessoaInsert);
+      createMutation.mutate({
+        pessoa: formData as PessoaInsert,
+        endereco: enderecoData,
+      });
     }
   };
 
@@ -205,6 +338,12 @@ export default function Pessoas() {
     return doc;
   };
 
+  const UF_OPTIONS = [
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
+    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
+    "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -216,114 +355,252 @@ export default function Pessoas() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setFormData(emptyPessoa)}>
+            <Button onClick={() => {
+              setFormData(emptyPessoa);
+              setEnderecoData(emptyEndereco);
+              setExistingEnderecoId(undefined);
+            }}>
               <Plus className="h-4 w-4 mr-2" />
               Nova Pessoa
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingPessoa ? "Editar Pessoa" : "Nova Pessoa"}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tipo">Tipo *</Label>
-                  <Select
-                    value={formData.tipo}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, tipo: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PF">Pessoa Física</SelectItem>
-                      <SelectItem value="PJ">Pessoa Jurídica</SelectItem>
-                    </SelectContent>
-                  </Select>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Dados Pessoais */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Dados Pessoais
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tipo">Tipo *</Label>
+                    <Select
+                      value={formData.tipo}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, tipo: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PF">Pessoa Física</SelectItem>
+                        <SelectItem value="PJ">Pessoa Jurídica</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cpf_cnpj">
+                      {formData.tipo === "PJ" ? "CNPJ" : "CPF"}
+                    </Label>
+                    <Input
+                      id="cpf_cnpj"
+                      value={formData.cpf_cnpj || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, cpf_cnpj: e.target.value })
+                      }
+                      placeholder={formData.tipo === "PJ" ? "00.000.000/0000-00" : "000.000.000-00"}
+                    />
+                  </div>
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="cpf_cnpj">
-                    {formData.tipo === "PJ" ? "CNPJ" : "CPF"}
+                  <Label htmlFor="nome_razao">
+                    {formData.tipo === "PJ" ? "Razão Social *" : "Nome Completo *"}
                   </Label>
                   <Input
-                    id="cpf_cnpj"
-                    value={formData.cpf_cnpj || ""}
+                    id="nome_razao"
+                    value={formData.nome_razao || ""}
                     onChange={(e) =>
-                      setFormData({ ...formData, cpf_cnpj: e.target.value })
+                      setFormData({ ...formData, nome_razao: e.target.value })
                     }
-                    placeholder={formData.tipo === "PJ" ? "00.000.000/0000-00" : "000.000.000-00"}
+                    placeholder={formData.tipo === "PJ" ? "Razão Social da Empresa" : "Nome Completo"}
                   />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="nome_razao">
-                  {formData.tipo === "PJ" ? "Razão Social *" : "Nome Completo *"}
-                </Label>
-                <Input
-                  id="nome_razao"
-                  value={formData.nome_razao || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, nome_razao: e.target.value })
-                  }
-                  placeholder={formData.tipo === "PJ" ? "Razão Social da Empresa" : "Nome Completo"}
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="rg_ie">
+                      {formData.tipo === "PJ" ? "Inscrição Estadual" : "RG"}
+                    </Label>
+                    <Input
+                      id="rg_ie"
+                      value={formData.rg_ie || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, rg_ie: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="telefone">Telefone</Label>
+                    <Input
+                      id="telefone"
+                      value={formData.telefone || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, telefone: e.target.value })
+                      }
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="rg_ie">
-                    {formData.tipo === "PJ" ? "Inscrição Estadual" : "RG"}
-                  </Label>
+                  <Label htmlFor="email">E-mail</Label>
                   <Input
-                    id="rg_ie"
-                    value={formData.rg_ie || ""}
+                    id="email"
+                    type="email"
+                    value={formData.email || ""}
                     onChange={(e) =>
-                      setFormData({ ...formData, rg_ie: e.target.value })
+                      setFormData({ ...formData, email: e.target.value })
                     }
+                    placeholder="email@exemplo.com"
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="telefone">Telefone</Label>
-                  <Input
-                    id="telefone"
-                    value={formData.telefone || ""}
+                  <Label htmlFor="observacoes">Observações</Label>
+                  <Textarea
+                    id="observacoes"
+                    value={formData.observacoes || ""}
                     onChange={(e) =>
-                      setFormData({ ...formData, telefone: e.target.value })
+                      setFormData({ ...formData, observacoes: e.target.value })
                     }
-                    placeholder="(00) 00000-0000"
+                    rows={2}
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  placeholder="email@exemplo.com"
-                />
-              </div>
+              <Separator />
 
-              <div className="space-y-2">
-                <Label htmlFor="observacoes">Observações</Label>
-                <Textarea
-                  id="observacoes"
-                  value={formData.observacoes || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, observacoes: e.target.value })
-                  }
-                  rows={3}
-                />
+              {/* Endereço */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Endereço Principal
+                </h3>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="endereco_tipo">Tipo</Label>
+                    <Select
+                      value={enderecoData.tipo || "residencial"}
+                      onValueChange={(value) =>
+                        setEnderecoData({ ...enderecoData, tipo: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="residencial">Residencial</SelectItem>
+                        <SelectItem value="comercial">Comercial</SelectItem>
+                        <SelectItem value="correspondencia">Correspondência</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="cep">CEP</Label>
+                    <Input
+                      id="cep"
+                      value={enderecoData.cep || ""}
+                      onChange={(e) =>
+                        setEnderecoData({ ...enderecoData, cep: e.target.value })
+                      }
+                      placeholder="00000-000"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="space-y-2 col-span-3">
+                    <Label htmlFor="logradouro">Logradouro</Label>
+                    <Input
+                      id="logradouro"
+                      value={enderecoData.logradouro || ""}
+                      onChange={(e) =>
+                        setEnderecoData({ ...enderecoData, logradouro: e.target.value })
+                      }
+                      placeholder="Rua, Avenida, etc."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="numero">Número</Label>
+                    <Input
+                      id="numero"
+                      value={enderecoData.numero || ""}
+                      onChange={(e) =>
+                        setEnderecoData({ ...enderecoData, numero: e.target.value })
+                      }
+                      placeholder="Nº"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="complemento">Complemento</Label>
+                    <Input
+                      id="complemento"
+                      value={enderecoData.complemento || ""}
+                      onChange={(e) =>
+                        setEnderecoData({ ...enderecoData, complemento: e.target.value })
+                      }
+                      placeholder="Apto, Sala, Bloco, etc."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bairro">Bairro</Label>
+                    <Input
+                      id="bairro"
+                      value={enderecoData.bairro || ""}
+                      onChange={(e) =>
+                        setEnderecoData({ ...enderecoData, bairro: e.target.value })
+                      }
+                      placeholder="Bairro"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="cidade">Cidade</Label>
+                    <Input
+                      id="cidade"
+                      value={enderecoData.cidade || ""}
+                      onChange={(e) =>
+                        setEnderecoData({ ...enderecoData, cidade: e.target.value })
+                      }
+                      placeholder="Cidade"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="uf">UF</Label>
+                    <Select
+                      value={enderecoData.uf || ""}
+                      onValueChange={(value) =>
+                        setEnderecoData({ ...enderecoData, uf: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="UF" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {UF_OPTIONS.map((uf) => (
+                          <SelectItem key={uf} value={uf}>
+                            {uf}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
