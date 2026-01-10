@@ -53,13 +53,29 @@ type Pessoa = Tables<"pessoas">;
 type Indicador = Tables<"indicadores_atualizacao">;
 type ContaRecebimento = Tables<"contas_recebimento_vendedor">;
 
-interface VendaComRelacionamentos extends Venda {
+// Extend Venda type with new fields and relationships
+type VendaExtended = Venda & {
+  tipo_atualizacao?: string | null;
+  defasagem_indice?: number | null;
+  comprador_nome_1?: string | null;
+  comprador_cpf_1?: string | null;
+  comprador_nome_2?: string | null;
+  comprador_cpf_2?: string | null;
+};
+
+interface VendaComRelacionamentos extends Omit<VendaExtended, 'tipo_atualizacao' | 'defasagem_indice' | 'comprador_nome_1' | 'comprador_cpf_1' | 'comprador_nome_2' | 'comprador_cpf_2'> {
   lote?: Lote;
   comprador?: Pessoa;
   vendedor?: Pessoa;
   corretor?: Pessoa;
   indicador?: Indicador;
   conta_recebimento?: ContaRecebimento;
+  tipo_atualizacao?: string | null;
+  defasagem_indice?: number | null;
+  comprador_nome_1?: string | null;
+  comprador_cpf_1?: string | null;
+  comprador_nome_2?: string | null;
+  comprador_cpf_2?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -76,7 +92,24 @@ const statusLabels: Record<string, string> = {
   CANCELADA: "Cancelada",
 };
 
-const emptyVenda: Partial<VendaInsert> = {
+// Tipos de atualização monetária
+const tiposAtualizacao = [
+  { value: "IGPM", label: "IGP-M" },
+  { value: "MEDIA", label: "Média" },
+] as const;
+
+type TipoAtualizacao = "IGPM" | "MEDIA";
+
+interface VendaFormData extends Partial<VendaInsert> {
+  tipo_atualizacao?: TipoAtualizacao;
+  defasagem_indice?: number;
+  comprador_nome_1?: string;
+  comprador_cpf_1?: string;
+  comprador_nome_2?: string;
+  comprador_cpf_2?: string;
+}
+
+const emptyVenda: VendaFormData = {
   lote_id: "",
   data_venda: new Date().toISOString().split("T")[0],
   comprador_pessoa_id: "",
@@ -89,6 +122,12 @@ const emptyVenda: Partial<VendaInsert> = {
   conta_recebimento_vendedor_id: "",
   status: "ATIVA",
   observacoes: "",
+  tipo_atualizacao: "IGPM",
+  defasagem_indice: 1,
+  comprador_nome_1: "",
+  comprador_cpf_1: "",
+  comprador_nome_2: "",
+  comprador_cpf_2: "",
 };
 
 export default function Vendas() {
@@ -98,7 +137,7 @@ export default function Vendas() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendaToDelete, setVendaToDelete] = useState<VendaComRelacionamentos | null>(null);
   const [editingVenda, setEditingVenda] = useState<VendaComRelacionamentos | null>(null);
-  const [formData, setFormData] = useState<Partial<VendaInsert>>(emptyVenda);
+  const [formData, setFormData] = useState<VendaFormData>(emptyVenda);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("TODOS");
 
@@ -314,6 +353,12 @@ export default function Vendas() {
       conta_recebimento_vendedor_id: venda.conta_recebimento_vendedor_id || "",
       status: venda.status || "ATIVA",
       observacoes: venda.observacoes || "",
+      tipo_atualizacao: (venda.tipo_atualizacao as TipoAtualizacao) || "IGPM",
+      defasagem_indice: venda.defasagem_indice || 1,
+      comprador_nome_1: venda.comprador_nome_1 || "",
+      comprador_cpf_1: venda.comprador_cpf_1 || "",
+      comprador_nome_2: venda.comprador_nome_2 || "",
+      comprador_cpf_2: venda.comprador_cpf_2 || "",
     });
     setDialogOpen(true);
   };
@@ -337,8 +382,10 @@ export default function Vendas() {
       return;
     }
 
-    const dataToSave = {
-      ...formData,
+    const dataToSave: any = {
+      lote_id: formData.lote_id,
+      data_venda: formData.data_venda,
+      comprador_pessoa_id: formData.comprador_pessoa_id,
       valor_venda: Number(formData.valor_venda),
       valor_arras: formData.valor_arras ? Number(formData.valor_arras) : null,
       percentual_corretagem: formData.percentual_corretagem ? Number(formData.percentual_corretagem) : null,
@@ -346,6 +393,14 @@ export default function Vendas() {
       corretor_pessoa_id: formData.corretor_pessoa_id || null,
       indicador_atualizacao_id: formData.indicador_atualizacao_id || null,
       conta_recebimento_vendedor_id: formData.conta_recebimento_vendedor_id || null,
+      status: formData.status,
+      observacoes: formData.observacoes || null,
+      tipo_atualizacao: formData.tipo_atualizacao || "IGPM",
+      defasagem_indice: formData.defasagem_indice || 1,
+      comprador_nome_1: formData.comprador_nome_1 || null,
+      comprador_cpf_1: formData.comprador_cpf_1 || null,
+      comprador_nome_2: formData.comprador_nome_2 || null,
+      comprador_cpf_2: formData.comprador_cpf_2 || null,
     };
 
     if (editingVenda) {
@@ -568,50 +623,111 @@ export default function Vendas() {
                   </div>
                 </div>
 
-                {/* Indicador e Conta Recebimento */}
+                {/* Compradores Solidários */}
+                <div className="border rounded-lg p-4 space-y-4">
+                  <Label className="text-base font-semibold">Compradores Solidários</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="comprador_nome_1">Nome 1º Comprador</Label>
+                      <Input
+                        id="comprador_nome_1"
+                        value={formData.comprador_nome_1 || ""}
+                        onChange={(e) => setFormData({ ...formData, comprador_nome_1: e.target.value })}
+                        placeholder="Nome completo"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="comprador_cpf_1">CPF 1º Comprador</Label>
+                      <Input
+                        id="comprador_cpf_1"
+                        value={formData.comprador_cpf_1 || ""}
+                        onChange={(e) => setFormData({ ...formData, comprador_cpf_1: e.target.value })}
+                        placeholder="000.000.000-00"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="comprador_nome_2">Nome 2º Comprador (opcional)</Label>
+                      <Input
+                        id="comprador_nome_2"
+                        value={formData.comprador_nome_2 || ""}
+                        onChange={(e) => setFormData({ ...formData, comprador_nome_2: e.target.value })}
+                        placeholder="Nome completo"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="comprador_cpf_2">CPF 2º Comprador (opcional)</Label>
+                      <Input
+                        id="comprador_cpf_2"
+                        value={formData.comprador_cpf_2 || ""}
+                        onChange={(e) => setFormData({ ...formData, comprador_cpf_2: e.target.value })}
+                        placeholder="000.000.000-00"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tipo de Atualização e Defasagem */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="indicador_atualizacao_id">Índice de Atualização</Label>
+                    <Label htmlFor="tipo_atualizacao">Tipo de Atualização Monetária</Label>
                     <Select
-                      value={formData.indicador_atualizacao_id || "none"}
+                      value={formData.tipo_atualizacao || "IGPM"}
                       onValueChange={(value) =>
-                        setFormData({ ...formData, indicador_atualizacao_id: value === "none" ? "" : value })
+                        setFormData({ ...formData, tipo_atualizacao: value as TipoAtualizacao })
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o indicador" />
+                        <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {indicadores?.map((indicador) => (
-                          <SelectItem key={indicador.id} value={indicador.id}>
-                            {indicador.nome}
+                        {tiposAtualizacao.map((tipo) => (
+                          <SelectItem key={tipo.value} value={tipo.value}>
+                            {tipo.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="conta_recebimento_vendedor_id">Conta de Recebimento</Label>
-                    <Select
-                      value={formData.conta_recebimento_vendedor_id || "none"}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, conta_recebimento_vendedor_id: value === "none" ? "" : value })
+                    <Label htmlFor="defasagem_indice">Defasagem do Índice (meses)</Label>
+                    <Input
+                      id="defasagem_indice"
+                      type="number"
+                      min="1"
+                      value={formData.defasagem_indice || 1}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          defasagem_indice: e.target.value ? Number(e.target.value) : 1,
+                        })
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a conta" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhuma</SelectItem>
-                        {contasRecebimento?.map((conta) => (
-                          <SelectItem key={conta.id} value={conta.id}>
-                            {conta.descricao}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
+                </div>
+
+                {/* Conta Recebimento */}
+                <div className="space-y-2">
+                  <Label htmlFor="conta_recebimento_vendedor_id">Conta de Recebimento</Label>
+                  <Select
+                    value={formData.conta_recebimento_vendedor_id || "none"}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, conta_recebimento_vendedor_id: value === "none" ? "" : value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a conta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma</SelectItem>
+                      {contasRecebimento?.map((conta) => (
+                        <SelectItem key={conta.id} value={conta.id}>
+                          {conta.descricao}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Status */}

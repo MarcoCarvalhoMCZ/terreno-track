@@ -756,18 +756,26 @@ export type Database = {
       }
       vendas: {
         Row: {
+          comprador_cpf_1: string | null
+          comprador_cpf_2: string | null
+          comprador_nome_1: string | null
+          comprador_nome_2: string | null
           comprador_pessoa_id: string
           conta_recebimento_vendedor_id: string | null
           corretor_pessoa_id: string | null
           created_at: string | null
           created_by: string | null
           data_venda: string
+          defasagem_indice: number | null
           id: string
           indicador_atualizacao_id: string | null
           lote_id: string
           observacoes: string | null
           percentual_corretagem: number | null
           status: string | null
+          tipo_atualizacao:
+            | Database["public"]["Enums"]["tipo_atualizacao_monetaria"]
+            | null
           updated_at: string | null
           updated_by: string | null
           valor_arras: number | null
@@ -775,18 +783,26 @@ export type Database = {
           vendedor_pessoa_id: string | null
         }
         Insert: {
+          comprador_cpf_1?: string | null
+          comprador_cpf_2?: string | null
+          comprador_nome_1?: string | null
+          comprador_nome_2?: string | null
           comprador_pessoa_id: string
           conta_recebimento_vendedor_id?: string | null
           corretor_pessoa_id?: string | null
           created_at?: string | null
           created_by?: string | null
           data_venda: string
+          defasagem_indice?: number | null
           id?: string
           indicador_atualizacao_id?: string | null
           lote_id: string
           observacoes?: string | null
           percentual_corretagem?: number | null
           status?: string | null
+          tipo_atualizacao?:
+            | Database["public"]["Enums"]["tipo_atualizacao_monetaria"]
+            | null
           updated_at?: string | null
           updated_by?: string | null
           valor_arras?: number | null
@@ -794,18 +810,26 @@ export type Database = {
           vendedor_pessoa_id?: string | null
         }
         Update: {
+          comprador_cpf_1?: string | null
+          comprador_cpf_2?: string | null
+          comprador_nome_1?: string | null
+          comprador_nome_2?: string | null
           comprador_pessoa_id?: string
           conta_recebimento_vendedor_id?: string | null
           corretor_pessoa_id?: string | null
           created_at?: string | null
           created_by?: string | null
           data_venda?: string
+          defasagem_indice?: number | null
           id?: string
           indicador_atualizacao_id?: string | null
           lote_id?: string
           observacoes?: string | null
           percentual_corretagem?: number | null
           status?: string | null
+          tipo_atualizacao?:
+            | Database["public"]["Enums"]["tipo_atualizacao_monetaria"]
+            | null
           updated_at?: string | null
           updated_by?: string | null
           valor_arras?: number | null
@@ -908,6 +932,21 @@ export type Database = {
       }
     }
     Functions: {
+      calcular_atualizacao_monetaria_lote: {
+        Args: { p_competencia: string; p_lote_id?: string }
+        Returns: {
+          lote_id: string
+          novo_saldo: number
+          percentual_aplicado: number
+          saldo_anterior: number
+          valor_atualizacao: number
+          venda_id: string
+        }[]
+      }
+      executar_atualizacao_monetaria: {
+        Args: { p_competencia: string; p_lote_id?: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -915,9 +954,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      recalcular_saldo_lote: { Args: { p_lote_id: string }; Returns: number }
     }
     Enums: {
       app_role: "ADMIN" | "OPERADOR" | "CONSULTA"
+      tipo_atualizacao_monetaria: "IGPM" | "MEDIA"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1046,6 +1087,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["ADMIN", "OPERADOR", "CONSULTA"],
+      tipo_atualizacao_monetaria: ["IGPM", "MEDIA"],
     },
   },
 } as const
