@@ -46,6 +46,7 @@ const cadastroItems = [
 
 const contaCorrenteItems = [
   { title: "Conta Corrente do Lote", url: "/contas-correntes/lote", icon: Wallet },
+  { title: "Atualização Monetária", url: "/contas-correntes/atualizacao", icon: TrendingUp },
   { title: "Resumo das Operações", url: "/contas-correntes/resumo", icon: FileSpreadsheet },
 ];
 
