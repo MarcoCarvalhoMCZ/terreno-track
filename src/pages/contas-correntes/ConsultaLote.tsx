@@ -252,7 +252,7 @@ export default function ConsultaLote() {
 
   const formatPercent = (value: number | null) => {
     if (value === null || value === undefined) return "";
-    return `${(value * 100).toFixed(2)}%`;
+    return `${value.toFixed(2)}%`;
   };
 
   // Format Histórico: Descrição + (Referência)
