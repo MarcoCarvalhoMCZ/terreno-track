@@ -67,6 +67,8 @@ export default function Configuracoes() {
         agencia: (configuracao as any).agencia || "",
         conta_corrente: (configuracao as any).conta_corrente || "",
         chave_pix: (configuracao as any).chave_pix || "",
+        nome_beneficiario: (configuracao as any).nome_beneficiario || "",
+        cidade_beneficiario: (configuracao as any).cidade_beneficiario || "",
         observacoes: configuracao.observacoes || "",
       });
       setHasChanges(false);
@@ -147,6 +149,8 @@ export default function Configuracoes() {
         agencia: (configuracao as any).agencia || "",
         conta_corrente: (configuracao as any).conta_corrente || "",
         chave_pix: (configuracao as any).chave_pix || "",
+        nome_beneficiario: (configuracao as any).nome_beneficiario || "",
+        cidade_beneficiario: (configuracao as any).cidade_beneficiario || "",
         observacoes: configuracao.observacoes || "",
       });
       setHasChanges(false);
@@ -347,12 +351,12 @@ export default function Configuracoes() {
             </CardContent>
           </Card>
 
-          {/* Dados Bancários */}
+          {/* Dados Bancários e PIX */}
           <Card>
             <CardHeader>
-              <CardTitle>Dados Bancários</CardTitle>
+              <CardTitle>Dados Bancários e PIX</CardTitle>
               <CardDescription>
-                Informações bancárias para recebimento de valores
+                Informações bancárias e PIX para recebimento de valores e geração de QR Code
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -394,6 +398,28 @@ export default function Configuracoes() {
                     value={(formData as any).chave_pix || ""}
                     onChange={(e) => handleChange("chave_pix" as any, e.target.value)}
                     placeholder="CPF, CNPJ, Email ou Telefone"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                <div className="space-y-2">
+                  <Label htmlFor="nome_beneficiario">Nome do Beneficiário (PIX)</Label>
+                  <Input
+                    id="nome_beneficiario"
+                    value={(formData as any).nome_beneficiario || ""}
+                    onChange={(e) => handleChange("nome_beneficiario" as any, e.target.value)}
+                    placeholder="Nome que aparecerá no QR Code"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cidade_beneficiario">Cidade do Beneficiário (PIX)</Label>
+                  <Input
+                    id="cidade_beneficiario"
+                    value={(formData as any).cidade_beneficiario || ""}
+                    onChange={(e) => handleChange("cidade_beneficiario" as any, e.target.value)}
+                    placeholder="Ex: São Paulo"
                   />
                 </div>
               </div>

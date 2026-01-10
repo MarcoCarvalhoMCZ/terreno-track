@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,10 +20,12 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { FileDown, Search } from "lucide-react";
+import { FileDown, Search, QrCode } from "lucide-react";
 import { format, addMonths } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { QRCodeSVG } from "qrcode.react";
+import { generatePixPayload, generateTxId } from "@/lib/pix";
 
 interface ResumoLote {
   totalVenda: number;
@@ -231,7 +233,54 @@ export default function ConsultaLote() {
     enabled: !!selectedLoteId && venda !== undefined,
   });
 
+  // Fetch configurações para QR Code PIX
+  const { data: configuracao } = useQuery({
+    queryKey: ["configuracoes-pix"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("configuracoes")
+        .select("chave_pix, nome_beneficiario, cidade_beneficiario")
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { chave_pix: string | null; nome_beneficiario: string | null; cidade_beneficiario: string | null } | null;
+    },
+  });
+
   const selectedLote = lotes?.find(l => l.id === selectedLoteId);
+
+  // Gerar payload PIX
+  const pixPayload = useMemo(() => {
+    if (!configuracao?.chave_pix || !configuracao?.nome_beneficiario || !configuracao?.cidade_beneficiario) {
+      return null;
+    }
+    if (!resumo || resumo.qtdParcelasAPagar <= 0 || resumo.valorProximaParcela <= 0) {
+      return null;
+    }
+    if (!selectedLote) {
+      return null;
+    }
+
+    try {
+      const txid = generateTxId(
+        selectedLote.quadra, 
+        selectedLote.numero_lote, 
+        resumo.qtdParcelasPagas + 1
+      );
+      
+      return generatePixPayload({
+        chavePix: configuracao.chave_pix,
+        nomeBeneficiario: configuracao.nome_beneficiario,
+        cidadeBeneficiario: configuracao.cidade_beneficiario,
+        valor: resumo.valorProximaParcela,
+        txid,
+        descricao: `Q${selectedLote.quadra}L${selectedLote.numero_lote}`,
+      });
+    } catch (error) {
+      console.error("Erro ao gerar payload PIX:", error);
+      return null;
+    }
+  }, [configuracao, resumo, selectedLote]);
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return "-";
@@ -628,6 +677,55 @@ export default function ConsultaLote() {
                 </div>
               )}
             </div>
+
+            {/* QR Code PIX */}
+            {resumo && resumo.qtdParcelasAPagar > 0 && pixPayload && (
+              <>
+                <Separator />
+                <div className="flex flex-col items-center gap-4 p-6 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 text-lg font-semibold">
+                    <QrCode className="h-5 w-5" />
+                    QR Code PIX - Próxima Parcela
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <QRCodeSVG 
+                      value={pixPayload} 
+                      size={200}
+                      level="M"
+                      includeMargin={true}
+                    />
+                  </div>
+                  <div className="text-center text-sm text-muted-foreground max-w-md">
+                    <p>Escaneie o QR Code acima com o app do seu banco para pagar a parcela.</p>
+                    <p className="mt-1 font-medium">Valor: {formatCurrency(resumo.valorProximaParcela)}</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(pixPayload);
+                      import("sonner").then(({ toast }) => {
+                        toast.success("Código PIX copiado!");
+                      });
+                    }}
+                  >
+                    Copiar código PIX
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {resumo && resumo.qtdParcelasAPagar > 0 && !pixPayload && configuracao && (
+              <>
+                <Separator />
+                <div className="flex flex-col items-center gap-2 p-6 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <QrCode className="h-8 w-8 text-amber-600" />
+                  <p className="text-amber-800 dark:text-amber-200 text-center">
+                    Para gerar o QR Code PIX, configure a <strong>Chave PIX</strong>, <strong>Nome do Beneficiário</strong> e <strong>Cidade</strong> em Configurações.
+                  </p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
