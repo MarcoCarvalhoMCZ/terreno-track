@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentação do Banco de Dados - Sistema de Gestão de Lotes</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      background: #fff;
+    }
+    
+    h1 {
+      color: #1a1a2e;
+      border-bottom: 3px solid #4a90a4;
+      padding-bottom: 15px;
+      margin-bottom: 30px;
+      font-size: 2.2em;
+    }
+    
+    h2 {
+      color: #1a1a2e;
+      margin-top: 40px;
+      margin-bottom: 20px;
+      padding: 10px 15px;
+      background: #f0f4f8;
+      border-left: 4px solid #4a90a4;
+      font-size: 1.5em;
+    }
+    
+    h3 {
+      color: #2c3e50;
+      margin-top: 25px;
+      margin-bottom: 15px;
+      font-size: 1.2em;
+    }
+    
+    h4 {
+      color: #34495e;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      font-size: 1.1em;
+    }
+    
+    p {
+      margin-bottom: 15px;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0 25px 0;
+      font-size: 0.9em;
+    }
+    
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px 12px;
+      text-align: left;
+    }
+    
+    th {
+      background: #4a90a4;
+      color: white;
+      font-weight: 600;
+    }
+    
+    tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+    
+    tr:hover {
+      background: #f0f4f8;
+    }
+    
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9em;
+      color: #c7254e;
+    }
+    
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      margin: 15px 0;
+    }
+    
+    pre code {
+      background: transparent;
+      color: #f8f8f2;
+      padding: 0;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 0.8em;
+      font-weight: 600;
+      margin: 2px;
+    }
+    
+    .badge-primary { background: #4a90a4; color: white; }
+    .badge-success { background: #27ae60; color: white; }
+    .badge-warning { background: #f39c12; color: white; }
+    .badge-danger { background: #e74c3c; color: white; }
+    .badge-info { background: #3498db; color: white; }
+    
+    .section {
+      margin-bottom: 40px;
+      page-break-inside: avoid;
+    }
+    
+    .relationship {
+      background: #e8f4f8;
+      padding: 10px 15px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    
+    .relationship code {
+      background: #fff;
+    }
+    
+    ul {
+      margin: 10px 0 15px 25px;
+    }
+    
+    li {
+      margin: 5px 0;
+    }
+    
+    hr {
+      border: none;
+      border-top: 2px solid #eee;
+      margin: 40px 0;
+    }
+    
+    .toc {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      border-radius: 8px;
+      margin-bottom: 40px;
+    }
+    
+    .toc h2 {
+      background: none;
+      border-left: none;
+      padding: 0;
+      margin: 0 0 15px 0;
+    }
+    
+    .toc ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .toc li {
+      margin: 8px 0;
+    }
+    
+    .toc a {
+      color: #4a90a4;
+      text-decoration: none;
+    }
+    
+    .toc a:hover {
+      text-decoration: underline;
+    }
+    
+    .diagram {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    
+    .footer {
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 2px solid #eee;
+      text-align: center;
+      color: #666;
+      font-size: 0.9em;
+    }
+    
+    @media print {
+      body {
+        padding: 20px;
+      }
+      
+      h2 {
+        page-break-before: always;
+      }
+      
+      h2:first-of-type {
+        page-break-before: avoid;
+      }
+      
+      table {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>📊 Documentação do Banco de Dados<br><small style="font-size: 0.6em; color: #666;">Sistema de Gestão de Lotes</small></h1>
+
+  <div class="toc">
+    <h2>📑 Índice</h2>
+    <ul>
+      <li><a href="#usuarios">1. Controle de Usuários e Permissões</a></li>
+      <li><a href="#configuracoes">2. Configurações do Sistema</a></li>
+      <li><a href="#pessoas">3. Cadastro de Pessoas (PF/PJ)</a></li>
+      <li><a href="#indicadores">4. Indicadores de Atualização Monetária</a></li>
+      <li><a href="#lotes">5. Estoque de Lotes</a></li>
+      <li><a href="#vendas">6. Vendas</a></li>
+      <li><a href="#parcelamento">7. Parcelamento e Controle de Pagamentos</a></li>
+      <li><a href="#conta-corrente">8. Conta Corrente do Lote</a></li>
+      <li><a href="#views">9. Views (Resumos e Totalizações)</a></li>
+      <li><a href="#contabilidade">10. Módulo de Contabilidade</a></li>
+      <li><a href="#funcoes">11. Funções do Banco de Dados</a></li>
+      <li><a href="#rls">12. Políticas de Segurança (RLS)</a></li>
+      <li><a href="#auditoria">13. Auditoria</a></li>
+    </ul>
+  </div>
+
+  <!-- SEÇÃO 1: USUÁRIOS -->
+  <section id="usuarios" class="section">
+    <h2>1. Controle de Usuários e Permissões</h2>
+    
+    <h3>1.1 profiles</h3>
+    <p>Armazena informações do perfil do usuário autenticado.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>PK, referência ao auth.users</td>
+        </tr>
+        <tr>
+          <td>nome</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Nome do usuário</td>
+        </tr>
+        <tr>
+          <td>is_active</td>
+          <td>boolean</td>
+          <td>Sim</td>
+          <td>true</td>
+          <td>Status ativo/inativo</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>id</code> → <code>auth.users.id</code> (1:1)
+    </div>
+
+    <h3>1.2 user_roles</h3>
+    <p>Define os papéis/permissões dos usuários no sistema.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>user_id</td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>FK para auth.users</td>
+        </tr>
+        <tr>
+          <td>role</td>
+          <td>app_role (enum)</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Papel: ADMIN, OPERADOR, CONSULTA</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <h4>Enum app_role:</h4>
+    <ul>
+      <li><span class="badge badge-danger">ADMIN</span> - Acesso total ao sistema</li>
+      <li><span class="badge badge-warning">OPERADOR</span> - Pode criar/editar registros</li>
+      <li><span class="badge badge-info">CONSULTA</span> - Apenas visualização</li>
+    </ul>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 2: CONFIGURAÇÕES -->
+  <section id="configuracoes" class="section">
+    <h2>2. Configurações do Sistema</h2>
+    
+    <h3>2.1 configuracoes</h3>
+    <p>Armazena configurações globais e dados do vendedor principal.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>data_criacao_app</td>
+          <td>date</td>
+          <td>Sim</td>
+          <td>CURRENT_DATE</td>
+          <td>Data de início do sistema</td>
+        </tr>
+        <tr>
+          <td>vendedor_pessoa_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Pessoa vendedora padrão</td>
+        </tr>
+        <tr>
+          <td>representante_legal_pessoa_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Representante legal 1</td>
+        </tr>
+        <tr>
+          <td>representante_legal_2_pessoa_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Representante legal 2</td>
+        </tr>
+        <tr>
+          <td>padrao_corretor_pessoa_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Corretor padrão</td>
+        </tr>
+        <tr>
+          <td>padrao_percentual_corretagem</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>% corretagem padrão</td>
+        </tr>
+        <tr>
+          <td>banco</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Nome do banco</td>
+        </tr>
+        <tr>
+          <td>agencia</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Número da agência</td>
+        </tr>
+        <tr>
+          <td>conta_corrente</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Número da conta corrente</td>
+        </tr>
+        <tr>
+          <td>chave_pix</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Chave PIX</td>
+        </tr>
+        <tr>
+          <td>observacoes</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Observações gerais</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>vendedor_pessoa_id</code> → <code>pessoas.id</code><br>
+      <code>representante_legal_pessoa_id</code> → <code>pessoas.id</code><br>
+      <code>representante_legal_2_pessoa_id</code> → <code>pessoas.id</code><br>
+      <code>padrao_corretor_pessoa_id</code> → <code>pessoas.id</code>
+    </div>
+
+    <h3>2.2 modos_pagamento</h3>
+    <p>Cadastro de modos de pagamento disponíveis.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>descricao</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Descrição do modo</td>
+        </tr>
+        <tr>
+          <td>ativo</td>
+          <td>boolean</td>
+          <td>Sim</td>
+          <td>true</td>
+          <td>Status ativo/inativo</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <p><strong>Exemplo de valores:</strong> PIX, Transferência Bancária, Boleto, Depósito</p>
+
+    <h3>2.3 contas_recebimento_vendedor</h3>
+    <p>Contas bancárias onde o vendedor recebe os pagamentos.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>descricao</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Descrição da conta</td>
+        </tr>
+        <tr>
+          <td>modo_pagamento_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Modo de pagamento</td>
+        </tr>
+        <tr>
+          <td>detalhes</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Dados bancários/PIX</td>
+        </tr>
+        <tr>
+          <td>ativo</td>
+          <td>boolean</td>
+          <td>Sim</td>
+          <td>true</td>
+          <td>Status ativo/inativo</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>modo_pagamento_id</code> → <code>modos_pagamento.id</code>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 3: PESSOAS -->
+  <section id="pessoas" class="section">
+    <h2>3. Cadastro de Pessoas (PF/PJ)</h2>
+    
+    <h3>3.1 pessoas</h3>
+    <p>Cadastro unificado de pessoas físicas e jurídicas.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>tipo</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>'PF' ou 'PJ'</td>
+        </tr>
+        <tr>
+          <td>nome_razao</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Nome/Razão Social</td>
+        </tr>
+        <tr>
+          <td>cpf_cnpj</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>CPF ou CNPJ</td>
+        </tr>
+        <tr>
+          <td>rg_ie</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>RG ou Inscrição Estadual</td>
+        </tr>
+        <tr>
+          <td>email</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>E-mail</td>
+        </tr>
+        <tr>
+          <td>telefone</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Telefone</td>
+        </tr>
+        <tr>
+          <td>observacoes</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Observações</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <p><strong>Uso no sistema:</strong> Compradores de lotes, Vendedores, Corretores, Representantes legais</p>
+
+    <h3>3.2 enderecos</h3>
+    <p>Endereços vinculados às pessoas.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>pessoa_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Pessoa</td>
+        </tr>
+        <tr>
+          <td>tipo</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Residencial, Comercial, etc</td>
+        </tr>
+        <tr>
+          <td>principal</td>
+          <td>boolean</td>
+          <td>Sim</td>
+          <td>false</td>
+          <td>Endereço principal</td>
+        </tr>
+        <tr>
+          <td>logradouro</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Rua/Avenida</td>
+        </tr>
+        <tr>
+          <td>numero</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Número</td>
+        </tr>
+        <tr>
+          <td>complemento</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Complemento</td>
+        </tr>
+        <tr>
+          <td>bairro</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Bairro</td>
+        </tr>
+        <tr>
+          <td>cidade</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Cidade</td>
+        </tr>
+        <tr>
+          <td>uf</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Estado (UF)</td>
+        </tr>
+        <tr>
+          <td>cep</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>CEP</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>pessoa_id</code> → <code>pessoas.id</code> (N:1)
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 4: INDICADORES -->
+  <section id="indicadores" class="section">
+    <h2>4. Indicadores de Atualização Monetária</h2>
+    
+    <h3>4.1 indicadores_atualizacao</h3>
+    <p>Cadastro de índices de correção monetária (IPCA, IGPM, etc).</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>nome</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Nome do indicador</td>
+        </tr>
+        <tr>
+          <td>descricao</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Descrição</td>
+        </tr>
+        <tr>
+          <td>periodicidade</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Mensal, Anual, etc</td>
+        </tr>
+        <tr>
+          <td>regra</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Regra de aplicação</td>
+        </tr>
+        <tr>
+          <td>ativo</td>
+          <td>boolean</td>
+          <td>Sim</td>
+          <td>true</td>
+          <td>Status ativo/inativo</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <p><strong>Exemplo de valores:</strong> IPCA, IGPM, Taxa Fixa 1%</p>
+
+    <h3>4.2 indicadores_atualizacao_valores</h3>
+    <p>Valores históricos dos indicadores por competência.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>indicador_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Indicador</td>
+        </tr>
+        <tr>
+          <td>competencia</td>
+          <td>date</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Mês/Ano de referência</td>
+        </tr>
+        <tr>
+          <td>fator</td>
+          <td>numeric</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Fator de correção</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>indicador_id</code> → <code>indicadores_atualizacao.id</code> (N:1)
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 5: LOTES -->
+  <section id="lotes" class="section">
+    <h2>5. Estoque de Lotes</h2>
+    
+    <h3>5.1 lotes</h3>
+    <p>Cadastro de lotes disponíveis para venda.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>quadra</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Identificação da quadra</td>
+        </tr>
+        <tr>
+          <td>numero_lote</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Número do lote</td>
+        </tr>
+        <tr>
+          <td>etiqueta_patrimonial</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Etiqueta patrimonial</td>
+        </tr>
+        <tr>
+          <td>matricula_ri</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Matrícula no RI</td>
+        </tr>
+        <tr>
+          <td>area_m2</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Área em m²</td>
+        </tr>
+        <tr>
+          <td>custo_contabil</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Custo contábil</td>
+        </tr>
+        <tr>
+          <td>status</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>'DISPONIVEL'</td>
+          <td>Status do lote</td>
+        </tr>
+        <tr>
+          <td>observacoes</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Observações</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <h4>Status possíveis:</h4>
+    <ul>
+      <li><span class="badge badge-success">DISPONIVEL</span> - Disponível para venda</li>
+      <li><span class="badge badge-primary">VENDIDO</span> - Vendido</li>
+      <li><span class="badge badge-warning">RESERVADO</span> - Reservado</li>
+      <li><span class="badge badge-danger">BLOQUEADO</span> - Bloqueado</li>
+    </ul>
+    
+    <p><strong>Trigger:</strong> Ao criar uma venda, o status é automaticamente alterado para <code>VENDIDO</code></p>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 6: VENDAS -->
+  <section id="vendas" class="section">
+    <h2>6. Vendas</h2>
+    
+    <h3>6.1 vendas</h3>
+    <p>Registro das vendas de lotes.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>lote_id</td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>FK Lote vendido</td>
+        </tr>
+        <tr>
+          <td>data_venda</td>
+          <td>date</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Data da venda</td>
+        </tr>
+        <tr>
+          <td>comprador_pessoa_id</td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>FK Comprador</td>
+        </tr>
+        <tr>
+          <td>vendedor_pessoa_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Vendedor</td>
+        </tr>
+        <tr>
+          <td>corretor_pessoa_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Corretor</td>
+        </tr>
+        <tr>
+          <td>percentual_corretagem</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>% de corretagem</td>
+        </tr>
+        <tr>
+          <td>valor_venda</td>
+          <td>numeric</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Valor total da venda</td>
+        </tr>
+        <tr>
+          <td>valor_arras</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Valor do sinal/arras</td>
+        </tr>
+        <tr>
+          <td>indicador_atualizacao_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Indicador correção</td>
+        </tr>
+        <tr>
+          <td>conta_recebimento_vendedor_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Conta recebimento</td>
+        </tr>
+        <tr>
+          <td>status</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>'ATIVA'</td>
+          <td>Status da venda</td>
+        </tr>
+        <tr>
+          <td>observacoes</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Observações</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <h4>Status possíveis:</h4>
+    <ul>
+      <li><span class="badge badge-success">ATIVA</span> - Venda ativa</li>
+      <li><span class="badge badge-primary">QUITADA</span> - Totalmente paga</li>
+      <li><span class="badge badge-warning">INADIMPLENTE</span> - Com parcelas em atraso</li>
+      <li><span class="badge badge-danger">CANCELADA</span> - Venda cancelada</li>
+    </ul>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>lote_id</code> → <code>lotes.id</code><br>
+      <code>comprador_pessoa_id</code> → <code>pessoas.id</code><br>
+      <code>vendedor_pessoa_id</code> → <code>pessoas.id</code><br>
+      <code>corretor_pessoa_id</code> → <code>pessoas.id</code><br>
+      <code>indicador_atualizacao_id</code> → <code>indicadores_atualizacao.id</code><br>
+      <code>conta_recebimento_vendedor_id</code> → <code>contas_recebimento_vendedor.id</code>
+    </div>
+    
+    <p><strong>Trigger:</strong> <code>update_lote_on_venda</code> - Atualiza status do lote automaticamente</p>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 7: PARCELAMENTO -->
+  <section id="parcelamento" class="section">
+    <h2>7. Parcelamento e Controle de Pagamentos</h2>
+    
+    <h3>7.1 planos_pagamento</h3>
+    <p>Planos de pagamento vinculados às vendas.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>venda_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Venda</td>
+        </tr>
+        <tr>
+          <td>tipo</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Tipo do plano</td>
+        </tr>
+        <tr>
+          <td>descricao</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Descrição</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <h4>Tipos de plano:</h4>
+    <ul>
+      <li><span class="badge badge-primary">PARCELAMENTO</span> - Parcelas mensais</li>
+      <li><span class="badge badge-info">REFORCO</span> - Parcelas de reforço (semestrais, anuais)</li>
+    </ul>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>venda_id</code> → <code>vendas.id</code> (N:1)
+    </div>
+
+    <h3>7.2 parcelas</h3>
+    <p>Parcelas dos planos de pagamento.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>plano_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Plano de pagamento</td>
+        </tr>
+        <tr>
+          <td>numero</td>
+          <td>integer</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Número da parcela</td>
+        </tr>
+        <tr>
+          <td>vencimento</td>
+          <td>date</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Data de vencimento</td>
+        </tr>
+        <tr>
+          <td>valor_principal</td>
+          <td>numeric</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Valor original</td>
+        </tr>
+        <tr>
+          <td>valor_atualizado</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Valor corrigido</td>
+        </tr>
+        <tr>
+          <td>valor_pago</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Valor efetivamente pago</td>
+        </tr>
+        <tr>
+          <td>data_pagamento</td>
+          <td>date</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data do pagamento</td>
+        </tr>
+        <tr>
+          <td>status</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>'ABERTA'</td>
+          <td>Status da parcela</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <h4>Status possíveis:</h4>
+    <ul>
+      <li><span class="badge badge-info">ABERTA</span> - Aguardando pagamento</li>
+      <li><span class="badge badge-success">PAGA</span> - Quitada</li>
+      <li><span class="badge badge-danger">VENCIDA</span> - Vencida e não paga</li>
+      <li><span class="badge badge-warning">CANCELADA</span> - Cancelada</li>
+    </ul>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>plano_id</code> → <code>planos_pagamento.id</code> (N:1)
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 8: CONTA CORRENTE -->
+  <section id="conta-corrente" class="section">
+    <h2>8. Conta Corrente do Lote</h2>
+    
+    <h3>8.1 conta_corrente_lote</h3>
+    <p>Movimentação financeira por lote (histórico de operações).</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>lote_id</td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>FK Lote</td>
+        </tr>
+        <tr>
+          <td>venda_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Venda (opcional)</td>
+        </tr>
+        <tr>
+          <td>data_mov</td>
+          <td>date</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Data do movimento</td>
+        </tr>
+        <tr>
+          <td>tipo_mov</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Tipo do movimento</td>
+        </tr>
+        <tr>
+          <td>descricao</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Descrição</td>
+        </tr>
+        <tr>
+          <td>referencia</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Referência/competência</td>
+        </tr>
+        <tr>
+          <td>credito</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>0</td>
+          <td>Valor de crédito</td>
+        </tr>
+        <tr>
+          <td>debito</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>0</td>
+          <td>Valor de débito</td>
+        </tr>
+        <tr>
+          <td>saldo</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Saldo após movimento</td>
+        </tr>
+        <tr>
+          <td>vencimento</td>
+          <td>date</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de vencimento</td>
+        </tr>
+        <tr>
+          <td>percentual_calculo</td>
+          <td>numeric</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>% utilizado no cálculo</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <h4>Tipos de movimento:</h4>
+    <ul>
+      <li><span class="badge badge-primary">VENDA</span> - Registro da venda</li>
+      <li><span class="badge badge-success">PARCELA</span> - Recebimento de parcela</li>
+      <li><span class="badge badge-info">REFORCO</span> - Recebimento de reforço</li>
+      <li><span class="badge badge-warning">CORRECAO</span> - Correção monetária</li>
+      <li><span class="badge badge-danger">COMISSAO</span> - Pagamento de comissão</li>
+      <li><span class="badge badge-secondary" style="background: #666;">DESPESA</span> - Outras despesas</li>
+      <li><span class="badge badge-danger">ESTORNO</span> - Estorno de valor</li>
+    </ul>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>lote_id</code> → <code>lotes.id</code> (N:1)<br>
+      <code>venda_id</code> → <code>vendas.id</code> (N:1, opcional)
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 9: VIEWS -->
+  <section id="views" class="section">
+    <h2>9. Views (Resumos e Totalizações)</h2>
+    
+    <h3>9.1 vw_resumo_operacoes_lote</h3>
+    <p>Resumo das operações agrupadas por lote e competência.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>lote_id</td>
+          <td>uuid</td>
+          <td>ID do lote</td>
+        </tr>
+        <tr>
+          <td>quadra</td>
+          <td>text</td>
+          <td>Quadra</td>
+        </tr>
+        <tr>
+          <td>numero_lote</td>
+          <td>text</td>
+          <td>Número do lote</td>
+        </tr>
+        <tr>
+          <td>competencia</td>
+          <td>date</td>
+          <td>Mês/Ano de referência</td>
+        </tr>
+        <tr>
+          <td>total_creditos</td>
+          <td>numeric</td>
+          <td>Total de créditos</td>
+        </tr>
+        <tr>
+          <td>total_debitos</td>
+          <td>numeric</td>
+          <td>Total de débitos</td>
+        </tr>
+        <tr>
+          <td>saldo_periodo</td>
+          <td>numeric</td>
+          <td>Saldo do período</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>9.2 vw_totalizacao_mensal_por_lote</h3>
+    <p>Totalização mensal por lote.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>lote_id</td>
+          <td>uuid</td>
+          <td>ID do lote</td>
+        </tr>
+        <tr>
+          <td>quadra</td>
+          <td>text</td>
+          <td>Quadra</td>
+        </tr>
+        <tr>
+          <td>numero_lote</td>
+          <td>text</td>
+          <td>Número do lote</td>
+        </tr>
+        <tr>
+          <td>competencia</td>
+          <td>date</td>
+          <td>Mês/Ano de referência</td>
+        </tr>
+        <tr>
+          <td>total_creditos</td>
+          <td>numeric</td>
+          <td>Total de créditos</td>
+        </tr>
+        <tr>
+          <td>total_debitos</td>
+          <td>numeric</td>
+          <td>Total de débitos</td>
+        </tr>
+        <tr>
+          <td>saldo_final</td>
+          <td>numeric</td>
+          <td>Saldo final</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>9.3 vw_totalizacao_mensal_consolidada</h3>
+    <p>Totalização mensal consolidada (todos os lotes).</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>competencia</td>
+          <td>date</td>
+          <td>Mês/Ano de referência</td>
+        </tr>
+        <tr>
+          <td>total_creditos</td>
+          <td>numeric</td>
+          <td>Total de créditos</td>
+        </tr>
+        <tr>
+          <td>total_debitos</td>
+          <td>numeric</td>
+          <td>Total de débitos</td>
+        </tr>
+        <tr>
+          <td>saldo_final</td>
+          <td>numeric</td>
+          <td>Saldo final</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 10: CONTABILIDADE -->
+  <section id="contabilidade" class="section">
+    <h2>10. Módulo de Contabilidade</h2>
+    
+    <h3>10.1 contas_contabeis</h3>
+    <p>Plano de contas contábeis.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>codigo</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Código da conta</td>
+        </tr>
+        <tr>
+          <td>descricao</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Descrição da conta</td>
+        </tr>
+        <tr>
+          <td>ativo</td>
+          <td>boolean</td>
+          <td>Sim</td>
+          <td>true</td>
+          <td>Status ativo/inativo</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <p><strong>Exemplo:</strong> 1.1.01 - Caixa, 1.1.02 - Bancos, 3.1.01 - Receita de Vendas</p>
+
+    <h3>10.2 eventos_contabeis</h3>
+    <p>Eventos/lançamentos contábeis padrão.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>codigo</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Código do evento</td>
+        </tr>
+        <tr>
+          <td>descricao</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>Descrição do evento</td>
+        </tr>
+        <tr>
+          <td>ativo</td>
+          <td>boolean</td>
+          <td>Sim</td>
+          <td>true</td>
+          <td>Status ativo/inativo</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <p><strong>Exemplo:</strong> 001 - Venda de Lote, 002 - Recebimento de Parcela</p>
+
+    <h3>10.3 eventos_contabeis_itens</h3>
+    <p>Partidas (débito/crédito) de cada evento contábil.</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Coluna</th>
+          <th>Tipo</th>
+          <th>Nullable</th>
+          <th>Default</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>id</strong></td>
+          <td>uuid</td>
+          <td>Não</td>
+          <td>gen_random_uuid()</td>
+          <td>PK</td>
+        </tr>
+        <tr>
+          <td>evento_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Evento contábil</td>
+        </tr>
+        <tr>
+          <td>conta_contabil_id</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>FK Conta contábil</td>
+        </tr>
+        <tr>
+          <td>dc</td>
+          <td>text</td>
+          <td>Não</td>
+          <td>-</td>
+          <td>'D' (débito) ou 'C' (crédito)</td>
+        </tr>
+        <tr>
+          <td>historico_padrao</td>
+          <td>text</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Histórico padrão</td>
+        </tr>
+        <tr>
+          <td>created_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>now()</td>
+          <td>Data de criação</td>
+        </tr>
+        <tr>
+          <td>created_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que criou</td>
+        </tr>
+        <tr>
+          <td>updated_at</td>
+          <td>timestamptz</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Data de atualização</td>
+        </tr>
+        <tr>
+          <td>updated_by</td>
+          <td>uuid</td>
+          <td>Sim</td>
+          <td>-</td>
+          <td>Usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div class="relationship">
+      <strong>Relacionamentos:</strong><br>
+      <code>evento_id</code> → <code>eventos_contabeis.id</code> (N:1)<br>
+      <code>conta_contabil_id</code> → <code>contas_contabeis.id</code> (N:1)
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 11: FUNÇÕES -->
+  <section id="funcoes" class="section">
+    <h2>11. Funções do Banco de Dados</h2>
+    
+    <h3>11.1 has_role(user_id, role)</h3>
+    <p>Verifica se um usuário possui determinado papel.</p>
+    
+    <pre><code>has_role(_user_id uuid, _role app_role) RETURNS boolean</code></pre>
+    
+    <p><strong>Uso:</strong> Utilizada nas políticas RLS para controle de acesso.</p>
+
+    <h3>11.2 handle_new_user()</h3>
+    <p>Trigger executado ao criar novo usuário no auth.users.</p>
+    
+    <h4>Ações:</h4>
+    <ol>
+      <li>Cria registro na tabela <code>profiles</code></li>
+      <li>Atribui papel <span class="badge badge-danger">ADMIN</span> ao primeiro usuário</li>
+      <li>Atribui papel <span class="badge badge-info">CONSULTA</span> aos demais</li>
+    </ol>
+
+    <h3>11.3 update_lote_on_venda()</h3>
+    <p>Trigger executado em operações na tabela <code>vendas</code>.</p>
+    
+    <h4>Ações:</h4>
+    <ul>
+      <li><strong>INSERT:</strong> Altera status do lote para <code>VENDIDO</code></li>
+      <li><strong>UPDATE (status = CANCELADA):</strong> Altera status do lote para <code>DISPONIVEL</code></li>
+    </ul>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 12: RLS -->
+  <section id="rls" class="section">
+    <h2>12. Políticas de Segurança (RLS)</h2>
+    
+    <p>Todas as tabelas possuem Row Level Security (RLS) habilitado com as seguintes políticas padrão:</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Papel</th>
+          <th>Permissões</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-danger">ADMIN</span></td>
+          <td>Acesso total (CRUD) em todas as tabelas</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-warning">OPERADOR</span></td>
+          <td>Acesso CRUD nas tabelas operacionais</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-info">CONSULTA</span></td>
+          <td>Apenas visualização (SELECT)</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <hr>
+
+  <!-- SEÇÃO 13: AUDITORIA -->
+  <section id="auditoria" class="section">
+    <h2>13. Auditoria</h2>
+    
+    <p>Todas as tabelas possuem campos de auditoria:</p>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Campo</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>created_at</code></td>
+          <td>Timestamp de criação</td>
+        </tr>
+        <tr>
+          <td><code>created_by</code></td>
+          <td>UUID do usuário que criou</td>
+        </tr>
+        <tr>
+          <td><code>updated_at</code></td>
+          <td>Timestamp da última atualização</td>
+        </tr>
+        <tr>
+          <td><code>updated_by</code></td>
+          <td>UUID do usuário que atualizou</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="footer">
+    <p><strong>Documentação gerada em:</strong> Janeiro/2026</p>
+    <p>Sistema de Gestão de Lotes - Todos os direitos reservados</p>
+  </div>
+
+</body>
+</html>
