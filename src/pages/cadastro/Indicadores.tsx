@@ -573,7 +573,13 @@ export default function Indicadores() {
                                     />
                                   </div>
                                 ) : (
-                                  <span className={valor === null ? "text-muted-foreground" : ""}>
+                                  <span className={
+                                    valor === null 
+                                      ? "text-muted-foreground" 
+                                      : valor < 0 
+                                        ? "text-red-600 font-medium" 
+                                        : ""
+                                  }>
                                     {formatFator(valor)}
                                   </span>
                                 )}
@@ -587,11 +593,16 @@ export default function Indicadores() {
                         <TableCell className="sticky left-0 bg-muted/30 z-10">
                           MÉDIA
                         </TableCell>
-                        {months.map((month) => (
-                          <TableCell key={month.value} className="text-center">
-                            {formatFator(getMedia(month.value))}
-                          </TableCell>
-                        ))}
+                        {months.map((month) => {
+                          const media = getMedia(month.value);
+                          return (
+                            <TableCell key={month.value} className="text-center">
+                              <span className={media !== null && media < 0 ? "text-red-600 font-medium" : ""}>
+                                {formatFator(media)}
+                              </span>
+                            </TableCell>
+                          );
+                        })}
                       </TableRow>
                     </TableBody>
                   </Table>
