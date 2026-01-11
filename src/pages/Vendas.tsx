@@ -131,9 +131,11 @@ interface VendaFormData extends Partial<VendaInsert> {
   valor_parcelamento?: number;
   qtd_parcelas?: number;
   frequencia_parcelas_meses?: number;
+  primeiro_vencimento_parcela?: string;
   valor_reforco?: number;
   qtd_reforcos?: number;
   frequencia_reforcos_meses?: number;
+  primeiro_vencimento_reforco?: string;
 }
 
 const emptyVenda: VendaFormData = {
@@ -153,9 +155,11 @@ const emptyVenda: VendaFormData = {
   valor_parcelamento: undefined,
   qtd_parcelas: 1,
   frequencia_parcelas_meses: 1,
+  primeiro_vencimento_parcela: "",
   valor_reforco: undefined,
   qtd_reforcos: undefined,
   frequencia_reforcos_meses: undefined,
+  primeiro_vencimento_reforco: "",
 };
 
 export default function Vendas() {
@@ -374,9 +378,11 @@ export default function Vendas() {
       valor_parcelamento: venda.valor_parcelamento || undefined,
       qtd_parcelas: venda.qtd_parcelas || 1,
       frequencia_parcelas_meses: venda.frequencia_parcelas_meses || 1,
+      primeiro_vencimento_parcela: (venda as any).primeiro_vencimento_parcela || "",
       valor_reforco: venda.valor_reforco || undefined,
       qtd_reforcos: venda.qtd_reforcos || undefined,
       frequencia_reforcos_meses: venda.frequencia_reforcos_meses || undefined,
+      primeiro_vencimento_reforco: (venda as any).primeiro_vencimento_reforco || "",
     });
     setDialogOpen(true);
   };
@@ -423,9 +429,11 @@ export default function Vendas() {
       valor_parcelamento: formData.valor_parcelamento ? Number(formData.valor_parcelamento) : null,
       qtd_parcelas: formData.qtd_parcelas ? Number(formData.qtd_parcelas) : 1,
       frequencia_parcelas_meses: formData.frequencia_parcelas_meses ? Number(formData.frequencia_parcelas_meses) : 1,
+      primeiro_vencimento_parcela: formData.primeiro_vencimento_parcela || null,
       valor_reforco: formData.valor_reforco ? Number(formData.valor_reforco) : null,
       qtd_reforcos: formData.qtd_reforcos ? Number(formData.qtd_reforcos) : null,
       frequencia_reforcos_meses: formData.frequencia_reforcos_meses ? Number(formData.frequencia_reforcos_meses) : null,
+      primeiro_vencimento_reforco: formData.primeiro_vencimento_reforco || null,
     };
 
     if (editingVenda) {
@@ -610,7 +618,7 @@ export default function Vendas() {
                 {/* Parcelamento */}
                 <div className="border rounded-lg p-4 space-y-4">
                   <Label className="text-base font-semibold">Parcelamento</Label>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="valor_parcelamento">Valor Parcela</Label>
                       <Input
@@ -657,13 +665,27 @@ export default function Vendas() {
                         }
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="primeiro_vencimento_parcela">1º Vencimento</Label>
+                      <Input
+                        id="primeiro_vencimento_parcela"
+                        type="date"
+                        value={formData.primeiro_vencimento_parcela || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            primeiro_vencimento_parcela: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Reforços */}
                 <div className="border rounded-lg p-4 space-y-4">
                   <Label className="text-base font-semibold">Reforços (opcional)</Label>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="valor_reforco">Valor Reforço</Label>
                       <Input
@@ -706,6 +728,20 @@ export default function Vendas() {
                           setFormData({
                             ...formData,
                             frequencia_reforcos_meses: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="primeiro_vencimento_reforco">1º Vencimento</Label>
+                      <Input
+                        id="primeiro_vencimento_reforco"
+                        type="date"
+                        value={formData.primeiro_vencimento_reforco || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            primeiro_vencimento_reforco: e.target.value,
                           })
                         }
                       />

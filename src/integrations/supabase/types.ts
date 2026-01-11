@@ -810,6 +810,8 @@ export type Database = {
           lote_id: string
           observacoes: string | null
           percentual_corretagem: number | null
+          primeiro_vencimento_parcela: string | null
+          primeiro_vencimento_reforco: string | null
           qtd_parcelas: number | null
           qtd_reforcos: number | null
           status: string | null
@@ -843,6 +845,8 @@ export type Database = {
           lote_id: string
           observacoes?: string | null
           percentual_corretagem?: number | null
+          primeiro_vencimento_parcela?: string | null
+          primeiro_vencimento_reforco?: string | null
           qtd_parcelas?: number | null
           qtd_reforcos?: number | null
           status?: string | null
@@ -876,6 +880,8 @@ export type Database = {
           lote_id?: string
           observacoes?: string | null
           percentual_corretagem?: number | null
+          primeiro_vencimento_parcela?: string | null
+          primeiro_vencimento_reforco?: string | null
           qtd_parcelas?: number | null
           qtd_reforcos?: number | null
           status?: string | null
