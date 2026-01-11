@@ -16,6 +16,7 @@ import {
   LogOut,
   FileSearch,
   RefreshCw,
+  Shield,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -34,40 +35,62 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions, MenuKey } from "@/hooks/usePermissions";
 
-const mainItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Configurações", url: "/configuracoes", icon: Settings },
+interface MenuItem {
+  title: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+  menuKey: MenuKey;
+}
+
+const mainItems: MenuItem[] = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, menuKey: "dashboard" },
+  { title: "Configurações", url: "/configuracoes", icon: Settings, menuKey: "configuracoes" },
 ];
 
-const cadastroItems = [
-  { title: "Lotes (Estoque)", url: "/cadastro/lotes", icon: MapPin },
-  { title: "Indicadores de Atualização", url: "/cadastro/indicadores", icon: TrendingUp },
-  { title: "Pessoas (PF/PJ)", url: "/cadastro/pessoas", icon: Users },
+const cadastroItems: MenuItem[] = [
+  { title: "Lotes (Estoque)", url: "/cadastro/lotes", icon: MapPin, menuKey: "lotes" },
+  { title: "Indicadores de Atualização", url: "/cadastro/indicadores", icon: TrendingUp, menuKey: "indicadores" },
+  { title: "Pessoas (PF/PJ)", url: "/cadastro/pessoas", icon: Users, menuKey: "pessoas" },
 ];
 
-const contaCorrenteItems = [
-  { title: "Conta Corrente do Lote", url: "/contas-correntes/lote", icon: Wallet },
-  { title: "Consulta de Lote", url: "/contas-correntes/consulta", icon: FileSearch },
-  { title: "Atualização Monetária", url: "/contas-correntes/atualizacao", icon: TrendingUp },
-  { title: "Resumo das Operações", url: "/contas-correntes/resumo", icon: FileSpreadsheet },
-  { title: "Reorganização", url: "/contas-correntes/reorganizacao", icon: RefreshCw },
+const contaCorrenteItems: MenuItem[] = [
+  { title: "Conta Corrente do Lote", url: "/contas-correntes/lote", icon: Wallet, menuKey: "contaCorrenteLote" },
+  { title: "Consulta de Lote", url: "/contas-correntes/consulta", icon: FileSearch, menuKey: "consultaLote" },
+  { title: "Atualização Monetária", url: "/contas-correntes/atualizacao", icon: TrendingUp, menuKey: "atualizacaoMonetaria" },
+  { title: "Resumo das Operações", url: "/contas-correntes/resumo", icon: FileSpreadsheet, menuKey: "resumoOperacoes" },
+  { title: "Reorganização", url: "/contas-correntes/reorganizacao", icon: RefreshCw, menuKey: "reorganizacao" },
 ];
 
-const contabilidadeItems = [
-  { title: "Eventos Contábeis", url: "/contabilidade/eventos", icon: Calculator },
-  { title: "Contas Contábeis", url: "/contabilidade/contas", icon: FileSpreadsheet },
+const contabilidadeItems: MenuItem[] = [
+  { title: "Eventos Contábeis", url: "/contabilidade/eventos", icon: Calculator, menuKey: "eventosContabeis" },
+  { title: "Contas Contábeis", url: "/contabilidade/contas", icon: FileSpreadsheet, menuKey: "contasContabeis" },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
-  const { signOut, user, role } = useAuth();
+  const { signOut, user, role, isAdmin } = useAuth();
+  const { hasPermission } = usePermissions();
   const [cadastroOpen, setCadastroOpen] = useState(true);
   const [contaCorrenteOpen, setContaCorrenteOpen] = useState(true);
   const [contabilidadeOpen, setContabilidadeOpen] = useState(true);
 
   const isActive = (path: string) => location.pathname === path;
-  const isInGroup = (items: { url: string }[]) => items.some(item => isActive(item.url));
+  const isInGroup = (items: MenuItem[]) => items.some(item => isActive(item.url));
+
+  // Filtrar itens baseado nas permissões
+  const filterItems = (items: MenuItem[]) => items.filter(item => hasPermission(item.menuKey));
+
+  const filteredMainItems = filterItems(mainItems);
+  const filteredCadastroItems = filterItems(cadastroItems);
+  const filteredContaCorrenteItems = filterItems(contaCorrenteItems);
+  const filteredContabilidadeItems = filterItems(contabilidadeItems);
+
+  const hasVendas = hasPermission("vendas");
+  const hasImportacao = hasPermission("importacao");
+  const hasSobre = hasPermission("sobre");
+  const hasUsuarios = hasPermission("usuarios");
 
   return (
     <Sidebar className="border-r-0">
@@ -82,143 +105,167 @@ export function AppSidebar() {
 
       <SidebarContent className="px-2">
         {/* Main Items */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink to={item.url} end>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+        {filteredMainItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredMainItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <NavLink to={item.url} end>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Cadastro */}
+        {filteredCadastroItems.length > 0 && (
+          <SidebarGroup>
+            <Collapsible open={cadastroOpen || isInGroup(filteredCadastroItems)} onOpenChange={setCadastroOpen}>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md px-2 py-1.5 flex justify-between items-center">
+                  <span>Cadastro</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${cadastroOpen ? 'rotate-180' : ''}`} />
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenuSub>
+                    {filteredCadastroItems.map((item) => (
+                      <SidebarMenuSubItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
+                          <NavLink to={item.url}>
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {/* Vendas */}
+        {hasVendas && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/vendas")}>
+                    <NavLink to="/vendas">
+                      <ShoppingCart className="h-4 w-4" />
+                      <span>Vendas</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Cadastro */}
-        <SidebarGroup>
-          <Collapsible open={cadastroOpen || isInGroup(cadastroItems)} onOpenChange={setCadastroOpen}>
-            <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md px-2 py-1.5 flex justify-between items-center">
-                <span>Cadastro</span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${cadastroOpen ? 'rotate-180' : ''}`} />
-              </SidebarGroupLabel>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenuSub>
-                  {cadastroItems.map((item) => (
-                    <SidebarMenuSubItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
-                        <NavLink to={item.url}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </SidebarGroup>
-
-        {/* Vendas */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/vendas")}>
-                  <NavLink to="/vendas">
-                    <ShoppingCart className="h-4 w-4" />
-                    <span>Vendas</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Contas Correntes */}
-        <SidebarGroup>
-          <Collapsible open={contaCorrenteOpen || isInGroup(contaCorrenteItems)} onOpenChange={setContaCorrenteOpen}>
-            <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md px-2 py-1.5 flex justify-between items-center">
-                <span>Contas Correntes</span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${contaCorrenteOpen ? 'rotate-180' : ''}`} />
-              </SidebarGroupLabel>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenuSub>
-                  {contaCorrenteItems.map((item) => (
-                    <SidebarMenuSubItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
-                        <NavLink to={item.url}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </SidebarGroup>
+        {filteredContaCorrenteItems.length > 0 && (
+          <SidebarGroup>
+            <Collapsible open={contaCorrenteOpen || isInGroup(filteredContaCorrenteItems)} onOpenChange={setContaCorrenteOpen}>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md px-2 py-1.5 flex justify-between items-center">
+                  <span>Contas Correntes</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${contaCorrenteOpen ? 'rotate-180' : ''}`} />
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenuSub>
+                    {filteredContaCorrenteItems.map((item) => (
+                      <SidebarMenuSubItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
+                          <NavLink to={item.url}>
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
 
         {/* Contabilidade */}
-        <SidebarGroup>
-          <Collapsible open={contabilidadeOpen || isInGroup(contabilidadeItems)} onOpenChange={setContabilidadeOpen}>
-            <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md px-2 py-1.5 flex justify-between items-center">
-                <span>Contabilidade</span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${contabilidadeOpen ? 'rotate-180' : ''}`} />
-              </SidebarGroupLabel>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenuSub>
-                  {contabilidadeItems.map((item) => (
-                    <SidebarMenuSubItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
-                        <NavLink to={item.url}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </SidebarGroup>
+        {filteredContabilidadeItems.length > 0 && (
+          <SidebarGroup>
+            <Collapsible open={contabilidadeOpen || isInGroup(filteredContabilidadeItems)} onOpenChange={setContabilidadeOpen}>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md px-2 py-1.5 flex justify-between items-center">
+                  <span>Contabilidade</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${contabilidadeOpen ? 'rotate-180' : ''}`} />
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenuSub>
+                    {filteredContabilidadeItems.map((item) => (
+                      <SidebarMenuSubItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
+                          <NavLink to={item.url}>
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
 
-        {/* Import & Sobre */}
+        {/* Import, Sobre & Admin */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/importacao")}>
-                  <NavLink to="/importacao">
-                    <FileUp className="h-4 w-4" />
-                    <span>Importação (CSV)</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/sobre")}>
-                  <NavLink to="/sobre">
-                    <Info className="h-4 w-4" />
-                    <span>Sobre</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {hasImportacao && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/importacao")}>
+                    <NavLink to="/importacao">
+                      <FileUp className="h-4 w-4" />
+                      <span>Importação (CSV)</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {hasSobre && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/sobre")}>
+                    <NavLink to="/sobre">
+                      <Info className="h-4 w-4" />
+                      <span>Sobre</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/admin/usuarios")}>
+                    <NavLink to="/admin/usuarios">
+                      <Shield className="h-4 w-4" />
+                      <span>Usuários e Permissões</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
