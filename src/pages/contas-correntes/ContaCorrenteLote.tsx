@@ -288,6 +288,27 @@ export default function ContaCorrenteLote() {
     { creditos: 0, debitos: 0 }
   );
 
+  // Calculate running balance (sorted by date ascending for proper calculation)
+  const movimentacoesComSaldo = (() => {
+    if (!filteredMovimentacoes) return [];
+    
+    // Sort by date ascending to calculate running balance correctly
+    const sorted = [...filteredMovimentacoes].sort((a, b) => {
+      const dateCompare = new Date(a.data_mov).getTime() - new Date(b.data_mov).getTime();
+      if (dateCompare !== 0) return dateCompare;
+      return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+    });
+    
+    let saldoAcumulado = 0;
+    const withBalance = sorted.map((mov) => {
+      saldoAcumulado += (mov.debito || 0) - (mov.credito || 0);
+      return { ...mov, saldoAcumulado };
+    });
+    
+    // Reverse to show newest first (maintaining original display order)
+    return withBalance.reverse();
+  })();
+
   const formatCurrency = (value: number | null) => {
     if (!value) return "-";
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -638,11 +659,12 @@ export default function ContaCorrenteLote() {
                     <TableHead>REFERÊNCIA</TableHead>
                     <TableHead className="text-right">DÉBITO</TableHead>
                     <TableHead className="text-right">CRÉDITO</TableHead>
+                    <TableHead className="text-right">SALDO</TableHead>
                     {canEdit && <TableHead className="text-right">AÇÕES</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMovimentacoes.map((mov) => (
+                  {movimentacoesComSaldo.map((mov) => (
                     <TableRow key={mov.id}>
                       <TableCell>{formatDate(mov.data_mov)}</TableCell>
                       <TableCell className="font-medium">
@@ -662,6 +684,9 @@ export default function ContaCorrenteLote() {
                       </TableCell>
                       <TableCell className="text-right text-success">
                         {mov.credito ? formatCurrency(mov.credito) : "-"}
+                      </TableCell>
+                      <TableCell className={`text-right font-medium ${mov.saldoAcumulado > 0 ? 'text-destructive' : 'text-success'}`}>
+                        {formatCurrency(mov.saldoAcumulado)}
                       </TableCell>
                       {canEdit && (
                         <TableCell className="text-right">
