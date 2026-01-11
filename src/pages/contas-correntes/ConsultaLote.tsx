@@ -27,6 +27,7 @@ import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { formatDateBR } from "@/lib/date";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
@@ -509,8 +510,12 @@ export default function ConsultaLote() {
 
   const formatDate = (date: string | Date | null) => {
     if (!date) return "-";
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return format(d, "dd/MM/yyyy");
+    // Para strings (datas do banco), usar formatDateBR que trata timezone corretamente
+    if (typeof date === 'string') {
+      return formatDateBR(date);
+    }
+    // Para objetos Date (já parseados), usar format diretamente
+    return format(date, "dd/MM/yyyy");
   };
 
   const formatPercent = (value: number | null) => {
