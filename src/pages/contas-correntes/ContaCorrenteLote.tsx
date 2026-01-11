@@ -775,12 +775,15 @@ export default function ContaCorrenteLote() {
                   <Label htmlFor="percentual_calculo">Percentual de Cálculo (%)</Label>
                   <Input
                     id="percentual_calculo"
-                    type="number"
-                    step="0.0001"
-                    value={formData.percentual_calculo || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, percentual_calculo: e.target.value ? Number(e.target.value) : null })
-                    }
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.percentual_calculo ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(",", ".");
+                      if (val === "" || /^-?\d*\.?\d*$/.test(val)) {
+                        setFormData({ ...formData, percentual_calculo: val === "" ? null : (parseFloat(val) || val) as any });
+                      }
+                    }}
                     placeholder="Ex: 0.5"
                   />
                 </div>
