@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -384,249 +385,8 @@ export default function ContaCorrenteLote() {
       : tiposReforco.includes(t.value)
   );
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Conta Corrente do Lote - {tipoConta === "PARCELAMENTO" ? "Parcelamento" : "Reforços"}
-          </h1>
-          <p className="text-muted-foreground">Movimentação financeira por lote</p>
-        </div>
-        <div className="flex items-center gap-4">
-          {/* Seletor de Tipo de Conta */}
-          <Select value={tipoConta} onValueChange={(v) => setTipoConta(v as TipoConta)}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="PARCELAMENTO">Parcelamento</SelectItem>
-              <SelectItem value="REFORCO">Reforços</SelectItem>
-            </SelectContent>
-          </Select>
-        {canEdit && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setFormData(emptyMovimento)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Movimentação
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingMov ? "Editar Movimentação" : "Nova Movimentação"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Lote e Data */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="lote_id">Lote *</Label>
-                    <Select
-                      value={formData.lote_id || ""}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, lote_id: value, venda_id: null })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o lote" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {lotes?.map((lote) => (
-                          <SelectItem key={lote.id} value={lote.id}>
-                            Quadra {lote.quadra} - Lote {lote.numero_lote}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="data_mov">Data Movimento *</Label>
-                    <Input
-                      id="data_mov"
-                      type="date"
-                      value={formData.data_mov || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, data_mov: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* Tipo e Venda */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="tipo_mov">Tipo Movimento *</Label>
-                    <Select
-                      value={formData.tipo_mov || ""}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, tipo_mov: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tiposMovimentoFiltrados.map((tipo) => (
-                          <SelectItem key={tipo.value} value={tipo.value}>
-                            {tipo.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="venda_id">Venda Vinculada</Label>
-                    <Select
-                      value={formData.venda_id || "none"}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, venda_id: value === "none" ? null : value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a venda" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhuma</SelectItem>
-                        {vendasDoLote?.map((venda: any) => (
-                          <SelectItem key={venda.id} value={venda.id}>
-                            Venda {formatDate(venda.data_venda)} - Q{venda.lote?.quadra} L{venda.lote?.numero_lote}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Valor e Natureza (para ESTORNO/OUTROS) */}
-                {(() => {
-                  const natureza = getNaturezaMovimento(formData.tipo_mov || "");
-                  const labelValor = natureza === "debito" 
-                    ? "Débito (Faturado)" 
-                    : natureza === "credito" 
-                    ? "Crédito (Recebido)" 
-                    : formData.natureza_outros === "debito"
-                    ? "Débito (Faturado)"
-                    : formData.natureza_outros === "credito"
-                    ? "Crédito (Recebido)"
-                    : "Valor *";
-                  
-                  return (
-                    <div className="grid grid-cols-2 gap-4">
-                      {natureza === "pergunta" && (
-                        <div className="space-y-2">
-                          <Label>Natureza do Movimento *</Label>
-                          <Select
-                            value={formData.natureza_outros || ""}
-                            onValueChange={(value) =>
-                              setFormData({ ...formData, natureza_outros: value as "debito" | "credito" })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Débito ou Crédito?" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="debito">Débito (Faturado)</SelectItem>
-                              <SelectItem value="credito">Crédito (Recebido)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <div className={`space-y-2 ${natureza !== "pergunta" ? "col-span-2" : ""}`}>
-                        <Label htmlFor="valor">{labelValor}</Label>
-                        <Input
-                          id="valor"
-                          type="number"
-                          step="0.01"
-                          value={valorMovimento}
-                          onChange={(e) => setValorMovimento(e.target.value)}
-                          placeholder="Ex: 1000.00"
-                        />
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Vencimento e Referência */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="vencimento">Vencimento</Label>
-                    <Input
-                      id="vencimento"
-                      type="date"
-                      value={formData.vencimento || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, vencimento: e.target.value || null })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="referencia">Referência</Label>
-                    <Input
-                      id="referencia"
-                      value={formData.referencia || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, referencia: e.target.value })
-                      }
-                      placeholder="Ex: Parcela 1/12"
-                    />
-                  </div>
-                </div>
-
-                {/* Percentual */}
-                <div className="space-y-2">
-                  <Label htmlFor="percentual_calculo">Percentual de Cálculo</Label>
-                  <Input
-                    id="percentual_calculo"
-                    type="number"
-                    step="0.01"
-                    value={formData.percentual_calculo || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        percentual_calculo: e.target.value ? Number(e.target.value) : null,
-                      })
-                    }
-                    placeholder="Ex: 1.5"
-                  />
-                </div>
-
-                {/* Descrição */}
-                <div className="space-y-2">
-                  <Label htmlFor="descricao">Descrição</Label>
-                  <Textarea
-                    id="descricao"
-                    value={formData.descricao || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, descricao: e.target.value })
-                    }
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCloseDialog}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                  >
-                    {editingMov ? "Salvar" : "Cadastrar"}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-        </div>
-      </div>
-
+  const renderContent = () => (
+    <>
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -805,6 +565,234 @@ export default function ContaCorrenteLote() {
           )}
         </CardContent>
       </Card>
+    </>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Conta Corrente do Lote</h1>
+          <p className="text-muted-foreground">Movimentação financeira por lote</p>
+        </div>
+        {canEdit && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setFormData(emptyMovimento)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Movimentação
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingMov ? "Editar Movimentação" : "Nova Movimentação"}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Lote e Data */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="lote_id">Lote *</Label>
+                    <Select
+                      value={formData.lote_id || ""}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, lote_id: value, venda_id: null })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o lote" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {lotes?.map((lote) => (
+                          <SelectItem key={lote.id} value={lote.id}>
+                            Quadra {lote.quadra} - Lote {lote.numero_lote}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="data_mov">Data Movimento *</Label>
+                    <Input
+                      id="data_mov"
+                      type="date"
+                      value={formData.data_mov || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, data_mov: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Tipo e Venda */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tipo_mov">Tipo Movimento *</Label>
+                    <Select
+                      value={formData.tipo_mov || ""}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, tipo_mov: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tiposMovimentoFiltrados.map((tipo) => (
+                          <SelectItem key={tipo.value} value={tipo.value}>
+                            {tipo.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="venda_id">Venda (opcional)</Label>
+                    <Select
+                      value={formData.venda_id || "none"}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, venda_id: value === "none" ? null : value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a venda" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma</SelectItem>
+                        {vendasDoLote?.map((v: any) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {formatDateBR(v.data_venda)} - Q{v.lote?.quadra} L{v.lote?.numero_lote}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Valor e Natureza (para tipos pergunta) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="valor">Valor *</Label>
+                    <Input
+                      id="valor"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={valorMovimento}
+                      onChange={(e) => setValorMovimento(e.target.value)}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  {getNaturezaMovimento(formData.tipo_mov || "") === "pergunta" && (
+                    <div className="space-y-2">
+                      <Label>Natureza *</Label>
+                      <Select
+                        value={formData.natureza_outros || ""}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, natureza_outros: value as "debito" | "credito" })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Débito ou Crédito?" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="debito">Débito (a receber)</SelectItem>
+                          <SelectItem value="credito">Crédito (recebido)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+
+                {/* Referência e Vencimento */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="referencia">Referência</Label>
+                    <Input
+                      id="referencia"
+                      value={formData.referencia || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, referencia: e.target.value })
+                      }
+                      placeholder="Ex: Parcela 1 de 24"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vencimento">Vencimento</Label>
+                    <Input
+                      id="vencimento"
+                      type="date"
+                      value={formData.vencimento || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, vencimento: e.target.value || null })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Percentual de Cálculo */}
+                <div className="space-y-2">
+                  <Label htmlFor="percentual_calculo">Percentual de Cálculo (%)</Label>
+                  <Input
+                    id="percentual_calculo"
+                    type="number"
+                    step="0.0001"
+                    value={formData.percentual_calculo || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, percentual_calculo: e.target.value ? Number(e.target.value) : null })
+                    }
+                    placeholder="Ex: 0.5"
+                  />
+                </div>
+
+                {/* Descrição */}
+                <div className="space-y-2">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Textarea
+                    id="descricao"
+                    value={formData.descricao || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, descricao: e.target.value })
+                    }
+                    placeholder="Descrição do movimento"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCloseDialog}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    {editingMov ? "Salvar" : "Cadastrar"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Tabs para Parcelamento e Reforços */}
+      <Tabs value={tipoConta} onValueChange={(v) => setTipoConta(v as TipoConta)} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="PARCELAMENTO">Parcelamento</TabsTrigger>
+          <TabsTrigger value="REFORCO">Reforços</TabsTrigger>
+        </TabsList>
+        <TabsContent value="PARCELAMENTO" className="space-y-6 mt-6">
+          {renderContent()}
+        </TabsContent>
+        <TabsContent value="REFORCO" className="space-y-6 mt-6">
+          {renderContent()}
+        </TabsContent>
+      </Tabs>
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
