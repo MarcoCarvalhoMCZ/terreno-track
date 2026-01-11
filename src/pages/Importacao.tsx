@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { formatDateBR } from '@/lib/date';
 import type { Database } from '@/integrations/supabase/types';
 
 type Lote = Database['public']['Tables']['lotes']['Row'];
@@ -360,7 +361,7 @@ export default function Importacao() {
                   <SelectItem value="__none__">Nenhuma</SelectItem>
                   {vendas.map((venda) => (
                     <SelectItem key={venda.id} value={venda.id}>
-                      {new Date(venda.data_venda).toLocaleDateString('pt-BR')} - {formatCurrency(venda.valor_venda)} ({venda.status})
+                      {formatDateBR(venda.data_venda)} - {formatCurrency(venda.valor_venda)} ({venda.status})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -461,7 +462,7 @@ export default function Importacao() {
                     return (
                       <TableRow key={idx}>
                         <TableCell className="font-mono text-xs">{row.lineNumber}</TableCell>
-                        <TableCell>{new Date(row.data_mov).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell>{formatDateBR(row.data_mov)}</TableCell>
                         <TableCell>
                           <span className="text-xs px-2 py-1 rounded bg-muted">
                             {row.tipo_mov}

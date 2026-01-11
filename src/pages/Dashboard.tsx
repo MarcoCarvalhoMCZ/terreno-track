@@ -32,6 +32,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { format, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { parseDateOnly } from "@/lib/date";
 import { LoteamentoMap } from "@/components/LoteamentoMap";
 
 export default function Dashboard() {
@@ -134,7 +135,8 @@ export default function Dashboard() {
       // Recebido no mês atual
       const now = new Date();
       const mesAtual = data.filter((c) => {
-        const dataMov = new Date(c.data_mov);
+        const dataMov = parseDateOnly(c.data_mov);
+        if (!dataMov) return false;
         return (
           dataMov.getMonth() === now.getMonth() &&
           dataMov.getFullYear() === now.getFullYear()
@@ -488,7 +490,7 @@ export default function Dashboard() {
                 contratosRecentes.map((contrato, index) => (
                   <TableRow key={contrato.id}>
                     <TableCell className="font-medium">
-                      CT-{new Date(contrato.data_venda).getFullYear()}-
+                      CT-{(parseDateOnly(contrato.data_venda)?.getFullYear() ?? new Date(contrato.data_venda).getFullYear())}-
                       {String(index + 1).padStart(3, "0")}
                     </TableCell>
                     <TableCell>
