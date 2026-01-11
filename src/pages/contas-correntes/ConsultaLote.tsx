@@ -236,21 +236,34 @@ export default function ConsultaLote() {
         ? reforcoTotais.saldoReceber / qtdReforcosAPagar
         : 0;
 
-      // Find first PARCELA due date - do fluxo PARCELAMENTO
-      const primeiraParcelaVenc = movParcelamento.find(m => 
-        m.tipo_mov === "PARCELA" && m.vencimento && !isArrasSinal(m.referencia)
-      );
-      const primeiroVencimentoParcela = primeiraParcelaVenc?.vencimento 
-        ? new Date(primeiraParcelaVenc.vencimento) 
-        : null;
-
-      // Find first REFORCO due date - do fluxo REFORCO
-      const primeiroReforcoVenc = movReforco.find(m => 
-        m.tipo_mov === "REFORCO" && m.vencimento
-      );
-      const primeiroVencimentoReforco = primeiroReforcoVenc?.vencimento 
-        ? new Date(primeiroReforcoVenc.vencimento) 
-        : null;
+      // Get first due dates from venda (if configured) or from movements
+      let primeiroVencimentoParcela: Date | null = null;
+      let primeiroVencimentoReforco: Date | null = null;
+      
+      // Primeiro tenta usar os vencimentos cadastrados na venda
+      if ((venda as any)?.primeiro_vencimento_parcela) {
+        primeiroVencimentoParcela = new Date((venda as any).primeiro_vencimento_parcela);
+      } else {
+        // Fallback: busca do primeiro movimento
+        const primeiraParcelaVenc = movParcelamento.find(m => 
+          m.tipo_mov === "PARCELA" && m.vencimento && !isArrasSinal(m.referencia)
+        );
+        primeiroVencimentoParcela = primeiraParcelaVenc?.vencimento 
+          ? new Date(primeiraParcelaVenc.vencimento) 
+          : null;
+      }
+      
+      if ((venda as any)?.primeiro_vencimento_reforco) {
+        primeiroVencimentoReforco = new Date((venda as any).primeiro_vencimento_reforco);
+      } else {
+        // Fallback: busca do primeiro movimento
+        const primeiroReforcoVenc = movReforco.find(m => 
+          m.tipo_mov === "REFORCO" && m.vencimento
+        );
+        primeiroVencimentoReforco = primeiroReforcoVenc?.vencimento 
+          ? new Date(primeiroReforcoVenc.vencimento) 
+          : null;
+      }
 
       // Calculate next due dates
       let vencimentoProximaParcela: Date | null = null;
