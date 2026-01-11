@@ -26,7 +26,7 @@ import { format, addMonths } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
-import { generatePixPayload, generateTxId } from "@/lib/pix";
+import { generatePixPayload, generateTxId, TipoFluxoTxId } from "@/lib/pix";
 
 type TipoConta = "PARCELAMENTO" | "REFORCO";
 
@@ -324,10 +324,17 @@ export default function ConsultaLote() {
     }
 
     try {
+      // Determinar ano de competência a partir do vencimento
+      const anoCompetencia = resumo.vencimentoProximaParcela 
+        ? new Date(resumo.vencimentoProximaParcela).getFullYear() 
+        : new Date().getFullYear();
+      
       const txid = generateTxId(
         selectedLote.quadra, 
         selectedLote.numero_lote, 
-        resumo.qtdParcelasPagas + 1
+        resumo.qtdParcelasPagas + 1,
+        'PARCELAMENTO' as TipoFluxoTxId,
+        anoCompetencia
       );
       
       return generatePixPayload({
