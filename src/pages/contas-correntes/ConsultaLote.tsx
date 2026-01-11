@@ -21,8 +21,12 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { FileDown, Search, QrCode } from "lucide-react";
+import { FileDown, Search, QrCode, CalendarIcon, X } from "lucide-react";
 import { format, addMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
@@ -63,6 +67,9 @@ interface ResumoLote {
 export default function ConsultaLote() {
   const [selectedLoteId, setSelectedLoteId] = useState<string>("");
   const [tipoConta, setTipoConta] = useState<TipoConta>("PARCELAMENTO");
+  const [dataInicial, setDataInicial] = useState<Date | undefined>(undefined);
+  const [dataFinal, setDataFinal] = useState<Date | undefined>(undefined);
+  const [filtroAtivo, setFiltroAtivo] = useState(false);
 
   // Fetch lotes
   const { data: lotes } = useQuery({
@@ -100,38 +107,74 @@ export default function ConsultaLote() {
     enabled: !!selectedLoteId,
   });
 
-  // Fetch últimos 12 movimentos de PARCELAMENTO (do mais antigo ao mais recente)
+  // Converter datas para formato ISO para query
+  const dataInicialISO = dataInicial ? format(dataInicial, "yyyy-MM-dd") : null;
+  const dataFinalISO = dataFinal ? format(dataFinal, "yyyy-MM-dd") : null;
+
+  // Fetch movimentos de PARCELAMENTO (do mais antigo ao mais recente)
   const { data: movimentosParcelamento } = useQuery({
-    queryKey: ["movimentos-parcelamento-lote", selectedLoteId],
+    queryKey: ["movimentos-parcelamento-lote", selectedLoteId, filtroAtivo, dataInicialISO, dataFinalISO],
     queryFn: async () => {
       if (!selectedLoteId) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from("conta_corrente_lote")
         .select("*")
         .eq("lote_id", selectedLoteId)
-        .eq("tipo_fluxo", "PARCELAMENTO")
+        .eq("tipo_fluxo", "PARCELAMENTO");
+      
+      // Aplicar filtros de data se ativos
+      if (filtroAtivo && dataInicialISO) {
+        query = query.gte("data_mov", dataInicialISO);
+      }
+      if (filtroAtivo && dataFinalISO) {
+        query = query.lte("data_mov", dataFinalISO);
+      }
+      
+      query = query
         .order("data_mov", { ascending: true })
-        .order("created_at", { ascending: true })
-        .limit(12);
+        .order("created_at", { ascending: true });
+      
+      // Limitar a 12 apenas se não houver filtro
+      if (!filtroAtivo) {
+        query = query.limit(12);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
     enabled: !!selectedLoteId,
   });
 
-  // Fetch últimos 12 movimentos de REFORÇO (do mais antigo ao mais recente)
+  // Fetch movimentos de REFORÇO (do mais antigo ao mais recente)
   const { data: movimentosReforco } = useQuery({
-    queryKey: ["movimentos-reforco-lote", selectedLoteId],
+    queryKey: ["movimentos-reforco-lote", selectedLoteId, filtroAtivo, dataInicialISO, dataFinalISO],
     queryFn: async () => {
       if (!selectedLoteId) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from("conta_corrente_lote")
         .select("*")
         .eq("lote_id", selectedLoteId)
-        .eq("tipo_fluxo", "REFORCO")
+        .eq("tipo_fluxo", "REFORCO");
+      
+      // Aplicar filtros de data se ativos
+      if (filtroAtivo && dataInicialISO) {
+        query = query.gte("data_mov", dataInicialISO);
+      }
+      if (filtroAtivo && dataFinalISO) {
+        query = query.lte("data_mov", dataFinalISO);
+      }
+      
+      query = query
         .order("data_mov", { ascending: true })
-        .order("created_at", { ascending: true })
-        .limit(12);
+        .order("created_at", { ascending: true });
+      
+      // Limitar a 12 apenas se não houver filtro
+      if (!filtroAtivo) {
+        query = query.limit(12);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -725,6 +768,101 @@ export default function ConsultaLote() {
               </Button>
             )}
           </div>
+
+          {/* Filtro por período */}
+          {selectedLoteId && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="space-y-2">
+                  <Label>Data Inicial</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[180px] justify-start text-left font-normal",
+                          !dataInicial && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dataInicial ? format(dataInicial, "dd/MM/yyyy") : "Selecione"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dataInicial}
+                        onSelect={setDataInicial}
+                        locale={ptBR}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Data Final</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[180px] justify-start text-left font-normal",
+                          !dataFinal && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dataFinal ? format(dataFinal, "dd/MM/yyyy") : "Selecione"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dataFinal}
+                        onSelect={setDataFinal}
+                        locale={ptBR}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    setFiltroAtivo(true);
+                  }}
+                  disabled={!dataInicial && !dataFinal}
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Filtrar
+                </Button>
+
+                {filtroAtivo && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setDataInicial(undefined);
+                      setDataFinal(undefined);
+                      setFiltroAtivo(false);
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Limpar Filtro
+                  </Button>
+                )}
+              </div>
+
+              {filtroAtivo && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Exibindo movimentos {dataInicial ? `a partir de ${format(dataInicial, "dd/MM/yyyy")}` : ""}{" "}
+                  {dataInicial && dataFinal ? "até" : ""}{" "}
+                  {dataFinal ? format(dataFinal, "dd/MM/yyyy") : ""}
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -772,7 +910,11 @@ export default function ConsultaLote() {
               <TabsContent value="PARCELAMENTO" className="space-y-4 mt-4">
                 {/* Tabela de Movimentos - PARCELAMENTO */}
                 <div>
-                  <h3 className="font-semibold text-lg mb-3">Últimos 12 movimentos (PARCELAMENTO):</h3>
+                  <h3 className="font-semibold text-lg mb-3">
+                    {filtroAtivo 
+                      ? `Movimentos do período (PARCELAMENTO) - ${movimentosParcelamento?.length || 0} registro(s)`
+                      : "Últimos 12 movimentos (PARCELAMENTO):"}
+                  </h3>
                   <div className="rounded-md border">
                     <Table>
                       <TableHeader>
@@ -817,7 +959,11 @@ export default function ConsultaLote() {
               <TabsContent value="REFORCO" className="space-y-4 mt-4">
                 {/* Tabela de Movimentos - REFORÇOS */}
                 <div>
-                  <h3 className="font-semibold text-lg mb-3">Últimos 12 movimentos (REFORÇOS):</h3>
+                  <h3 className="font-semibold text-lg mb-3">
+                    {filtroAtivo 
+                      ? `Movimentos do período (REFORÇOS) - ${movimentosReforco?.length || 0} registro(s)`
+                      : "Últimos 12 movimentos (REFORÇOS):"}
+                  </h3>
                   <div className="rounded-md border">
                     <Table>
                       <TableHeader>
