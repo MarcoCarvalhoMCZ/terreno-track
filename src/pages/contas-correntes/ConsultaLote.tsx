@@ -176,9 +176,12 @@ export default function ConsultaLote() {
       const qtdReforcosAPagar = Math.max(0, qtdReforcosContratados - qtdReforcosPagos);
 
       // Calculate next installment value
-      const totalAPagar = qtdParcelasAPagar + qtdReforcosAPagar;
-      const valorProximaParcela = qtdParcelasAPagar > 0 ? saldoReceber / totalAPagar : 0;
-      const valorProximoReforco = qtdReforcosAPagar > 0 ? saldoReceber / totalAPagar : 0;
+      // Parcela: saldo / qtd parcelas restantes
+      const valorProximaParcela = qtdParcelasAPagar > 0 ? saldoReceber / qtdParcelasAPagar : 0;
+      // Reforço: usa o valor original contratado (se disponível) ou divide igualmente
+      const valorProximoReforco = qtdReforcosAPagar > 0 
+        ? (venda?.valor_reforco || (saldoReceber / qtdReforcosAPagar))
+        : 0;
 
       // Find first PARCELA due date
       const primeiraParcelaVenc = allMovimentos.find(m => 
