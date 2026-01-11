@@ -100,7 +100,7 @@ export default function ConsultaLote() {
     enabled: !!selectedLoteId,
   });
 
-  // Fetch últimos 12 movimentos de PARCELAMENTO (mais recentes primeiro)
+  // Fetch últimos 12 movimentos de PARCELAMENTO (do mais antigo ao mais recente)
   const { data: movimentosParcelamento } = useQuery({
     queryKey: ["movimentos-parcelamento-lote", selectedLoteId],
     queryFn: async () => {
@@ -110,8 +110,8 @@ export default function ConsultaLote() {
         .select("*")
         .eq("lote_id", selectedLoteId)
         .eq("tipo_fluxo", "PARCELAMENTO")
-        .order("data_mov", { ascending: false })
-        .order("created_at", { ascending: false })
+        .order("data_mov", { ascending: true })
+        .order("created_at", { ascending: true })
         .limit(12);
       if (error) throw error;
       return data;
@@ -119,7 +119,7 @@ export default function ConsultaLote() {
     enabled: !!selectedLoteId,
   });
 
-  // Fetch últimos 12 movimentos de REFORÇO (mais recentes primeiro)
+  // Fetch últimos 12 movimentos de REFORÇO (do mais antigo ao mais recente)
   const { data: movimentosReforco } = useQuery({
     queryKey: ["movimentos-reforco-lote", selectedLoteId],
     queryFn: async () => {
@@ -129,8 +129,8 @@ export default function ConsultaLote() {
         .select("*")
         .eq("lote_id", selectedLoteId)
         .eq("tipo_fluxo", "REFORCO")
-        .order("data_mov", { ascending: false })
-        .order("created_at", { ascending: false })
+        .order("data_mov", { ascending: true })
+        .order("created_at", { ascending: true })
         .limit(12);
       if (error) throw error;
       return data;
