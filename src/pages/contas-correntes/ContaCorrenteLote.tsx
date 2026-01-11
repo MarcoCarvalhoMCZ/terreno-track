@@ -265,14 +265,17 @@ export default function ContaCorrenteLote() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.lote_id || !formData.data_mov || !formData.tipo_mov) {
-      toast.error("Preencha os campos obrigatórios");
-      return;
-    }
-
+    // Validação com mensagens específicas
+    const camposFaltando: string[] = [];
+    if (!formData.lote_id) camposFaltando.push("Lote");
+    if (!formData.data_mov) camposFaltando.push("Data Movimento");
+    if (!formData.tipo_mov) camposFaltando.push("Tipo Movimento");
+    
     const valor = parseFloat(valorMovimento);
-    if (!valor || valor <= 0) {
-      toast.error("Informe um valor válido para o movimento");
+    if (!valor || valor <= 0) camposFaltando.push("Valor");
+
+    if (camposFaltando.length > 0) {
+      toast.error(`Campos obrigatórios não preenchidos: ${camposFaltando.join(", ")}`);
       return;
     }
 
@@ -599,7 +602,7 @@ export default function ContaCorrenteLote() {
                 {/* Lote e Data */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="lote_id">Lote *</Label>
+                    <Label htmlFor="lote_id">Lote <span className="text-destructive">*</span></Label>
                     <Select
                       value={formData.lote_id || ""}
                       onValueChange={(value) =>
@@ -619,7 +622,7 @@ export default function ContaCorrenteLote() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="data_mov">Data Movimento *</Label>
+                    <Label htmlFor="data_mov">Data Movimento <span className="text-destructive">*</span></Label>
                     <Input
                       id="data_mov"
                       type="date"
@@ -634,7 +637,7 @@ export default function ContaCorrenteLote() {
                 {/* Tipo e Venda */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="tipo_mov">Tipo Movimento *</Label>
+                    <Label htmlFor="tipo_mov">Tipo Movimento <span className="text-destructive">*</span></Label>
                     <Select
                       value={formData.tipo_mov || ""}
                       onValueChange={(value) =>
@@ -679,7 +682,7 @@ export default function ContaCorrenteLote() {
                 {/* Valor e Natureza (para tipos pergunta) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="valor">Valor *</Label>
+                    <Label htmlFor="valor">Valor <span className="text-destructive">*</span></Label>
                     <Input
                       id="valor"
                       type="number"
@@ -692,7 +695,7 @@ export default function ContaCorrenteLote() {
                   </div>
                   {getNaturezaMovimento(formData.tipo_mov || "") === "pergunta" && (
                     <div className="space-y-2">
-                      <Label>Natureza *</Label>
+                      <Label>Natureza <span className="text-destructive">*</span></Label>
                       <Select
                         value={formData.natureza_outros || ""}
                         onValueChange={(value) =>
