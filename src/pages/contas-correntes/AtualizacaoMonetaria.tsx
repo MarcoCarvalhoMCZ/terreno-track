@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, RefreshCw, TrendingUp, AlertTriangle } from "lucide-react";
+import { Calculator, RefreshCw, TrendingUp, AlertTriangle, CalendarCheck, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -211,6 +212,21 @@ export default function AtualizacaoMonetaria() {
     return format(date, "MMMM/yyyy", { locale: ptBR });
   };
 
+  // Calcula a data de registro (primeiro dia do mês seguinte à competência)
+  const getDataRegistro = () => {
+    if (!competencia || !competencia.includes("-")) return null;
+    const [year, month] = competencia.split("-").map(Number);
+    if (isNaN(year) || isNaN(month)) return null;
+    // Primeiro dia do mês seguinte
+    const dataRegistro = new Date(year, month, 1); // month já é 0-indexed, então month = próximo mês
+    return dataRegistro;
+  };
+
+  const dataRegistro = getDataRegistro();
+  const dataRegistroFormatada = dataRegistro 
+    ? format(dataRegistro, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+    : null;
+
   const handleSimular = () => {
     simulacaoMutation.mutate();
   };
@@ -299,6 +315,16 @@ export default function AtualizacaoMonetaria() {
             <CardDescription>
               {simulacaoResults.length} lote(s) elegível(is) para atualização
             </CardDescription>
+            {dataRegistroFormatada && (
+              <Alert className="mt-4 border-primary/50 bg-primary/5">
+                <CalendarCheck className="h-4 w-4" />
+                <AlertDescription className="ml-2">
+                  <strong>Data de registro:</strong> Os lançamentos serão registrados em{" "}
+                  <span className="font-semibold text-primary">{dataRegistroFormatada}</span>{" "}
+                  (primeiro dia do mês seguinte à competência).
+                </AlertDescription>
+              </Alert>
+            )}
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -453,13 +479,26 @@ export default function AtualizacaoMonetaria() {
               <AlertTriangle className="h-5 w-5 text-warning" />
               Confirmar Atualização Monetária
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              Você está prestes a executar a atualização monetária para{" "}
-              <strong>{simulacaoResults.length} lote(s)</strong> na competência de{" "}
-              <strong>{formatCompetencia(competencia)}</strong>.
-              <br /><br />
-              Esta ação irá gerar lançamentos na conta corrente de cada lote.
-              Deseja continuar?
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Você está prestes a executar a atualização monetária para{" "}
+                  <strong>{simulacaoResults.length} lote(s)</strong> na competência de{" "}
+                  <strong>{formatCompetencia(competencia)}</strong>.
+                </p>
+                {dataRegistroFormatada && (
+                  <div className="flex items-start gap-2 p-3 rounded-md bg-muted/50 border">
+                    <Info className="h-4 w-4 mt-0.5 text-primary" />
+                    <p className="text-sm">
+                      <strong>Data de registro:</strong> {dataRegistroFormatada}
+                    </p>
+                  </div>
+                )}
+                <p>
+                  Esta ação irá gerar lançamentos na conta corrente de cada lote.
+                  Deseja continuar?
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
