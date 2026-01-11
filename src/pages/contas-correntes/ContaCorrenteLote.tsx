@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -104,6 +105,7 @@ type TipoConta = "PARCELAMENTO" | "REFORCO";
 export default function ContaCorrenteLote() {
   const { canEdit } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [movToDelete, setMovToDelete] = useState<ContaCorrenteComRelacionamentos | null>(null);
@@ -114,6 +116,17 @@ export default function ContaCorrenteLote() {
   const [filterTipo, setFilterTipo] = useState<string>("TODOS");
   const [valorMovimento, setValorMovimento] = useState<string>("");
   const [tipoConta, setTipoConta] = useState<TipoConta>("PARCELAMENTO");
+
+  // Ler loteId da URL query param
+  useEffect(() => {
+    const loteIdFromUrl = searchParams.get("loteId");
+    if (loteIdFromUrl) {
+      setFilterLote(loteIdFromUrl);
+      // Limpar o parâmetro da URL após aplicar o filtro
+      searchParams.delete("loteId");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Fetch movimentações
   const { data: movimentacoes, isLoading } = useQuery({

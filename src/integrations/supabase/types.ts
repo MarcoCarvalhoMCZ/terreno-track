@@ -723,6 +723,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          is_approved: boolean | null
           nome: string
           updated_at: string | null
         }
@@ -730,6 +731,7 @@ export type Database = {
           created_at?: string | null
           id: string
           is_active?: boolean | null
+          is_approved?: boolean | null
           nome: string
           updated_at?: string | null
         }
@@ -737,8 +739,33 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_approved?: boolean | null
           nome?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_menu_permissions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          menu_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          menu_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          menu_key?: string
+          user_id?: string
         }
         Relationships: []
       }

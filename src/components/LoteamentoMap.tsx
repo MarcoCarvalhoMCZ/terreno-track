@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface Lote {
   id: string;
@@ -9,9 +10,20 @@ interface Lote {
 
 interface LoteamentoMapProps {
   lotes: Lote[];
+  onLoteClick?: (loteId: string) => void;
 }
 
-export function LoteamentoMap({ lotes }: LoteamentoMapProps) {
+export function LoteamentoMap({ lotes, onLoteClick }: LoteamentoMapProps) {
+  const navigate = useNavigate();
+
+  const handleLoteClick = (lote: Lote) => {
+    if (onLoteClick) {
+      onLoteClick(lote.id);
+    } else {
+      // Navegar para conta corrente do lote com ID do lote
+      navigate(`/contas-correntes/lote?loteId=${lote.id}`);
+    }
+  };
   // Agrupar lotes por quadra
   const lotesPorQuadra = lotes.reduce((acc, lote) => {
     const quadra = lote.quadra;
@@ -111,16 +123,17 @@ export function LoteamentoMap({ lotes }: LoteamentoMapProps) {
                 {/* Lotes da Quadra */}
                 <div className="flex gap-1 flex-wrap">
                   {lotesQuadra.map((lote) => (
-                    <div
+                    <button
                       key={lote.id}
+                      onClick={() => handleLoteClick(lote)}
                       className={cn(
-                        "w-14 h-10 flex flex-col items-center justify-center rounded text-xs font-medium transition-transform hover:scale-105 cursor-default",
+                        "w-14 h-10 flex flex-col items-center justify-center rounded text-xs font-medium transition-all hover:scale-110 hover:shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
                         getStatusColor(lote.status)
                       )}
-                      title={`${quadra}-${lote.numero_lote}: ${getStatusLabel(lote.status)}`}
+                      title={`Clique para ver Q${quadra}-L${lote.numero_lote}: ${getStatusLabel(lote.status)}`}
                     >
                       <span className="font-bold">{lote.numero_lote}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
