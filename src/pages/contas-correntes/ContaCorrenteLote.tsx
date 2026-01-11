@@ -80,7 +80,7 @@ const getNaturezaMovimento = (tipoMov: string): NaturezaMovimento => {
   return tipo?.natureza || "pergunta";
 };
 
-const emptyMovimento: Partial<ContaCorrenteInsert> & { natureza_outros?: "debito" | "credito" } = {
+const emptyMovimento: Partial<ContaCorrenteInsert> & { natureza_outros?: "debito" | "credito"; tipo_fluxo_form?: TipoConta } = {
   lote_id: "",
   data_mov: new Date().toISOString().split("T")[0],
   tipo_mov: "PARCELA",
@@ -92,6 +92,7 @@ const emptyMovimento: Partial<ContaCorrenteInsert> & { natureza_outros?: "debito
   percentual_calculo: null,
   venda_id: null,
   natureza_outros: undefined,
+  tipo_fluxo_form: "PARCELAMENTO",
 };
 
 // Tipos que se aplicam a cada conta
@@ -107,7 +108,7 @@ export default function ContaCorrenteLote() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [movToDelete, setMovToDelete] = useState<ContaCorrenteComRelacionamentos | null>(null);
   const [editingMov, setEditingMov] = useState<ContaCorrenteComRelacionamentos | null>(null);
-  const [formData, setFormData] = useState<Partial<ContaCorrenteInsert> & { natureza_outros?: "debito" | "credito" }>(emptyMovimento);
+  const [formData, setFormData] = useState<Partial<ContaCorrenteInsert> & { natureza_outros?: "debito" | "credito"; tipo_fluxo_form?: TipoConta }>(emptyMovimento);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLote, setFilterLote] = useState<string>("TODOS");
   const [filterTipo, setFilterTipo] = useState<string>("TODOS");
@@ -225,7 +226,7 @@ export default function ContaCorrenteLote() {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingMov(null);
-    setFormData(emptyMovimento);
+    setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta });
     setValorMovimento("");
   };
 
@@ -235,6 +236,8 @@ export default function ContaCorrenteLote() {
     const valor = mov.debito || mov.credito || 0;
     const natureza = mov.debito ? "debito" : "credito";
     setValorMovimento(valor.toString());
+    // Recuperar o tipo_fluxo do movimento
+    const movTipoFluxo = (mov as any).tipo_fluxo as TipoConta || tipoConta;
     setFormData({
       lote_id: mov.lote_id,
       data_mov: mov.data_mov,
@@ -247,6 +250,7 @@ export default function ContaCorrenteLote() {
       percentual_calculo: mov.percentual_calculo,
       venda_id: mov.venda_id,
       natureza_outros: getNaturezaMovimento(mov.tipo_mov) === "pergunta" ? natureza : undefined,
+      tipo_fluxo_form: movTipoFluxo,
     });
     setDialogOpen(true);
   };
@@ -293,12 +297,12 @@ export default function ContaCorrenteLote() {
       naturezaFinal = naturezaDoTipo;
     }
 
-    // Preparar dados - remover natureza_outros que não existe no banco
-    const { natureza_outros, ...formDataSemNatureza } = formData;
+    // Preparar dados - remover campos que não existem no banco
+    const { natureza_outros, tipo_fluxo_form, ...formDataSemExtras } = formData;
     
     const dataToSave = {
-      ...formDataSemNatureza,
-      tipo_fluxo: tipoConta, // Novo campo para separação PARCELAMENTO/REFORCO
+      ...formDataSemExtras,
+      tipo_fluxo: tipo_fluxo_form || tipoConta, // Usar o tipo_fluxo do formulário
       debito: naturezaFinal === "debito" ? valor : null,
       credito: naturezaFinal === "credito" ? valor : null,
       percentual_calculo: formData.percentual_calculo ? Number(formData.percentual_calculo) : null,
@@ -387,9 +391,9 @@ export default function ContaCorrenteLote() {
   // Get vendas for selected lote
   const vendasDoLote = vendas?.filter((v) => v.lote_id === formData.lote_id);
 
-  // Get tipos de movimento baseado no tipo de conta selecionado
+  // Get tipos de movimento baseado no tipo de conta selecionado NO FORMULÁRIO
   const tiposMovimentoFiltrados = tiposMovimento.filter(t => 
-    tipoConta === "PARCELAMENTO" 
+    formData.tipo_fluxo_form === "PARCELAMENTO" 
       ? tiposParcelamento.includes(t.value)
       : tiposReforco.includes(t.value)
   );
@@ -587,7 +591,7 @@ export default function ContaCorrenteLote() {
         {canEdit && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setFormData(emptyMovimento)}>
+              <Button onClick={() => setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta })}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Movimentação
               </Button>
@@ -599,6 +603,32 @@ export default function ContaCorrenteLote() {
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Tipo de Conta (Parcelamento/Reforço) */}
+                <div className="space-y-2">
+                  <Label htmlFor="tipo_fluxo_form">Tipo de Conta <span className="text-destructive">*</span></Label>
+                  <Select
+                    value={formData.tipo_fluxo_form || "PARCELAMENTO"}
+                    onValueChange={(value) =>
+                      setFormData({ 
+                        ...formData, 
+                        tipo_fluxo_form: value as TipoConta,
+                        // Resetar tipo_mov se não for compatível com o novo tipo de conta
+                        tipo_mov: value === "PARCELAMENTO" 
+                          ? (tiposParcelamento.includes(formData.tipo_mov || "") ? formData.tipo_mov : "PARCELA")
+                          : (tiposReforco.includes(formData.tipo_mov || "") ? formData.tipo_mov : "REFORCO")
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo de conta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PARCELAMENTO">Parcelamento</SelectItem>
+                      <SelectItem value="REFORCO">Reforço</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Lote e Data */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
