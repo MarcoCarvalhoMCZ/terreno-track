@@ -57,24 +57,32 @@ interface ContaCorrenteComRelacionamentos extends ContaCorrente {
   venda?: Venda;
 }
 
+// Tipos de movimento conforme constraint do banco: VENDA, ARRAS, PARCELA, REFORCO, JUROS, MULTA, ATUALIZACAO, DESCONTO, ESTORNO, OUTROS
+// Convenção: débito = valores faturados, crédito = valores recebidos
 const tiposMovimento = [
-  { value: "VENDA", label: "Venda do Lote" },
-  { value: "ENTRADA_PARCELA", label: "Entrada de Parcela" },
-  { value: "PAGAMENTO_PARCELA", label: "Pagamento de Parcela" },
-  { value: "SINAL", label: "Sinal / Arras" },
-  { value: "REFORCO", label: "Reforço" },
-  { value: "ATUALIZACAO", label: "Atualização Monetária" },
-  { value: "JUROS", label: "Juros" },
-  { value: "MULTA", label: "Multa" },
-  { value: "DESCONTO", label: "Desconto" },
-  { value: "ESTORNO", label: "Estorno" },
-  { value: "OUTROS", label: "Outros" },
+  { value: "VENDA", label: "Venda do Lote", natureza: "debito" as const },
+  { value: "PARCELA", label: "Parcela Recebida", natureza: "credito" as const },
+  { value: "ARRAS", label: "Sinal / Arras", natureza: "credito" as const },
+  { value: "REFORCO", label: "Reforço", natureza: "credito" as const },
+  { value: "ATUALIZACAO", label: "Atualização Monetária", natureza: "debito" as const },
+  { value: "JUROS", label: "Juros", natureza: "debito" as const },
+  { value: "MULTA", label: "Multa", natureza: "debito" as const },
+  { value: "DESCONTO", label: "Desconto", natureza: "credito" as const },
+  { value: "ESTORNO", label: "Estorno", natureza: "pergunta" as const },
+  { value: "OUTROS", label: "Outros", natureza: "pergunta" as const },
 ];
 
-const emptyMovimento: Partial<ContaCorrenteInsert> = {
+type NaturezaMovimento = "debito" | "credito" | "pergunta";
+
+const getNaturezaMovimento = (tipoMov: string): NaturezaMovimento => {
+  const tipo = tiposMovimento.find(t => t.value === tipoMov);
+  return tipo?.natureza || "pergunta";
+};
+
+const emptyMovimento: Partial<ContaCorrenteInsert> & { natureza_outros?: "debito" | "credito" } = {
   lote_id: "",
   data_mov: new Date().toISOString().split("T")[0],
-  tipo_mov: "ENTRADA_PARCELA",
+  tipo_mov: "PARCELA",
   descricao: "",
   credito: null,
   debito: null,
@@ -82,6 +90,7 @@ const emptyMovimento: Partial<ContaCorrenteInsert> = {
   vencimento: null,
   percentual_calculo: null,
   venda_id: null,
+  natureza_outros: undefined,
 };
 
 export default function ContaCorrenteLote() {
@@ -91,10 +100,11 @@ export default function ContaCorrenteLote() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [movToDelete, setMovToDelete] = useState<ContaCorrenteComRelacionamentos | null>(null);
   const [editingMov, setEditingMov] = useState<ContaCorrenteComRelacionamentos | null>(null);
-  const [formData, setFormData] = useState<Partial<ContaCorrenteInsert>>(emptyMovimento);
+  const [formData, setFormData] = useState<Partial<ContaCorrenteInsert> & { natureza_outros?: "debito" | "credito" }>(emptyMovimento);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLote, setFilterLote] = useState<string>("TODOS");
   const [filterTipo, setFilterTipo] = useState<string>("TODOS");
+  const [valorMovimento, setValorMovimento] = useState<string>("");
 
   // Fetch movimentações
   const { data: movimentacoes, isLoading } = useQuery({
@@ -208,10 +218,15 @@ export default function ContaCorrenteLote() {
     setDialogOpen(false);
     setEditingMov(null);
     setFormData(emptyMovimento);
+    setValorMovimento("");
   };
 
   const handleEdit = (mov: ContaCorrenteComRelacionamentos) => {
     setEditingMov(mov);
+    // Determinar qual valor usar e a natureza
+    const valor = mov.debito || mov.credito || 0;
+    const natureza = mov.debito ? "debito" : "credito";
+    setValorMovimento(valor.toString());
     setFormData({
       lote_id: mov.lote_id,
       data_mov: mov.data_mov,
@@ -223,6 +238,7 @@ export default function ContaCorrenteLote() {
       vencimento: mov.vencimento,
       percentual_calculo: mov.percentual_calculo,
       venda_id: mov.venda_id,
+      natureza_outros: getNaturezaMovimento(mov.tipo_mov) === "pergunta" ? natureza : undefined,
     });
     setDialogOpen(true);
   };
@@ -246,15 +262,33 @@ export default function ContaCorrenteLote() {
       return;
     }
 
-    if (!formData.credito && !formData.debito) {
-      toast.error("Informe um valor de crédito ou débito");
+    const valor = parseFloat(valorMovimento);
+    if (!valor || valor <= 0) {
+      toast.error("Informe um valor válido para o movimento");
       return;
     }
 
+    // Determinar natureza do movimento
+    const naturezaDoTipo = getNaturezaMovimento(formData.tipo_mov);
+    let naturezaFinal: "debito" | "credito";
+    
+    if (naturezaDoTipo === "pergunta") {
+      if (!formData.natureza_outros) {
+        toast.error("Selecione se o movimento é débito ou crédito");
+        return;
+      }
+      naturezaFinal = formData.natureza_outros;
+    } else {
+      naturezaFinal = naturezaDoTipo;
+    }
+
+    // Preparar dados - remover natureza_outros que não existe no banco
+    const { natureza_outros, ...formDataSemNatureza } = formData;
+    
     const dataToSave = {
-      ...formData,
-      credito: formData.credito ? Number(formData.credito) : null,
-      debito: formData.debito ? Number(formData.debito) : null,
+      ...formDataSemNatureza,
+      debito: naturezaFinal === "debito" ? valor : null,
+      credito: naturezaFinal === "credito" ? valor : null,
       percentual_calculo: formData.percentual_calculo ? Number(formData.percentual_calculo) : null,
       venda_id: formData.venda_id || null,
     };
@@ -430,41 +464,54 @@ export default function ContaCorrenteLote() {
                   </div>
                 </div>
 
-                {/* Valores */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="debito">Débito (Faturado)</Label>
-                    <Input
-                      id="debito"
-                      type="number"
-                      step="0.01"
-                      value={formData.debito || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          debito: e.target.value ? Number(e.target.value) : null,
-                        })
-                      }
-                      placeholder="Ex: 1000.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="credito">Crédito (Recebido)</Label>
-                    <Input
-                      id="credito"
-                      type="number"
-                      step="0.01"
-                      value={formData.credito || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          credito: e.target.value ? Number(e.target.value) : null,
-                        })
-                      }
-                      placeholder="Ex: 500.00"
-                    />
-                  </div>
-                </div>
+                {/* Valor e Natureza (para ESTORNO/OUTROS) */}
+                {(() => {
+                  const natureza = getNaturezaMovimento(formData.tipo_mov || "");
+                  const labelValor = natureza === "debito" 
+                    ? "Débito (Faturado)" 
+                    : natureza === "credito" 
+                    ? "Crédito (Recebido)" 
+                    : formData.natureza_outros === "debito"
+                    ? "Débito (Faturado)"
+                    : formData.natureza_outros === "credito"
+                    ? "Crédito (Recebido)"
+                    : "Valor *";
+                  
+                  return (
+                    <div className="grid grid-cols-2 gap-4">
+                      {natureza === "pergunta" && (
+                        <div className="space-y-2">
+                          <Label>Natureza do Movimento *</Label>
+                          <Select
+                            value={formData.natureza_outros || ""}
+                            onValueChange={(value) =>
+                              setFormData({ ...formData, natureza_outros: value as "debito" | "credito" })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Débito ou Crédito?" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="debito">Débito (Faturado)</SelectItem>
+                              <SelectItem value="credito">Crédito (Recebido)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <div className={`space-y-2 ${natureza !== "pergunta" ? "col-span-2" : ""}`}>
+                        <Label htmlFor="valor">{labelValor}</Label>
+                        <Input
+                          id="valor"
+                          type="number"
+                          step="0.01"
+                          value={valorMovimento}
+                          onChange={(e) => setValorMovimento(e.target.value)}
+                          placeholder="Ex: 1000.00"
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Vencimento e Referência */}
                 <div className="grid grid-cols-2 gap-4">
