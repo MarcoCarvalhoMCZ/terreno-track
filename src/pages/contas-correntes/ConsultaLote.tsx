@@ -349,29 +349,39 @@ export default function ConsultaLote() {
 
   const selectedLote = lotes?.find(l => l.id === selectedLoteId);
 
-  // Gerar payload PIX
+  // Gerar payload PIX dinamicamente baseado na aba ativa
   const pixPayload = useMemo(() => {
     if (!pixConfig?.chave_pix || !pixConfig?.nome_beneficiario || !pixConfig?.cidade_beneficiario) {
       return null;
     }
-    if (!resumo || resumo.qtdParcelasAPagar <= 0 || resumo.valorProximaParcela <= 0) {
+    if (!resumo || !selectedLote) {
       return null;
     }
-    if (!selectedLote) {
+
+    // Determinar valores baseados na aba ativa
+    const isParcelamento = tipoConta === "PARCELAMENTO";
+    const qtdAPagar = isParcelamento ? resumo.qtdParcelasAPagar : resumo.qtdReforcosAPagar;
+    const valor = isParcelamento ? resumo.valorProximaParcela : resumo.valorProximoReforco;
+    const vencimento = isParcelamento ? resumo.vencimentoProximaParcela : resumo.vencimentoProximoReforco;
+    const qtdPagas = isParcelamento ? resumo.qtdParcelasPagas : resumo.qtdReforcosPagos;
+
+    if (qtdAPagar <= 0 || valor <= 0) {
       return null;
     }
 
     try {
       // Determinar ano de competência a partir do vencimento
-      const anoCompetencia = resumo.vencimentoProximaParcela 
-        ? new Date(resumo.vencimentoProximaParcela).getFullYear() 
+      const anoCompetencia = vencimento 
+        ? new Date(vencimento).getFullYear() 
         : new Date().getFullYear();
+      
+      const tipoFluxo: TipoFluxoTxId = isParcelamento ? 'PARCELAMENTO' : 'REFORCO';
       
       const txid = generateTxId(
         selectedLote.quadra, 
         selectedLote.numero_lote, 
-        resumo.qtdParcelasPagas + 1,
-        'PARCELAMENTO' as TipoFluxoTxId,
+        qtdPagas + 1,
+        tipoFluxo,
         anoCompetencia
       );
       
@@ -379,7 +389,7 @@ export default function ConsultaLote() {
         chavePix: pixConfig.chave_pix,
         nomeBeneficiario: pixConfig.nome_beneficiario,
         cidadeBeneficiario: pixConfig.cidade_beneficiario,
-        valor: resumo.valorProximaParcela,
+        valor,
         txid,
         descricao: `Q${selectedLote.quadra}L${selectedLote.numero_lote}`,
       });
@@ -387,7 +397,20 @@ export default function ConsultaLote() {
       console.error("Erro ao gerar payload PIX:", error);
       return null;
     }
-  }, [pixConfig, resumo, selectedLote]);
+  }, [pixConfig, resumo, selectedLote, tipoConta]);
+
+  // Valores dinâmicos para exibição do QR Code baseado na aba ativa
+  const pixDisplayData = useMemo(() => {
+    if (!resumo) return null;
+    
+    const isParcelamento = tipoConta === "PARCELAMENTO";
+    return {
+      titulo: isParcelamento ? "Próxima Parcela" : "Próximo Reforço",
+      valor: isParcelamento ? resumo.valorProximaParcela : resumo.valorProximoReforco,
+      vencimento: isParcelamento ? resumo.vencimentoProximaParcela : resumo.vencimentoProximoReforco,
+      qtdAPagar: isParcelamento ? resumo.qtdParcelasAPagar : resumo.qtdReforcosAPagar,
+    };
+  }, [resumo, tipoConta]);
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return "-";
@@ -639,8 +662,8 @@ export default function ConsultaLote() {
       doc.text(resumo.vencimentoProximoReforco ? formatDate(resumo.vencimentoProximoReforco) : "-", valueColRight, yPos + 6, { align: 'right' });
     }
 
-    // QR Code PIX
-    if (pixPayload && resumo && resumo.qtdParcelasAPagar > 0) {
+    // QR Code PIX - dinâmico baseado na aba ativa
+    if (pixPayload && pixDisplayData && pixDisplayData.qtdAPagar > 0) {
       yPos += 20;
       
       // Check if we need a new page
@@ -656,7 +679,7 @@ export default function ConsultaLote() {
       // Title for QR Code section
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text("QR Code PIX - Próxima Parcela", 14, yPos);
+      doc.text(`QR Code PIX - ${pixDisplayData.titulo}`, 14, yPos);
       yPos += 10;
 
       // Get QR Code canvas and convert to image
@@ -670,11 +693,11 @@ export default function ConsultaLote() {
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         const infoX = 14 + qrSize + 10;
-        doc.text(`Valor: ${formatCurrency(resumo.valorProximaParcela)}`, infoX, yPos + 10);
-        doc.text(`Vencimento: ${resumo.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-"}`, infoX, yPos + 18);
+        doc.text(`Valor: ${formatCurrency(pixDisplayData.valor)}`, infoX, yPos + 10);
+        doc.text(`Vencimento: ${pixDisplayData.vencimento ? formatDate(pixDisplayData.vencimento) : "-"}`, infoX, yPos + 18);
         doc.setFontSize(8);
         doc.text(`Escaneie o QR Code acima com o app`, infoX, yPos + 30);
-        doc.text(`do seu banco para pagar a parcela.`, infoX, yPos + 36);
+        doc.text(`do seu banco para pagar.`, infoX, yPos + 36);
       }
     }
 
@@ -980,14 +1003,14 @@ export default function ConsultaLote() {
               )}
             </div>
 
-            {/* QR Code PIX */}
-            {resumo && resumo.qtdParcelasAPagar > 0 && pixPayload && (
+            {/* QR Code PIX - Dinâmico baseado na aba ativa */}
+            {pixDisplayData && pixDisplayData.qtdAPagar > 0 && pixPayload && (
               <>
                 <Separator />
                 <div className="flex flex-col items-center gap-4 p-6 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2 text-lg font-semibold">
                     <QrCode className="h-5 w-5" />
-                    QR Code PIX - Próxima Parcela
+                    QR Code PIX - {pixDisplayData.titulo}
                   </div>
                   <div className="bg-white p-4 rounded-lg shadow-sm">
                     <QRCodeSVG 
@@ -1008,8 +1031,11 @@ export default function ConsultaLote() {
                     />
                   </div>
                   <div className="text-center text-sm text-muted-foreground max-w-md">
-                    <p>Escaneie o QR Code acima com o app do seu banco para pagar a parcela.</p>
-                    <p className="mt-1 font-medium">Valor: {formatCurrency(resumo.valorProximaParcela)}</p>
+                    <p>Escaneie o QR Code acima com o app do seu banco para pagar.</p>
+                    <p className="mt-1 font-medium">Valor: {formatCurrency(pixDisplayData.valor)}</p>
+                    {pixDisplayData.vencimento && (
+                      <p className="text-xs">Vencimento: {formatDate(pixDisplayData.vencimento)}</p>
+                    )}
                   </div>
                   <Button 
                     variant="outline" 
@@ -1027,7 +1053,7 @@ export default function ConsultaLote() {
               </>
             )}
 
-            {resumo && resumo.qtdParcelasAPagar > 0 && !pixPayload && pixConfig && (
+            {pixDisplayData && pixDisplayData.qtdAPagar > 0 && !pixPayload && pixConfig && (
               <>
                 <Separator />
                 <div className="flex flex-col items-center gap-2 p-6 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
