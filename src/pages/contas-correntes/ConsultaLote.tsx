@@ -111,7 +111,7 @@ export default function ConsultaLote() {
   const dataInicialISO = dataInicial ? format(dataInicial, "yyyy-MM-dd") : null;
   const dataFinalISO = dataFinal ? format(dataFinal, "yyyy-MM-dd") : null;
 
-  // Fetch movimentos de PARCELAMENTO (do mais antigo ao mais recente)
+  // Fetch movimentos de PARCELAMENTO (últimos 12, exibidos do mais antigo ao mais recente)
   const { data: movimentosParcelamento } = useQuery({
     queryKey: ["movimentos-parcelamento-lote", selectedLoteId, filtroAtivo, dataInicialISO, dataFinalISO],
     queryFn: async () => {
@@ -130,23 +130,32 @@ export default function ConsultaLote() {
         query = query.lte("data_mov", dataFinalISO);
       }
       
-      query = query
-        .order("data_mov", { ascending: true })
-        .order("created_at", { ascending: true });
-      
-      // Limitar a 12 apenas se não houver filtro
-      if (!filtroAtivo) {
-        query = query.limit(12);
+      if (filtroAtivo) {
+        // Com filtro: buscar todos do período, ordenados ascendente
+        query = query
+          .order("data_mov", { ascending: true })
+          .order("created_at", { ascending: true });
+      } else {
+        // Sem filtro: buscar os 12 mais recentes (desc), depois inverter no frontend
+        query = query
+          .order("data_mov", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(12);
       }
       
       const { data, error } = await query;
       if (error) throw error;
+      
+      // Se não tem filtro, inverter para exibir do mais antigo ao mais recente
+      if (!filtroAtivo && data) {
+        return data.reverse();
+      }
       return data;
     },
     enabled: !!selectedLoteId,
   });
 
-  // Fetch movimentos de REFORÇO (do mais antigo ao mais recente)
+  // Fetch movimentos de REFORÇO (últimos 12, exibidos do mais antigo ao mais recente)
   const { data: movimentosReforco } = useQuery({
     queryKey: ["movimentos-reforco-lote", selectedLoteId, filtroAtivo, dataInicialISO, dataFinalISO],
     queryFn: async () => {
@@ -165,17 +174,26 @@ export default function ConsultaLote() {
         query = query.lte("data_mov", dataFinalISO);
       }
       
-      query = query
-        .order("data_mov", { ascending: true })
-        .order("created_at", { ascending: true });
-      
-      // Limitar a 12 apenas se não houver filtro
-      if (!filtroAtivo) {
-        query = query.limit(12);
+      if (filtroAtivo) {
+        // Com filtro: buscar todos do período, ordenados ascendente
+        query = query
+          .order("data_mov", { ascending: true })
+          .order("created_at", { ascending: true });
+      } else {
+        // Sem filtro: buscar os 12 mais recentes (desc), depois inverter no frontend
+        query = query
+          .order("data_mov", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(12);
       }
       
       const { data, error } = await query;
       if (error) throw error;
+      
+      // Se não tem filtro, inverter para exibir do mais antigo ao mais recente
+      if (!filtroAtivo && data) {
+        return data.reverse();
+      }
       return data;
     },
     enabled: !!selectedLoteId,
