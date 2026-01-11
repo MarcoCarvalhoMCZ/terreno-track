@@ -241,6 +241,7 @@ export default function Importacao() {
           venda_id: selectedVendaId || null,
           data_mov: row.data_mov,
           tipo_mov: row.tipo_mov,
+          tipo_fluxo: tipoConta, // Novo campo para separação PARCELAMENTO/REFORCO
           descricao: row.descricao,
           referencia: row.referencia || null,
           vencimento: row.vencimento,

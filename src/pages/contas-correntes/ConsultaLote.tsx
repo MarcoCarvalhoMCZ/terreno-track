@@ -103,7 +103,7 @@ export default function ConsultaLote() {
         .from("conta_corrente_lote")
         .select("*")
         .eq("lote_id", selectedLoteId)
-        .not("tipo_mov", "eq", "REFORCO")
+        .eq("tipo_fluxo", "PARCELAMENTO")
         .order("data_mov", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(12);
@@ -122,7 +122,7 @@ export default function ConsultaLote() {
         .from("conta_corrente_lote")
         .select("*")
         .eq("lote_id", selectedLoteId)
-        .eq("tipo_mov", "REFORCO")
+        .eq("tipo_fluxo", "REFORCO")
         .order("data_mov", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(12);

@@ -119,6 +119,7 @@ export type Database = {
           percentual_calculo: number | null
           referencia: string | null
           saldo: number | null
+          tipo_fluxo: string | null
           tipo_mov: string
           updated_at: string | null
           updated_by: string | null
@@ -137,6 +138,7 @@ export type Database = {
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null
+          tipo_fluxo?: string | null
           tipo_mov: string
           updated_at?: string | null
           updated_by?: string | null
@@ -155,6 +157,7 @@ export type Database = {
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null
+          tipo_fluxo?: string | null
           tipo_mov?: string
           updated_at?: string | null
           updated_by?: string | null
@@ -921,6 +924,18 @@ export type Database = {
       }
     }
     Views: {
+      vw_resumo_fluxo_lote: {
+        Row: {
+          lote_id: string | null
+          numero_lote: string | null
+          qtd_restante: number | null
+          quadra: string | null
+          saldo_atualizado: number | null
+          tipo_fluxo: string | null
+          valor_proximo_titulo: number | null
+        }
+        Relationships: []
+      }
       vw_resumo_operacoes_lote: {
         Row: {
           competencia: string | null
@@ -956,6 +971,16 @@ export type Database = {
       }
     }
     Functions: {
+      aplicar_atualizacao_fluxo: {
+        Args: {
+          p_competencia: string
+          p_descricao?: string
+          p_fator: number
+          p_lote_id: string
+          p_tipo_fluxo: string
+        }
+        Returns: string
+      }
       calcular_atualizacao_monetaria_lote: {
         Args: { p_competencia: string; p_lote_id?: string }
         Returns: {
@@ -967,8 +992,24 @@ export type Database = {
           venda_id: string
         }[]
       }
+      calcular_proximo_titulo_fluxo: {
+        Args: { p_lote_id: string; p_tipo_fluxo: string }
+        Returns: number
+      }
       executar_atualizacao_monetaria: {
         Args: { p_competencia: string; p_lote_id?: string }
+        Returns: number
+      }
+      gerar_proximo_titulo_fluxo: {
+        Args: { p_lote_id: string; p_tipo_fluxo: string; p_vencimento?: string }
+        Returns: string
+      }
+      get_qtd_restante_fluxo: {
+        Args: { p_lote_id: string; p_tipo_fluxo: string }
+        Returns: number
+      }
+      get_saldo_atualizado_fluxo: {
+        Args: { p_lote_id: string; p_tipo_fluxo: string }
         Returns: number
       }
       has_role: {
@@ -979,6 +1020,25 @@ export type Database = {
         Returns: boolean
       }
       recalcular_saldo_lote: { Args: { p_lote_id: string }; Returns: number }
+      reorganizar_conta_corrente_fluxo: {
+        Args: { p_lote_id: string; p_tipo_fluxo: string }
+        Returns: number
+      }
+      reorganizar_lote_completo: {
+        Args: { p_lote_id: string }
+        Returns: {
+          registros_processados: number
+          tipo_fluxo: string
+        }[]
+      }
+      reorganizar_todos_lotes: {
+        Args: never
+        Returns: {
+          lote_id: string
+          registros_processados: number
+          tipo_fluxo: string
+        }[]
+      }
     }
     Enums: {
       app_role: "ADMIN" | "OPERADOR" | "CONSULTA"

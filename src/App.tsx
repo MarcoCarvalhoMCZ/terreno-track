@@ -15,6 +15,7 @@ import ContaCorrenteLote from "./pages/contas-correntes/ContaCorrenteLote";
 import ConsultaLote from "./pages/contas-correntes/ConsultaLote";
 import ResumoOperacoes from "./pages/contas-correntes/ResumoOperacoes";
 import AtualizacaoMonetaria from "./pages/contas-correntes/AtualizacaoMonetaria";
+import Reorganizacao from "./pages/contas-correntes/Reorganizacao";
 import EventosContabeis from "./pages/contabilidade/EventosContabeis";
 import ContasContabeis from "./pages/contabilidade/ContasContabeis";
 import Configuracoes from "./pages/Configuracoes";
@@ -58,6 +59,7 @@ function AppRoutes() {
       <Route path="/contas-correntes/consulta" element={<ProtectedRoute><ConsultaLote /></ProtectedRoute>} />
       <Route path="/contas-correntes/resumo" element={<ProtectedRoute><ResumoOperacoes /></ProtectedRoute>} />
       <Route path="/contas-correntes/atualizacao" element={<ProtectedRoute><AtualizacaoMonetaria /></ProtectedRoute>} />
+      <Route path="/contas-correntes/reorganizacao" element={<ProtectedRoute><Reorganizacao /></ProtectedRoute>} />
       <Route path="/contabilidade/eventos" element={<ProtectedRoute><EventosContabeis /></ProtectedRoute>} />
       <Route path="/contabilidade/contas" element={<ProtectedRoute><ContasContabeis /></ProtectedRoute>} />
       <Route path="/importacao" element={<ProtectedRoute><Importacao /></ProtectedRoute>} />

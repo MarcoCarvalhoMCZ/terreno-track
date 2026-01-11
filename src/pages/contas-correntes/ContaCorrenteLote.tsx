@@ -295,6 +295,7 @@ export default function ContaCorrenteLote() {
     
     const dataToSave = {
       ...formDataSemNatureza,
+      tipo_fluxo: tipoConta, // Novo campo para separação PARCELAMENTO/REFORCO
       debito: naturezaFinal === "debito" ? valor : null,
       credito: naturezaFinal === "credito" ? valor : null,
       percentual_calculo: formData.percentual_calculo ? Number(formData.percentual_calculo) : null,
@@ -311,14 +312,19 @@ export default function ContaCorrenteLote() {
     }
   };
 
-  // Filtrar movimentos por tipo de conta (Parcelamento vs Reforço)
+  // Filtrar movimentos por tipo de conta (Parcelamento vs Reforço) - usando tipo_fluxo
   const tiposPermitidos = tipoConta === "PARCELAMENTO" ? tiposParcelamento : tiposReforco;
   
   const filteredMovimentacoes = movimentacoes?.filter((mov) => {
-    // Primeiro, filtrar por tipo de conta
-    // REFORCO só aparece em Reforço, PARCELA só em Parcelamento, ATUALIZACAO aparece em ambos
-    if (tipoConta === "PARCELAMENTO" && mov.tipo_mov === "REFORCO") return false;
-    if (tipoConta === "REFORCO" && (mov.tipo_mov === "PARCELA" || mov.tipo_mov === "VENDA" || mov.tipo_mov === "ARRAS")) return false;
+    // Filtrar por tipo_fluxo (campo no banco)
+    const movTipoFluxo = (mov as any).tipo_fluxo;
+    if (movTipoFluxo && movTipoFluxo !== tipoConta) return false;
+    
+    // Fallback: filtrar por tipo_mov para dados antigos sem tipo_fluxo
+    if (!movTipoFluxo) {
+      if (tipoConta === "PARCELAMENTO" && mov.tipo_mov === "REFORCO") return false;
+      if (tipoConta === "REFORCO" && (mov.tipo_mov === "PARCELA" || mov.tipo_mov === "VENDA" || mov.tipo_mov === "ARRAS")) return false;
+    }
     
     const loteInfo = `${mov.lote?.quadra || ""} ${mov.lote?.numero_lote || ""}`.toLowerCase();
     const descricao = mov.descricao?.toLowerCase() || "";
