@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -42,6 +43,7 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type Lote = Tables<"lotes">;
 type Venda = Tables<"vendas">;
+type TipoFluxo = "PARCELAMENTO" | "REFORCO";
 
 interface SimulacaoResult {
   lote_id: string;
@@ -60,6 +62,7 @@ export default function AtualizacaoMonetaria() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+  const [tipoFluxo, setTipoFluxo] = useState<TipoFluxo>("PARCELAMENTO");
   const [loteIdRecalculo, setLoteIdRecalculo] = useState<string>("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showRecalculoDialog, setShowRecalculoDialog] = useState(false);
@@ -97,9 +100,9 @@ export default function AtualizacaoMonetaria() {
     },
   });
 
-  // Fetch atualizações já realizadas no mês
+  // Fetch atualizações já realizadas no mês (filtrada por tipo_fluxo)
   const { data: atualizacoesExistentes, isLoading: loadingAtualizacoes } = useQuery({
-    queryKey: ["atualizacoes-mes", competencia],
+    queryKey: ["atualizacoes-mes", competencia, tipoFluxo],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conta_corrente_lote")
@@ -108,6 +111,7 @@ export default function AtualizacaoMonetaria() {
           lote:lotes(id, quadra, numero_lote)
         `)
         .eq("tipo_mov", "ATUALIZACAO")
+        .eq("tipo_fluxo", tipoFluxo)
         .eq("referencia", competencia)
         .order("data_mov", { ascending: false });
       if (error) throw error;
@@ -260,6 +264,15 @@ export default function AtualizacaoMonetaria() {
         <h1 className="text-3xl font-bold text-foreground">Atualização Monetária</h1>
         <p className="text-muted-foreground">Cálculo e aplicação de atualização monetária sobre saldos devedores</p>
       </div>
+
+      {/* Tabs para Parcelamento e Reforços */}
+      <Tabs value={tipoFluxo} onValueChange={(v) => setTipoFluxo(v as TipoFluxo)} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="PARCELAMENTO">Parcelamento</TabsTrigger>
+          <TabsTrigger value="REFORCO">Reforços</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={tipoFluxo} className="space-y-6 mt-4">
 
       {/* Controles */}
       <Card>
@@ -543,6 +556,8 @@ export default function AtualizacaoMonetaria() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
