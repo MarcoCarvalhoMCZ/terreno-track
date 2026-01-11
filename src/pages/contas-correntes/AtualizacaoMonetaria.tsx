@@ -37,6 +37,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatDateBR } from "@/lib/date";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Lote = Tables<"lotes">;
@@ -392,7 +393,7 @@ export default function AtualizacaoMonetaria() {
                       <TableCell className="font-medium">
                         {item.lote ? `Q${item.lote.quadra} L${item.lote.numero_lote}` : "-"}
                       </TableCell>
-                      <TableCell>{format(new Date(item.data_mov), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{formatDateBR(item.data_mov)}</TableCell>
                       <TableCell className="text-right">{formatPercent(item.percentual_calculo)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.debito)}</TableCell>
                       <TableCell className="text-right font-bold">{formatCurrency(item.saldo)}</TableCell>
@@ -450,7 +451,7 @@ export default function AtualizacaoMonetaria() {
                       <TableCell className="font-medium">
                         {venda.lote ? `Q${venda.lote.quadra} L${venda.lote.numero_lote}` : "-"}
                       </TableCell>
-                      <TableCell>{format(new Date(venda.data_venda), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{formatDateBR(venda.data_venda)}</TableCell>
                       <TableCell>
                         <Badge variant="outline">
                           {venda.tipo_atualizacao || "IGPM"}

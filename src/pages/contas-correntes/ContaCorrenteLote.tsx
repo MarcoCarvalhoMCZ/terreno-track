@@ -43,6 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, Receipt, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { formatDateBR, parseDateOnly } from "@/lib/date";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 type ContaCorrente = Tables<"conta_corrente_lote">;
@@ -294,7 +295,9 @@ export default function ContaCorrenteLote() {
     
     // Sort by date ascending to calculate running balance correctly
     const sorted = [...filteredMovimentacoes].sort((a, b) => {
-      const dateCompare = new Date(a.data_mov).getTime() - new Date(b.data_mov).getTime();
+      const aTime = parseDateOnly(a.data_mov)?.getTime() ?? 0;
+      const bTime = parseDateOnly(b.data_mov)?.getTime() ?? 0;
+      const dateCompare = aTime - bTime;
       if (dateCompare !== 0) return dateCompare;
       return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
     });
@@ -315,8 +318,7 @@ export default function ContaCorrenteLote() {
   };
 
   const formatDate = (date: string | null) => {
-    if (!date) return "-";
-    return format(new Date(date), "dd/MM/yyyy");
+    return formatDateBR(date);
   };
 
   const getTipoLabel = (tipo: string) => {
