@@ -90,15 +90,35 @@ export default function ConsultaLote() {
     enabled: !!selectedLoteId,
   });
 
-  // Fetch últimos 12 movimentos (mais recentes primeiro)
-  const { data: movimentos } = useQuery({
-    queryKey: ["movimentos-lote", selectedLoteId],
+  // Fetch últimos 12 movimentos de PARCELAMENTO (mais recentes primeiro)
+  const { data: movimentosParcelamento } = useQuery({
+    queryKey: ["movimentos-parcelamento-lote", selectedLoteId],
     queryFn: async () => {
       if (!selectedLoteId) return [];
       const { data, error } = await supabase
         .from("conta_corrente_lote")
         .select("*")
         .eq("lote_id", selectedLoteId)
+        .not("tipo_mov", "eq", "REFORCO")
+        .order("data_mov", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(12);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedLoteId,
+  });
+
+  // Fetch últimos 12 movimentos de REFORÇO (mais recentes primeiro)
+  const { data: movimentosReforco } = useQuery({
+    queryKey: ["movimentos-reforco-lote", selectedLoteId],
+    queryFn: async () => {
+      if (!selectedLoteId) return [];
+      const { data, error } = await supabase
+        .from("conta_corrente_lote")
+        .select("*")
+        .eq("lote_id", selectedLoteId)
+        .eq("tipo_mov", "REFORCO")
         .order("data_mov", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(12);
@@ -386,13 +406,13 @@ export default function ConsultaLote() {
     doc.line(14, yPos, 196, yPos);
     yPos += 10;
 
-    // Transactions table
+    // Transactions table - PARCELAMENTO
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text("Últimos 12 movimentos (PARCELAMENTO):", 14, yPos);
     yPos += 8;
 
-    const tableData = movimentos?.map(m => [
+    const tableDataParcelamento = movimentosParcelamento?.map(m => [
       formatDate(m.data_mov),
       formatHistorico(m.descricao, m.referencia),
       formatDate(m.vencimento),
@@ -406,7 +426,7 @@ export default function ConsultaLote() {
     autoTable(doc, {
       startY: yPos,
       head: [["Data", "Histórico", "Vencimento", "Cálculo", "Débitos(R$)", "Créditos(R$)", "Saldo(R$)", "D/C"]],
-      body: tableData,
+      body: tableDataParcelamento,
       styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [66, 66, 66] },
       columnStyles: {
@@ -420,6 +440,47 @@ export default function ConsultaLote() {
         7: { cellWidth: 10, halign: 'center' },
       },
     });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    // Transactions table - REFORÇOS (se houver)
+    if (movimentosReforco && movimentosReforco.length > 0) {
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Últimos 12 movimentos (REFORÇOS):", 14, yPos);
+      yPos += 8;
+
+      const tableDataReforco = movimentosReforco?.map(m => [
+        formatDate(m.data_mov),
+        formatHistorico(m.descricao, m.referencia),
+        formatDate(m.vencimento),
+        formatPercent(m.percentual_calculo),
+        m.debito && m.debito > 0 ? formatNumber(m.debito) : "",
+        m.credito && m.credito > 0 ? formatNumber(m.credito) : "",
+        formatNumber(m.saldo),
+        (m.saldo || 0) >= 0 ? "D" : "C",
+      ]) || [];
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [["Data", "Histórico", "Vencimento", "Cálculo", "Débitos(R$)", "Créditos(R$)", "Saldo(R$)", "D/C"]],
+        body: tableDataReforco,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [100, 100, 100] },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: 55 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 18, halign: 'right' },
+          4: { cellWidth: 22, halign: 'right' },
+          5: { cellWidth: 22, halign: 'right' },
+          6: { cellWidth: 22, halign: 'right' },
+          7: { cellWidth: 10, halign: 'center' },
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+    }
 
     yPos = (doc as any).lastAutoTable.finalY + 10;
 
@@ -617,7 +678,7 @@ export default function ConsultaLote() {
 
             <Separator />
 
-            {/* Tabela de Movimentos */}
+            {/* Tabela de Movimentos - PARCELAMENTO */}
             <div>
               <h3 className="font-semibold text-lg mb-3">Últimos 12 movimentos (PARCELAMENTO):</h3>
               <div className="rounded-md border">
@@ -635,14 +696,59 @@ export default function ConsultaLote() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {movimentos?.length === 0 ? (
+                    {movimentosParcelamento?.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          Nenhum movimento encontrado
+                          Nenhum movimento de parcelamento encontrado
                         </TableCell>
                       </TableRow>
                     ) : (
-                      movimentos?.map((mov) => (
+                      movimentosParcelamento?.map((mov) => (
+                        <TableRow key={mov.id}>
+                          <TableCell>{formatDate(mov.data_mov)}</TableCell>
+                          <TableCell>{formatHistorico(mov.descricao, mov.referencia)}</TableCell>
+                          <TableCell>{formatDate(mov.vencimento)}</TableCell>
+                          <TableCell className="text-right">{formatPercent(mov.percentual_calculo)}</TableCell>
+                          <TableCell className="text-right">{mov.debito && mov.debito > 0 ? formatCurrency(mov.debito) : ""}</TableCell>
+                          <TableCell className="text-right">{mov.credito && mov.credito > 0 ? formatCurrency(mov.credito) : ""}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(mov.saldo)}</TableCell>
+                          <TableCell className="text-center">{(mov.saldo || 0) >= 0 ? "D" : "C"}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Tabela de Movimentos - REFORÇOS */}
+            <div>
+              <h3 className="font-semibold text-lg mb-3">Últimos 12 movimentos (REFORÇOS):</h3>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Histórico</TableHead>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead className="text-right">Cálculo</TableHead>
+                      <TableHead className="text-right">Débitos(R$)</TableHead>
+                      <TableHead className="text-right">Créditos(R$)</TableHead>
+                      <TableHead className="text-right">Saldo(R$)</TableHead>
+                      <TableHead className="text-center">D/C</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {movimentosReforco?.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          Nenhum movimento de reforço encontrado
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      movimentosReforco?.map((mov) => (
                         <TableRow key={mov.id}>
                           <TableCell>{formatDate(mov.data_mov)}</TableCell>
                           <TableCell>{formatHistorico(mov.descricao, mov.referencia)}</TableCell>
