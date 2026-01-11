@@ -68,13 +68,26 @@ function parseBrazilianNumber(numStr: string): number {
   return isNaN(value) ? 0 : value;
 }
 
-// Determine tipo_mov based on historico text
-function determineTipoMov(historico: string): string {
+// Determine tipo_mov based on historico text and tipoConta
+function determineTipoMov(historico: string, tipoConta: "PARCELAMENTO" | "REFORCO"): string {
   const h = historico.toUpperCase();
+  
+  // Para conta de REFORÇO, prioriza tipos específicos de reforço
+  if (tipoConta === "REFORCO") {
+    if (h.includes('REFORÇO') || h.includes('REFORCO')) return 'REFORCO';
+    if (h.includes('JUROS')) return 'JUROS';
+    if (h.includes('MULTA')) return 'MULTA';
+    if (h.includes('ATUALIZAÇÃO') || h.includes('ATUALIZACAO') || h.includes('CORREÇÃO') || h.includes('CORRECAO')) return 'ATUALIZACAO';
+    if (h.includes('DESCONTO')) return 'DESCONTO';
+    if (h.includes('ESTORNO')) return 'ESTORNO';
+    // Default para REFORCO quando é conta de reforço
+    return 'REFORCO';
+  }
+  
+  // Para conta de PARCELAMENTO
   if (h.includes('VENDA') || h.includes('CONTRATO')) return 'VENDA';
   if (h.includes('ARRAS') || h.includes('SINAL')) return 'ARRAS';
   if (h.includes('PARCELA')) return 'PARCELA';
-  if (h.includes('REFORÇO') || h.includes('REFORCO')) return 'REFORCO';
   if (h.includes('JUROS')) return 'JUROS';
   if (h.includes('MULTA')) return 'MULTA';
   if (h.includes('ATUALIZAÇÃO') || h.includes('ATUALIZACAO') || h.includes('CORREÇÃO') || h.includes('CORRECAO')) return 'ATUALIZACAO';
@@ -83,12 +96,15 @@ function determineTipoMov(historico: string): string {
   return 'OUTROS';
 }
 
+type TipoConta = "PARCELAMENTO" | "REFORCO";
+
 export default function Importacao() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [selectedLoteId, setSelectedLoteId] = useState<string>('');
   const [selectedVendaId, setSelectedVendaId] = useState<string>('');
+  const [tipoConta, setTipoConta] = useState<TipoConta>('PARCELAMENTO');
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -186,7 +202,7 @@ export default function Importacao() {
             debito: parseBrazilianNumber(csvRow.debitos),
             credito: parseBrazilianNumber(csvRow.creditos),
             saldo: parseBrazilianNumber(csvRow.saldo),
-            tipo_mov: determineTipoMov(csvRow.historico),
+            tipo_mov: determineTipoMov(csvRow.historico, tipoConta),
             lineNumber: i + 2,
             rawData: csvRow
           });
@@ -288,7 +304,9 @@ export default function Importacao() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Importação de Operações (CSV)</h1>
+        <h1 className="text-3xl font-bold">
+          Importação de Operações (CSV) - {tipoConta === "PARCELAMENTO" ? "Parcelamento" : "Reforços"}
+        </h1>
         <p className="text-muted-foreground">Importe histórico de operações via arquivo CSV</p>
       </div>
 
@@ -321,12 +339,29 @@ export default function Importacao() {
         </CardContent>
       </Card>
 
-      {/* Seleção de Lote e Upload */}
+      {/* Parâmetros */}
       <Card>
         <CardHeader>
           <CardTitle>Parâmetros de Importação</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Tipo de Conta */}
+          <div className="space-y-2">
+            <Label>Tipo de Conta *</Label>
+            <Select value={tipoConta} onValueChange={(v) => setTipoConta(v as TipoConta)}>
+              <SelectTrigger className="w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PARCELAMENTO">Parcelamento</SelectItem>
+                <SelectItem value="REFORCO">Reforços</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Selecione se os registros importados são de parcelamento ou reforços
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="lote">Lote de Destino *</Label>

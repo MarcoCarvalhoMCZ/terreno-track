@@ -93,6 +93,12 @@ const emptyMovimento: Partial<ContaCorrenteInsert> & { natureza_outros?: "debito
   natureza_outros: undefined,
 };
 
+// Tipos que se aplicam a cada conta
+const tiposParcelamento = ["VENDA", "PARCELA", "ARRAS", "ATUALIZACAO", "JUROS", "MULTA", "DESCONTO", "ESTORNO", "OUTROS"];
+const tiposReforco = ["REFORCO", "ATUALIZACAO", "JUROS", "MULTA", "DESCONTO", "ESTORNO", "OUTROS"];
+
+type TipoConta = "PARCELAMENTO" | "REFORCO";
+
 export default function ContaCorrenteLote() {
   const { canEdit } = useAuth();
   const queryClient = useQueryClient();
@@ -105,6 +111,7 @@ export default function ContaCorrenteLote() {
   const [filterLote, setFilterLote] = useState<string>("TODOS");
   const [filterTipo, setFilterTipo] = useState<string>("TODOS");
   const [valorMovimento, setValorMovimento] = useState<string>("");
+  const [tipoConta, setTipoConta] = useState<TipoConta>("PARCELAMENTO");
 
   // Fetch movimentações
   const { data: movimentacoes, isLoading } = useQuery({
@@ -303,7 +310,15 @@ export default function ContaCorrenteLote() {
     }
   };
 
+  // Filtrar movimentos por tipo de conta (Parcelamento vs Reforço)
+  const tiposPermitidos = tipoConta === "PARCELAMENTO" ? tiposParcelamento : tiposReforco;
+  
   const filteredMovimentacoes = movimentacoes?.filter((mov) => {
+    // Primeiro, filtrar por tipo de conta
+    // REFORCO só aparece em Reforço, PARCELA só em Parcelamento, ATUALIZACAO aparece em ambos
+    if (tipoConta === "PARCELAMENTO" && mov.tipo_mov === "REFORCO") return false;
+    if (tipoConta === "REFORCO" && (mov.tipo_mov === "PARCELA" || mov.tipo_mov === "VENDA" || mov.tipo_mov === "ARRAS")) return false;
+    
     const loteInfo = `${mov.lote?.quadra || ""} ${mov.lote?.numero_lote || ""}`.toLowerCase();
     const descricao = mov.descricao?.toLowerCase() || "";
     const matchesSearch =
@@ -362,13 +377,33 @@ export default function ContaCorrenteLote() {
   // Get vendas for selected lote
   const vendasDoLote = vendas?.filter((v) => v.lote_id === formData.lote_id);
 
+  // Get tipos de movimento baseado no tipo de conta selecionado
+  const tiposMovimentoFiltrados = tiposMovimento.filter(t => 
+    tipoConta === "PARCELAMENTO" 
+      ? tiposParcelamento.includes(t.value)
+      : tiposReforco.includes(t.value)
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Conta Corrente do Lote</h1>
+          <h1 className="text-3xl font-bold text-foreground">
+            Conta Corrente do Lote - {tipoConta === "PARCELAMENTO" ? "Parcelamento" : "Reforços"}
+          </h1>
           <p className="text-muted-foreground">Movimentação financeira por lote</p>
         </div>
+        <div className="flex items-center gap-4">
+          {/* Seletor de Tipo de Conta */}
+          <Select value={tipoConta} onValueChange={(v) => setTipoConta(v as TipoConta)}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PARCELAMENTO">Parcelamento</SelectItem>
+              <SelectItem value="REFORCO">Reforços</SelectItem>
+            </SelectContent>
+          </Select>
         {canEdit && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
@@ -433,7 +468,7 @@ export default function ContaCorrenteLote() {
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
                       <SelectContent>
-                        {tiposMovimento.map((tipo) => (
+                        {tiposMovimentoFiltrados.map((tipo) => (
                           <SelectItem key={tipo.value} value={tipo.value}>
                             {tipo.label}
                           </SelectItem>
@@ -589,6 +624,7 @@ export default function ContaCorrenteLote() {
             </DialogContent>
           </Dialog>
         )}
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -672,7 +708,7 @@ export default function ContaCorrenteLote() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="TODOS">Todos os tipos</SelectItem>
-                {tiposMovimento.map((tipo) => (
+                {tiposMovimentoFiltrados.map((tipo) => (
                   <SelectItem key={tipo.value} value={tipo.value}>
                     {tipo.label}
                   </SelectItem>
