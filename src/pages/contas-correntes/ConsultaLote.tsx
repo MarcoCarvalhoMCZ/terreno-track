@@ -90,7 +90,7 @@ export default function ConsultaLote() {
     enabled: !!selectedLoteId,
   });
 
-  // Fetch últimos 12 movimentos
+  // Fetch últimos 12 movimentos (mais recentes primeiro)
   const { data: movimentos } = useQuery({
     queryKey: ["movimentos-lote", selectedLoteId],
     queryFn: async () => {
@@ -99,8 +99,8 @@ export default function ConsultaLote() {
         .from("conta_corrente_lote")
         .select("*")
         .eq("lote_id", selectedLoteId)
-        .order("data_mov", { ascending: true })
-        .order("created_at", { ascending: true })
+        .order("data_mov", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(12);
       if (error) throw error;
       return data;
