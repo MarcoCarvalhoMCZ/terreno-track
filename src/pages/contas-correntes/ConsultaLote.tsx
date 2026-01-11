@@ -349,8 +349,7 @@ export default function ConsultaLote() {
 
   const selectedLote = lotes?.find(l => l.id === selectedLoteId);
 
-  // Gerar payload PIX dinamicamente baseado na aba ativa
-  const pixPayload = useMemo(() => {
+  const buildPixPayloadForTipo = (tipo: TipoConta) => {
     if (!pixConfig?.chave_pix || !pixConfig?.nome_beneficiario || !pixConfig?.cidade_beneficiario) {
       return null;
     }
@@ -358,8 +357,7 @@ export default function ConsultaLote() {
       return null;
     }
 
-    // Determinar valores baseados na aba ativa
-    const isParcelamento = tipoConta === "PARCELAMENTO";
+    const isParcelamento = tipo === "PARCELAMENTO";
     const qtdAPagar = isParcelamento ? resumo.qtdParcelasAPagar : resumo.qtdReforcosAPagar;
     const valor = isParcelamento ? resumo.valorProximaParcela : resumo.valorProximoReforco;
     const vencimento = isParcelamento ? resumo.vencimentoProximaParcela : resumo.vencimentoProximoReforco;
@@ -370,21 +368,17 @@ export default function ConsultaLote() {
     }
 
     try {
-      // Determinar ano de competência a partir do vencimento
-      const anoCompetencia = vencimento 
-        ? new Date(vencimento).getFullYear() 
-        : new Date().getFullYear();
-      
-      const tipoFluxo: TipoFluxoTxId = isParcelamento ? 'PARCELAMENTO' : 'REFORCO';
-      
+      const anoCompetencia = vencimento ? new Date(vencimento).getFullYear() : new Date().getFullYear();
+      const tipoFluxo: TipoFluxoTxId = isParcelamento ? "PARCELAMENTO" : "REFORCO";
+
       const txid = generateTxId(
-        selectedLote.quadra, 
-        selectedLote.numero_lote, 
+        selectedLote.quadra,
+        selectedLote.numero_lote,
         qtdPagas + 1,
         tipoFluxo,
         anoCompetencia
       );
-      
+
       return generatePixPayload({
         chavePix: pixConfig.chave_pix,
         nomeBeneficiario: pixConfig.nome_beneficiario,
@@ -397,20 +391,49 @@ export default function ConsultaLote() {
       console.error("Erro ao gerar payload PIX:", error);
       return null;
     }
-  }, [pixConfig, resumo, selectedLote, tipoConta]);
+  };
+
+  // Payloads para PDF (um por fluxo)
+  const pixPayloadParcelamento = useMemo(
+    () => buildPixPayloadForTipo("PARCELAMENTO"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pixConfig, resumo, selectedLote]
+  );
+
+  const pixPayloadReforco = useMemo(
+    () => buildPixPayloadForTipo("REFORCO"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pixConfig, resumo, selectedLote]
+  );
+
+  // Payload exibido na tela (aba ativa)
+  const pixPayload = useMemo(() => buildPixPayloadForTipo(tipoConta), [pixConfig, resumo, selectedLote, tipoConta]);
+
+  const pixDisplayDataParcelamento = useMemo(() => {
+    if (!resumo) return null;
+    return {
+      titulo: "Próxima Parcela",
+      valor: resumo.valorProximaParcela,
+      vencimento: resumo.vencimentoProximaParcela,
+      qtdAPagar: resumo.qtdParcelasAPagar,
+    };
+  }, [resumo]);
+
+  const pixDisplayDataReforco = useMemo(() => {
+    if (!resumo) return null;
+    return {
+      titulo: "Próximo Reforço",
+      valor: resumo.valorProximoReforco,
+      vencimento: resumo.vencimentoProximoReforco,
+      qtdAPagar: resumo.qtdReforcosAPagar,
+    };
+  }, [resumo]);
 
   // Valores dinâmicos para exibição do QR Code baseado na aba ativa
   const pixDisplayData = useMemo(() => {
     if (!resumo) return null;
-    
-    const isParcelamento = tipoConta === "PARCELAMENTO";
-    return {
-      titulo: isParcelamento ? "Próxima Parcela" : "Próximo Reforço",
-      valor: isParcelamento ? resumo.valorProximaParcela : resumo.valorProximoReforco,
-      vencimento: isParcelamento ? resumo.vencimentoProximaParcela : resumo.vencimentoProximoReforco,
-      qtdAPagar: isParcelamento ? resumo.qtdParcelasAPagar : resumo.qtdReforcosAPagar,
-    };
-  }, [resumo, tipoConta]);
+    return tipoConta === "PARCELAMENTO" ? pixDisplayDataParcelamento : pixDisplayDataReforco;
+  }, [resumo, tipoConta, pixDisplayDataParcelamento, pixDisplayDataReforco]);
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return "-";
@@ -446,83 +469,53 @@ export default function ConsultaLote() {
     if (!selectedLote) return;
 
     const doc = new jsPDF();
-    let yPos = 20;
 
-    // Title
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Quadra ${selectedLote.quadra} - Lote ${selectedLote.numero_lote}`, 14, yPos);
-    yPos += 15;
+    const addHeader = (tituloFluxo: string) => {
+      let yPos = 20;
 
-    // Seller and Buyer info
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    
-    doc.text(`Vendedor: ${venda?.vendedor?.nome_razao || "Não informado"}`, 14, yPos);
-    yPos += 7;
-    
-    const comprador1 = venda?.comprador_nome_1 || venda?.comprador?.nome_razao || "Não informado";
-    const cpf1 = venda?.comprador_cpf_1 || venda?.comprador?.cpf_cnpj || "";
-    doc.text(`Comprador: ${comprador1}${cpf1 ? ` (CPF ${cpf1})` : ""}`, 14, yPos);
-    yPos += 7;
-    
-    if (venda?.comprador_nome_2) {
-      const cpf2 = venda.comprador_cpf_2 || "";
-      doc.text(`          ${venda.comprador_nome_2}${cpf2 ? ` (CPF ${cpf2})` : ""}`, 14, yPos);
-      yPos += 7;
-    }
-
-    // Separator
-    yPos += 3;
-    doc.setDrawColor(200, 200, 200);
-    doc.line(14, yPos, 196, yPos);
-    yPos += 10;
-
-    // Transactions table - PARCELAMENTO
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Últimos 12 movimentos (PARCELAMENTO):", 14, yPos);
-    yPos += 8;
-
-    const tableDataParcelamento = movimentosParcelamento?.map(m => [
-      formatDate(m.data_mov),
-      formatHistorico(m.descricao, m.referencia),
-      formatDate(m.vencimento),
-      formatPercent(m.percentual_calculo),
-      m.debito && m.debito > 0 ? formatNumber(m.debito) : "",
-      m.credito && m.credito > 0 ? formatNumber(m.credito) : "",
-      formatNumber(m.saldo),
-      (m.saldo || 0) >= 0 ? "D" : "C",
-    ]) || [];
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Data", "Histórico", "Vencimento", "Cálculo", "Débitos(R$)", "Créditos(R$)", "Saldo(R$)", "D/C"]],
-      body: tableDataParcelamento,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [66, 66, 66] },
-      columnStyles: {
-        0: { cellWidth: 22 },
-        1: { cellWidth: 55 },
-        2: { cellWidth: 22 },
-        3: { cellWidth: 18, halign: 'right' },
-        4: { cellWidth: 22, halign: 'right' },
-        5: { cellWidth: 22, halign: 'right' },
-        6: { cellWidth: 22, halign: 'right' },
-        7: { cellWidth: 10, halign: 'center' },
-      },
-    });
-
-    yPos = (doc as any).lastAutoTable.finalY + 10;
-
-    // Transactions table - REFORÇOS (se houver)
-    if (movimentosReforco && movimentosReforco.length > 0) {
-      doc.setFontSize(12);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("Últimos 12 movimentos (REFORÇOS):", 14, yPos);
+      doc.text(`Quadra ${selectedLote.quadra} - Lote ${selectedLote.numero_lote}`, 14, yPos);
       yPos += 8;
 
-      const tableDataReforco = movimentosReforco?.map(m => [
+      doc.setFontSize(12);
+      doc.text(tituloFluxo, 14, yPos);
+      yPos += 12;
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+
+      doc.text(`Vendedor: ${venda?.vendedor?.nome_razao || "Não informado"}`, 14, yPos);
+      yPos += 7;
+
+      const comprador1 = venda?.comprador_nome_1 || venda?.comprador?.nome_razao || "Não informado";
+      const cpf1 = venda?.comprador_cpf_1 || venda?.comprador?.cpf_cnpj || "";
+      doc.text(`Comprador: ${comprador1}${cpf1 ? ` (CPF ${cpf1})` : ""}`, 14, yPos);
+      yPos += 7;
+
+      if (venda?.comprador_nome_2) {
+        const cpf2 = venda.comprador_cpf_2 || "";
+        doc.text(`          ${venda.comprador_nome_2}${cpf2 ? ` (CPF ${cpf2})` : ""}`, 14, yPos);
+        yPos += 7;
+      }
+
+      yPos += 3;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, yPos, 196, yPos);
+      yPos += 10;
+
+      return yPos;
+    };
+
+    const addExtratoTable = (yStart: number, titulo: string, movimentos: any[]) => {
+      let yPos = yStart;
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(titulo, 14, yPos);
+      yPos += 8;
+
+      const tableData = movimentos?.map((m) => [
         formatDate(m.data_mov),
         formatHistorico(m.descricao, m.referencia),
         formatDate(m.vencimento),
@@ -536,172 +529,158 @@ export default function ConsultaLote() {
       autoTable(doc, {
         startY: yPos,
         head: [["Data", "Histórico", "Vencimento", "Cálculo", "Débitos(R$)", "Créditos(R$)", "Saldo(R$)", "D/C"]],
-        body: tableDataReforco,
+        body: tableData,
         styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [100, 100, 100] },
+        headStyles: { fillColor: [66, 66, 66] },
         columnStyles: {
           0: { cellWidth: 22 },
           1: { cellWidth: 55 },
           2: { cellWidth: 22 },
-          3: { cellWidth: 18, halign: 'right' },
-          4: { cellWidth: 22, halign: 'right' },
-          5: { cellWidth: 22, halign: 'right' },
-          6: { cellWidth: 22, halign: 'right' },
-          7: { cellWidth: 10, halign: 'center' },
+          3: { cellWidth: 18, halign: "right" },
+          4: { cellWidth: 22, halign: "right" },
+          5: { cellWidth: 22, halign: "right" },
+          6: { cellWidth: 22, halign: "right" },
+          7: { cellWidth: 10, halign: "center" },
         },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
-    }
+      return (doc as any).lastAutoTable.finalY + 10;
+    };
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    const addResumo = (yStart: number, titulo: string, fluxo: ResumoFluxo, qtdContratadas: number, qtdPagas: number, qtdAPagar: number) => {
+      let yPos = yStart;
 
-    // Separator
-    doc.line(14, yPos, 196, yPos);
-    yPos += 10;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, yPos, 196, yPos);
+      yPos += 10;
 
-    // Summary - Two columns layout
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Resumo:", 14, yPos);
-    yPos += 8;
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Resumo (${titulo}):`, 14, yPos);
+      yPos += 8;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    
-    const leftCol = 14;
-    const rightCol = 110;
-    const colWidth = 90;
-    
-    const valueColLeft = leftCol + 90;
-    const valueColRight = rightCol + 75;
-    
-    // PARCELAMENTO Section
-    doc.setFont("helvetica", "bold");
-    doc.text(`PARCELAMENTO`, leftCol, yPos);
-    doc.text(`REFORÇOS`, rightCol, yPos);
-    yPos += 8;
-    doc.setFont("helvetica", "normal");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
 
-    // Left column - PARCELAMENTO Financial / Right column - REFORÇOS Financial
-    doc.text(`Total da Venda`, leftCol, yPos);
-    doc.text(formatNumber(resumo?.parcelamento.totalVenda || 0), valueColLeft, yPos, { align: 'right' });
-    doc.text(`Total da Venda`, rightCol, yPos);
-    doc.text(formatNumber(resumo?.reforco.totalVenda || 0), valueColRight, yPos, { align: 'right' });
-    yPos += 6;
+      const left = 14;
+      const valueX = 110;
 
-    doc.text(`Total Atualizações Monetárias`, leftCol, yPos);
-    doc.text(formatNumber(resumo?.parcelamento.totalAtualizacoes || 0), valueColLeft, yPos, { align: 'right' });
-    doc.text(`Total Atualizações Monetárias`, rightCol, yPos);
-    doc.text(formatNumber(resumo?.reforco.totalAtualizacoes || 0), valueColRight, yPos, { align: 'right' });
-    yPos += 6;
+      const row = (label: string, value: string) => {
+        doc.text(label, left, yPos);
+        doc.text(value, valueX, yPos, { align: "right" });
+        yPos += 6;
+      };
 
-    doc.text(`Total Juros de Mora`, leftCol, yPos);
-    doc.text(formatNumber(resumo?.parcelamento.totalJurosMora || 0), valueColLeft, yPos, { align: 'right' });
-    doc.text(`Total Juros de Mora`, rightCol, yPos);
-    doc.text(formatNumber(resumo?.reforco.totalJurosMora || 0), valueColRight, yPos, { align: 'right' });
-    yPos += 6;
+      row("Total da Venda", formatNumber(fluxo.totalVenda || 0));
+      row("Total Atualizações Monetárias", formatNumber(fluxo.totalAtualizacoes || 0));
+      row("Total Juros de Mora", formatNumber(fluxo.totalJurosMora || 0));
+      row("Total Multas de Mora", formatNumber(fluxo.totalMultasMora || 0));
+      row("Total Recebido", formatNumber(-(fluxo.totalRecebido || 0)));
+      row("Saldo a Receber", formatNumber(fluxo.saldoReceber || 0));
 
-    doc.text(`Total Multas de Mora`, leftCol, yPos);
-    doc.text(formatNumber(resumo?.parcelamento.totalMultasMora || 0), valueColLeft, yPos, { align: 'right' });
-    doc.text(`Total Multas de Mora`, rightCol, yPos);
-    doc.text(formatNumber(resumo?.reforco.totalMultasMora || 0), valueColRight, yPos, { align: 'right' });
-    yPos += 6;
+      yPos += 4;
+      row("Qtde contratadas", `${qtdContratadas || 0}`);
+      row("Qtde já pagas", `${qtdPagas || 0}`);
+      row("Qtde a pagar", `${qtdAPagar || 0}`);
 
-    doc.text(`Total Recebido`, leftCol, yPos);
-    doc.text(formatNumber(-(resumo?.parcelamento.totalRecebido || 0)), valueColLeft, yPos, { align: 'right' });
-    doc.text(`Total Recebido`, rightCol, yPos);
-    doc.text(formatNumber(-(resumo?.reforco.totalRecebido || 0)), valueColRight, yPos, { align: 'right' });
-    yPos += 6;
+      return yPos + 4;
+    };
 
-    doc.text(`Saldo a Receber`, leftCol, yPos);
-    doc.text(formatNumber(resumo?.parcelamento.saldoReceber || 0), valueColLeft, yPos, { align: 'right' });
-    doc.text(`Saldo a Receber`, rightCol, yPos);
-    doc.text(formatNumber(resumo?.reforco.saldoReceber || 0), valueColRight, yPos, { align: 'right' });
-    yPos += 8;
+    const addProximoTitulo = (yStart: number, titulo: string, valor: number, vencimento: Date | null) => {
+      let yPos = yStart;
 
-    // Quantities section
-    doc.text(`Qtde contratadas`, leftCol, yPos);
-    doc.text(`${resumo?.qtdParcelasContratadas || 0}`, valueColLeft, yPos, { align: 'right' });
-    doc.text(`Qtde contratados`, rightCol, yPos);
-    doc.text(`${resumo?.qtdReforcosContratados || 0}`, valueColRight, yPos, { align: 'right' });
-    yPos += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
 
-    doc.text(`Qtde já pagas`, leftCol, yPos);
-    doc.text(`${resumo?.qtdParcelasPagas || 0}`, valueColLeft, yPos, { align: 'right' });
-    doc.text(`Qtde já pagos`, rightCol, yPos);
-    doc.text(`${resumo?.qtdReforcosPagos || 0}`, valueColRight, yPos, { align: 'right' });
-    yPos += 6;
-
-    doc.text(`Qtde a pagar`, leftCol, yPos);
-    doc.text(`${resumo?.qtdParcelasAPagar || 0}`, valueColLeft, yPos, { align: 'right' });
-    doc.text(`Qtde a pagar`, rightCol, yPos);
-    doc.text(`${resumo?.qtdReforcosAPagar || 0}`, valueColRight, yPos, { align: 'right' });
-    yPos += 10;
-
-    // Next installment (bold) - highlighted boxes for both
-    doc.setFont("helvetica", "bold");
-    
-    // Parcelamento box
-    if (resumo && resumo.qtdParcelasAPagar > 0) {
       doc.setFillColor(245, 245, 245);
-      doc.rect(leftCol - 2, yPos - 4, 90, 16, 'F');
-      doc.text(`Valor da próxima parcela`, leftCol, yPos);
-      doc.text(formatNumber(resumo.valorProximaParcela || 0), valueColLeft, yPos, { align: 'right' });
-      doc.text(`Vencimento`, leftCol, yPos + 6);
-      doc.text(resumo.vencimentoProximaParcela ? formatDate(resumo.vencimentoProximaParcela) : "-", valueColLeft, yPos + 6, { align: 'right' });
-    }
-    
-    // Reforço box
-    if (resumo && resumo.qtdReforcosAPagar > 0) {
-      doc.setFillColor(240, 240, 240);
-      doc.rect(rightCol - 2, yPos - 4, 90, 16, 'F');
-      doc.text(`Valor do próximo reforço`, rightCol, yPos);
-      doc.text(formatNumber(resumo.valorProximoReforco || 0), valueColRight, yPos, { align: 'right' });
-      doc.text(`Vencimento`, rightCol, yPos + 6);
-      doc.text(resumo.vencimentoProximoReforco ? formatDate(resumo.vencimentoProximoReforco) : "-", valueColRight, yPos + 6, { align: 'right' });
-    }
+      doc.rect(12, yPos - 4, 184, 16, "F");
 
-    // QR Code PIX - dinâmico baseado na aba ativa
-    if (pixPayload && pixDisplayData && pixDisplayData.qtdAPagar > 0) {
-      yPos += 20;
-      
-      // Check if we need a new page
+      doc.text(`Valor ${titulo}`, 14, yPos);
+      doc.text(formatNumber(valor || 0), 110, yPos, { align: "right" });
+      doc.text("Vencimento", 14, yPos + 6);
+      doc.text(vencimento ? formatDate(vencimento) : "-", 110, yPos + 6, { align: "right" });
+
+      return yPos + 20;
+    };
+
+    const addQrSection = (yStart: number, titulo: string, valor: number, vencimento: Date | null, qrCanvasId: string) => {
+      let yPos = yStart;
       if (yPos > 240) {
         doc.addPage();
         yPos = 20;
       }
 
-      // Draw separator
       doc.setDrawColor(200, 200, 200);
       doc.line(14, yPos - 5, 196, yPos - 5);
-      
-      // Title for QR Code section
+
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text(`QR Code PIX - ${pixDisplayData.titulo}`, 14, yPos);
+      doc.text(`QR Code PIX - ${titulo}`, 14, yPos);
       yPos += 10;
 
-      // Get QR Code canvas and convert to image
-      const qrCanvas = document.getElementById('qr-code-pdf-canvas') as HTMLCanvasElement;
-      if (qrCanvas) {
-        const qrDataUrl = qrCanvas.toDataURL('image/png');
-        const qrSize = 50; // Size in mm
-        doc.addImage(qrDataUrl, 'PNG', 14, yPos, qrSize, qrSize);
-        
-        // Add info next to QR Code
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        const infoX = 14 + qrSize + 10;
-        doc.text(`Valor: ${formatCurrency(pixDisplayData.valor)}`, infoX, yPos + 10);
-        doc.text(`Vencimento: ${pixDisplayData.vencimento ? formatDate(pixDisplayData.vencimento) : "-"}`, infoX, yPos + 18);
-        doc.setFontSize(8);
-        doc.text(`Escaneie o QR Code acima com o app`, infoX, yPos + 30);
-        doc.text(`do seu banco para pagar.`, infoX, yPos + 36);
+      const qrCanvas = document.getElementById(qrCanvasId) as HTMLCanvasElement;
+      if (!qrCanvas) return yPos;
+
+      const qrDataUrl = qrCanvas.toDataURL("image/png");
+      const qrSize = 50;
+      doc.addImage(qrDataUrl, "PNG", 14, yPos, qrSize, qrSize);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      const infoX = 14 + qrSize + 10;
+      doc.text(`Valor: ${formatCurrency(valor)}`, infoX, yPos + 10);
+      doc.text(`Vencimento: ${vencimento ? formatDate(vencimento) : "-"}`, infoX, yPos + 18);
+      doc.setFontSize(8);
+      doc.text(`Escaneie o QR Code acima com o app`, infoX, yPos + 30);
+      doc.text(`do seu banco para pagar.`, infoX, yPos + 36);
+
+      return yPos + qrSize + 10;
+    };
+
+    const renderFluxoPage = (tipo: TipoConta) => {
+      const isParcelamento = tipo === "PARCELAMENTO";
+
+      const tituloFluxo = isParcelamento ? "PARCELAMENTO" : "REFORÇOS";
+      const movimentos = isParcelamento ? movimentosParcelamento || [] : movimentosReforco || [];
+
+      const fluxoResumo = isParcelamento ? resumo?.parcelamento : resumo?.reforco;
+      const qtdContratadas = isParcelamento ? resumo?.qtdParcelasContratadas : resumo?.qtdReforcosContratados;
+      const qtdPagas = isParcelamento ? resumo?.qtdParcelasPagas : resumo?.qtdReforcosPagos;
+      const qtdAPagar = isParcelamento ? resumo?.qtdParcelasAPagar : resumo?.qtdReforcosAPagar;
+
+      const proximoValor = isParcelamento ? resumo?.valorProximaParcela : resumo?.valorProximoReforco;
+      const proximoVenc = isParcelamento ? resumo?.vencimentoProximaParcela : resumo?.vencimentoProximoReforco;
+
+      let yPos = addHeader(tituloFluxo);
+      yPos = addExtratoTable(yPos, `Últimos 12 movimentos (${tituloFluxo}):`, movimentos);
+
+      if (fluxoResumo) {
+        yPos = addResumo(yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0);
       }
+
+      if ((qtdAPagar || 0) > 0 && (proximoValor || 0) > 0) {
+        const label = isParcelamento ? "da próxima parcela" : "do próximo reforço";
+        yPos = addProximoTitulo(yPos, label, proximoValor || 0, proximoVenc || null);
+
+        const payload = isParcelamento ? pixPayloadParcelamento : pixPayloadReforco;
+        const canvasId = isParcelamento ? "qr-code-pdf-canvas-parcelamento" : "qr-code-pdf-canvas-reforco";
+
+        if (payload) {
+          yPos = addQrSection(yPos, isParcelamento ? "Próxima Parcela" : "Próximo Reforço", proximoValor || 0, proximoVenc || null, canvasId);
+        }
+      }
+    };
+
+    // Página 1: sempre PARCELAMENTO
+    renderFluxoPage("PARCELAMENTO");
+
+    // Página 2: REFORÇO (somente se existir)
+    const hasReforco = (resumo?.qtdReforcosContratados || 0) > 0 || (movimentosReforco?.length || 0) > 0;
+    if (hasReforco) {
+      doc.addPage();
+      renderFluxoPage("REFORCO");
     }
 
-    // Save
     doc.save(`consulta_lote_${selectedLote.quadra}_${selectedLote.numero_lote}.pdf`);
   };
 
@@ -883,13 +862,14 @@ export default function ConsultaLote() {
 
             <Separator />
 
-            {/* Resumo - Two column layout - SEPARADO POR FLUXO */}
+            {/* Resumo - APENAS DO FLUXO ATIVO */}
             <div>
-              <h3 className="font-semibold text-lg mb-3">Resumo:</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Left column - PARCELAMENTO */}
+              <h3 className="font-semibold text-lg mb-3">
+                Resumo ({tipoConta === "PARCELAMENTO" ? "PARCELAMENTO" : "REFORÇOS"}):
+              </h3>
+
+              {tipoConta === "PARCELAMENTO" ? (
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-primary border-b-2 border-primary pb-1">PARCELAMENTO</h4>
                   <div className="flex justify-between border-b pb-1">
                     <span>Total da Venda</span>
                     <span className="font-medium">{formatCurrency(resumo?.parcelamento.totalVenda || 0)}</span>
@@ -928,10 +908,8 @@ export default function ConsultaLote() {
                     <span className="font-medium">{resumo?.qtdParcelasAPagar || 0}</span>
                   </div>
                 </div>
-
-                {/* Right column - REFORÇOS */}
+              ) : (
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-secondary-foreground border-b-2 border-secondary pb-1">REFORÇOS</h4>
                   <div className="flex justify-between border-b pb-1">
                     <span>Total da Venda</span>
                     <span className="font-medium">{formatCurrency(resumo?.reforco.totalVenda || 0)}</span>
@@ -970,14 +948,14 @@ export default function ConsultaLote() {
                     <span className="font-medium">{resumo?.qtdReforcosAPagar || 0}</span>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <Separator />
 
-            {/* Próxima Parcela/Reforço - Destaque */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {resumo && resumo.qtdParcelasAPagar > 0 && (
+            {/* Próximo título - APENAS DO FLUXO ATIVO */}
+            <div className="grid grid-cols-1 gap-4">
+              {tipoConta === "PARCELAMENTO" && resumo && resumo.qtdParcelasAPagar > 0 && (
                 <div className="p-4 rounded-lg bg-primary/10 border-2 border-primary">
                   <div className="flex justify-between mb-2">
                     <span className="font-bold">Valor da próxima parcela</span>
@@ -989,7 +967,8 @@ export default function ConsultaLote() {
                   </div>
                 </div>
               )}
-              {resumo && resumo.qtdReforcosAPagar > 0 && (
+
+              {tipoConta === "REFORCO" && resumo && resumo.qtdReforcosAPagar > 0 && (
                 <div className="p-4 rounded-lg bg-secondary/30 border-2 border-secondary">
                   <div className="flex justify-between mb-2">
                     <span className="font-bold">Valor do próximo reforço</span>
@@ -1013,32 +992,38 @@ export default function ConsultaLote() {
                     QR Code PIX - {pixDisplayData.titulo}
                   </div>
                   <div className="bg-white p-4 rounded-lg shadow-sm">
-                    <QRCodeSVG 
-                      value={pixPayload} 
-                      size={200}
-                      level="M"
-                      includeMargin={true}
-                    />
+                    <QRCodeSVG value={pixPayload} size={200} level="M" includeMargin={true} />
                   </div>
-                  {/* Hidden canvas for PDF export */}
+
+                  {/* Hidden canvases for PDF export (um por fluxo) */}
                   <div className="hidden">
-                    <QRCodeCanvas 
-                      id="qr-code-pdf-canvas"
-                      value={pixPayload} 
-                      size={300}
-                      level="M"
-                      includeMargin={true}
-                    />
+                    {pixPayloadParcelamento && (
+                      <QRCodeCanvas
+                        id="qr-code-pdf-canvas-parcelamento"
+                        value={pixPayloadParcelamento}
+                        size={300}
+                        level="M"
+                        includeMargin={true}
+                      />
+                    )}
+                    {pixPayloadReforco && (
+                      <QRCodeCanvas
+                        id="qr-code-pdf-canvas-reforco"
+                        value={pixPayloadReforco}
+                        size={300}
+                        level="M"
+                        includeMargin={true}
+                      />
+                    )}
                   </div>
+
                   <div className="text-center text-sm text-muted-foreground max-w-md">
                     <p>Escaneie o QR Code acima com o app do seu banco para pagar.</p>
                     <p className="mt-1 font-medium">Valor: {formatCurrency(pixDisplayData.valor)}</p>
-                    {pixDisplayData.vencimento && (
-                      <p className="text-xs">Vencimento: {formatDate(pixDisplayData.vencimento)}</p>
-                    )}
+                    {pixDisplayData.vencimento && <p className="text-xs">Vencimento: {formatDate(pixDisplayData.vencimento)}</p>}
                   </div>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                       navigator.clipboard.writeText(pixPayload);
