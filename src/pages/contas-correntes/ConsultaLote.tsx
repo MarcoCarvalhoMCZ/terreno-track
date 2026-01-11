@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -26,6 +27,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { generatePixPayload, generateTxId } from "@/lib/pix";
+
+type TipoConta = "PARCELAMENTO" | "REFORCO";
 
 interface ResumoLote {
   totalVenda: number;
@@ -53,6 +56,7 @@ interface ResumoLote {
 
 export default function ConsultaLote() {
   const [selectedLoteId, setSelectedLoteId] = useState<string>("");
+  const [tipoConta, setTipoConta] = useState<TipoConta>("PARCELAMENTO");
 
   // Fetch lotes
   const { data: lotes } = useQuery({
@@ -678,93 +682,103 @@ export default function ConsultaLote() {
 
             <Separator />
 
-            {/* Tabela de Movimentos - PARCELAMENTO */}
-            <div>
-              <h3 className="font-semibold text-lg mb-3">Últimos 12 movimentos (PARCELAMENTO):</h3>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Histórico</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead className="text-right">Cálculo</TableHead>
-                      <TableHead className="text-right">Débitos(R$)</TableHead>
-                      <TableHead className="text-right">Créditos(R$)</TableHead>
-                      <TableHead className="text-right">Saldo(R$)</TableHead>
-                      <TableHead className="text-center">D/C</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {movimentosParcelamento?.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          Nenhum movimento de parcelamento encontrado
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      movimentosParcelamento?.map((mov) => (
-                        <TableRow key={mov.id}>
-                          <TableCell>{formatDate(mov.data_mov)}</TableCell>
-                          <TableCell>{formatHistorico(mov.descricao, mov.referencia)}</TableCell>
-                          <TableCell>{formatDate(mov.vencimento)}</TableCell>
-                          <TableCell className="text-right">{formatPercent(mov.percentual_calculo)}</TableCell>
-                          <TableCell className="text-right">{mov.debito && mov.debito > 0 ? formatCurrency(mov.debito) : ""}</TableCell>
-                          <TableCell className="text-right">{mov.credito && mov.credito > 0 ? formatCurrency(mov.credito) : ""}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(mov.saldo)}</TableCell>
-                          <TableCell className="text-center">{(mov.saldo || 0) >= 0 ? "D" : "C"}</TableCell>
+            {/* Tabs para Parcelamento e Reforços */}
+            <Tabs value={tipoConta} onValueChange={(v) => setTipoConta(v as TipoConta)} className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="PARCELAMENTO">Parcelamento</TabsTrigger>
+                <TabsTrigger value="REFORCO">Reforços</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="PARCELAMENTO" className="space-y-4 mt-4">
+                {/* Tabela de Movimentos - PARCELAMENTO */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-3">Últimos 12 movimentos (PARCELAMENTO):</h3>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Histórico</TableHead>
+                          <TableHead>Vencimento</TableHead>
+                          <TableHead className="text-right">Cálculo</TableHead>
+                          <TableHead className="text-right">Débitos(R$)</TableHead>
+                          <TableHead className="text-right">Créditos(R$)</TableHead>
+                          <TableHead className="text-right">Saldo(R$)</TableHead>
+                          <TableHead className="text-center">D/C</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
+                      </TableHeader>
+                      <TableBody>
+                        {movimentosParcelamento?.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                              Nenhum movimento de parcelamento encontrado
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          movimentosParcelamento?.map((mov) => (
+                            <TableRow key={mov.id}>
+                              <TableCell>{formatDate(mov.data_mov)}</TableCell>
+                              <TableCell>{formatHistorico(mov.descricao, mov.referencia)}</TableCell>
+                              <TableCell>{formatDate(mov.vencimento)}</TableCell>
+                              <TableCell className="text-right">{formatPercent(mov.percentual_calculo)}</TableCell>
+                              <TableCell className="text-right">{mov.debito && mov.debito > 0 ? formatCurrency(mov.debito) : ""}</TableCell>
+                              <TableCell className="text-right">{mov.credito && mov.credito > 0 ? formatCurrency(mov.credito) : ""}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(mov.saldo)}</TableCell>
+                              <TableCell className="text-center">{(mov.saldo || 0) >= 0 ? "D" : "C"}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </TabsContent>
 
-            <Separator />
-
-            {/* Tabela de Movimentos - REFORÇOS */}
-            <div>
-              <h3 className="font-semibold text-lg mb-3">Últimos 12 movimentos (REFORÇOS):</h3>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Histórico</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead className="text-right">Cálculo</TableHead>
-                      <TableHead className="text-right">Débitos(R$)</TableHead>
-                      <TableHead className="text-right">Créditos(R$)</TableHead>
-                      <TableHead className="text-right">Saldo(R$)</TableHead>
-                      <TableHead className="text-center">D/C</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {movimentosReforco?.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          Nenhum movimento de reforço encontrado
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      movimentosReforco?.map((mov) => (
-                        <TableRow key={mov.id}>
-                          <TableCell>{formatDate(mov.data_mov)}</TableCell>
-                          <TableCell>{formatHistorico(mov.descricao, mov.referencia)}</TableCell>
-                          <TableCell>{formatDate(mov.vencimento)}</TableCell>
-                          <TableCell className="text-right">{formatPercent(mov.percentual_calculo)}</TableCell>
-                          <TableCell className="text-right">{mov.debito && mov.debito > 0 ? formatCurrency(mov.debito) : ""}</TableCell>
-                          <TableCell className="text-right">{mov.credito && mov.credito > 0 ? formatCurrency(mov.credito) : ""}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(mov.saldo)}</TableCell>
-                          <TableCell className="text-center">{(mov.saldo || 0) >= 0 ? "D" : "C"}</TableCell>
+              <TabsContent value="REFORCO" className="space-y-4 mt-4">
+                {/* Tabela de Movimentos - REFORÇOS */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-3">Últimos 12 movimentos (REFORÇOS):</h3>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Histórico</TableHead>
+                          <TableHead>Vencimento</TableHead>
+                          <TableHead className="text-right">Cálculo</TableHead>
+                          <TableHead className="text-right">Débitos(R$)</TableHead>
+                          <TableHead className="text-right">Créditos(R$)</TableHead>
+                          <TableHead className="text-right">Saldo(R$)</TableHead>
+                          <TableHead className="text-center">D/C</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
+                      </TableHeader>
+                      <TableBody>
+                        {movimentosReforco?.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                              Nenhum movimento de reforço encontrado
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          movimentosReforco?.map((mov) => (
+                            <TableRow key={mov.id}>
+                              <TableCell>{formatDate(mov.data_mov)}</TableCell>
+                              <TableCell>{formatHistorico(mov.descricao, mov.referencia)}</TableCell>
+                              <TableCell>{formatDate(mov.vencimento)}</TableCell>
+                              <TableCell className="text-right">{formatPercent(mov.percentual_calculo)}</TableCell>
+                              <TableCell className="text-right">{mov.debito && mov.debito > 0 ? formatCurrency(mov.debito) : ""}</TableCell>
+                              <TableCell className="text-right">{mov.credito && mov.credito > 0 ? formatCurrency(mov.credito) : ""}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(mov.saldo)}</TableCell>
+                              <TableCell className="text-center">{(mov.saldo || 0) >= 0 ? "D" : "C"}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
 
             <Separator />
 

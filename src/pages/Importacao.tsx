@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
@@ -304,285 +305,317 @@ export default function Importacao() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">
-          Importação de Operações (CSV) - {tipoConta === "PARCELAMENTO" ? "Parcelamento" : "Reforços"}
-        </h1>
+        <h1 className="text-3xl font-bold">Importação de Operações (CSV)</h1>
         <p className="text-muted-foreground">Importe histórico de operações via arquivo CSV</p>
       </div>
 
-      {/* Instruções */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Layout do Arquivo CSV
-          </CardTitle>
-          <CardDescription>
-            O arquivo deve usar ";" como separador de campos
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm space-y-2">
-            <p className="font-medium">Colunas esperadas (na ordem):</p>
-            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-              <li><strong>Data</strong> - formato DD/MM/YYYY</li>
-              <li><strong>Historico</strong> - descrição da operação</li>
-              <li><strong>Referencia</strong> - referência adicional</li>
-              <li><strong>Vencimento</strong> - formato DD/MM/YYYY</li>
-              <li><strong>Calculos</strong> - percentual (formato XX,XXXX)</li>
-              <li><strong>Debitos</strong> - valor faturado (formato XX.XXX,XX)</li>
-              <li><strong>Creditos</strong> - valor recebido (formato XX.XXX,XX)</li>
-              <li><strong>Saldo</strong> - saldo atual (formato XX.XXX,XX)</li>
-              <li><strong>Natureza Saldo</strong> - D ou C</li>
-            </ol>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Parâmetros */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Parâmetros de Importação</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Tipo de Conta */}
-          <div className="space-y-2">
-            <Label>Tipo de Conta *</Label>
-            <Select value={tipoConta} onValueChange={(v) => setTipoConta(v as TipoConta)}>
-              <SelectTrigger className="w-64">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PARCELAMENTO">Parcelamento</SelectItem>
-                <SelectItem value="REFORCO">Reforços</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Selecione se os registros importados são de parcelamento ou reforços
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="lote">Lote de Destino *</Label>
-              <Select value={selectedLoteId} onValueChange={(value) => {
-                setSelectedLoteId(value);
-                setSelectedVendaId('');
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o lote" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lotes.map((lote) => (
-                    <SelectItem key={lote.id} value={lote.id}>
-                      Quadra {lote.quadra} - Lote {lote.numero_lote} ({lote.status})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="venda">Venda (opcional)</Label>
-              <Select 
-                value={selectedVendaId} 
-                onValueChange={(val) => setSelectedVendaId(val === '__none__' ? '' : val)} 
-                disabled={!selectedLoteId || vendas.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={vendas.length === 0 ? "Nenhuma venda" : "Selecione a venda"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Nenhuma</SelectItem>
-                  {vendas.map((venda) => (
-                    <SelectItem key={venda.id} value={venda.id}>
-                      {formatDateBR(venda.data_venda)} - {formatCurrency(venda.valor_venda)} ({venda.status})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="csvFile">Arquivo CSV</Label>
-            <div className="flex gap-2">
-              <Input
-                ref={fileInputRef}
-                id="csvFile"
-                type="file"
-                accept=".csv,.txt"
-                onChange={handleFileChange}
-                disabled={isImporting}
-              />
-              {csvFile && (
-                <Button variant="outline" onClick={handleReset} disabled={isImporting}>
-                  Limpar
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {selectedLote && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Lote Selecionado</AlertTitle>
-              <AlertDescription>
-                Quadra {selectedLote.quadra} - Lote {selectedLote.numero_lote}
-                {selectedLote.matricula_ri && ` | Matrícula: ${selectedLote.matricula_ri}`}
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Erros de Parse */}
-      {parseError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Erro ao ler arquivo</AlertTitle>
-          <AlertDescription>{parseError}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Preview dos Dados */}
-      {parsedData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Preview dos Dados ({parsedData.length} registros)</span>
-              <Button 
-                onClick={handleImport} 
-                disabled={isImporting || !selectedLoteId}
-                className="bg-primary"
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Importando...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Importar Dados
-                  </>
-                )}
-              </Button>
-            </CardTitle>
-            {isImporting && (
-              <Progress value={importProgress} className="mt-2" />
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Histórico</TableHead>
-                    <TableHead>Referência</TableHead>
-                    <TableHead>Vencimento</TableHead>
-                    <TableHead className="text-right">%</TableHead>
-                    <TableHead className="text-right">Débito</TableHead>
-                    <TableHead className="text-right">Crédito</TableHead>
-                    <TableHead className="text-right">Saldo</TableHead>
-                    {importResults.length > 0 && <TableHead>Status</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {parsedData.slice(0, 100).map((row, idx) => {
-                    const result = importResults.find(r => r.lineNumber === row.lineNumber);
-                    return (
-                      <TableRow key={idx}>
-                        <TableCell className="font-mono text-xs">{row.lineNumber}</TableCell>
-                        <TableCell>{formatDateBR(row.data_mov)}</TableCell>
-                        <TableCell>
-                          <span className="text-xs px-2 py-1 rounded bg-muted">
-                            {row.tipo_mov}
-                          </span>
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate">{row.descricao}</TableCell>
-                        <TableCell>{row.referencia}</TableCell>
-                        <TableCell>
-                          {row.vencimento ? new Date(row.vencimento).toLocaleDateString('pt-BR') : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {row.percentual_calculo?.toFixed(4) || '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-destructive">
-                          {row.debito > 0 ? formatCurrency(row.debito) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-green-600">
-                          {row.credito > 0 ? formatCurrency(row.credito) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium">
-                          {formatCurrency(row.saldo)}
-                        </TableCell>
-                        {importResults.length > 0 && (
-                          <TableCell>
-                            {result?.success ? (
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            ) : result?.error ? (
-                              <span className="text-xs text-destructive" title={result.error}>
-                                <AlertCircle className="h-4 w-4" />
-                              </span>
-                            ) : null}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            {parsedData.length > 100 && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Mostrando os primeiros 100 registros de {parsedData.length} total.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Resultado da Importação */}
-      {importResults.length > 0 && !isImporting && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Resultado da Importação</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <span className="font-medium">
-                  {importResults.filter(r => r.success).length} sucesso
-                </span>
+      {/* Tabs para Parcelamento e Reforços */}
+      <Tabs value={tipoConta} onValueChange={(v) => setTipoConta(v as TipoConta)} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="PARCELAMENTO">Parcelamento</TabsTrigger>
+          <TabsTrigger value="REFORCO">Reforços</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="PARCELAMENTO" className="space-y-6 mt-6">
+          {/* Instruções */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Layout do Arquivo CSV - Parcelamento
+              </CardTitle>
+              <CardDescription>
+                O arquivo deve usar ";" como separador de campos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm space-y-2">
+                <p className="font-medium">Colunas esperadas (na ordem):</p>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li><strong>Data</strong> - formato DD/MM/YYYY</li>
+                  <li><strong>Historico</strong> - descrição da operação</li>
+                  <li><strong>Referencia</strong> - referência adicional</li>
+                  <li><strong>Vencimento</strong> - formato DD/MM/YYYY</li>
+                  <li><strong>Calculos</strong> - percentual (formato XX,XXXX)</li>
+                  <li><strong>Debitos</strong> - valor faturado (formato XX.XXX,XX)</li>
+                  <li><strong>Creditos</strong> - valor recebido (formato XX.XXX,XX)</li>
+                  <li><strong>Saldo</strong> - saldo atual (formato XX.XXX,XX)</li>
+                  <li><strong>Natureza Saldo</strong> - D ou C</li>
+                </ol>
               </div>
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                <span className="font-medium">
-                  {importResults.filter(r => !r.success).length} erros
-                </span>
+            </CardContent>
+          </Card>
+
+          {renderImportContent()}
+        </TabsContent>
+
+        <TabsContent value="REFORCO" className="space-y-6 mt-6">
+          {/* Instruções */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Layout do Arquivo CSV - Reforços
+              </CardTitle>
+              <CardDescription>
+                O arquivo deve usar ";" como separador de campos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm space-y-2">
+                <p className="font-medium">Colunas esperadas (na ordem):</p>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li><strong>Data</strong> - formato DD/MM/YYYY</li>
+                  <li><strong>Historico</strong> - descrição da operação</li>
+                  <li><strong>Referencia</strong> - referência adicional</li>
+                  <li><strong>Vencimento</strong> - formato DD/MM/YYYY</li>
+                  <li><strong>Calculos</strong> - percentual (formato XX,XXXX)</li>
+                  <li><strong>Debitos</strong> - valor faturado (formato XX.XXX,XX)</li>
+                  <li><strong>Creditos</strong> - valor recebido (formato XX.XXX,XX)</li>
+                  <li><strong>Saldo</strong> - saldo atual (formato XX.XXX,XX)</li>
+                  <li><strong>Natureza Saldo</strong> - D ou C</li>
+                </ol>
               </div>
-            </div>
-            
-            {importResults.filter(r => !r.success).length > 0 && (
-              <div className="mt-4 space-y-2">
-                <p className="text-sm font-medium">Erros encontrados:</p>
-                <div className="max-h-40 overflow-y-auto text-sm">
-                  {importResults.filter(r => !r.success).map((result, idx) => (
-                    <div key={idx} className="text-destructive">
-                      Linha {result.lineNumber}: {result.error}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+
+          {renderImportContent()}
+        </TabsContent>
+      </Tabs>
     </div>
   );
+
+  function renderImportContent() {
+    return (
+      <>
+        {/* Parâmetros */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Parâmetros de Importação</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="lote">Lote de Destino *</Label>
+                <Select value={selectedLoteId} onValueChange={(value) => {
+                  setSelectedLoteId(value);
+                  setSelectedVendaId('');
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o lote" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lotes.map((lote) => (
+                      <SelectItem key={lote.id} value={lote.id}>
+                        Quadra {lote.quadra} - Lote {lote.numero_lote} ({lote.status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="venda">Venda (opcional)</Label>
+                <Select 
+                  value={selectedVendaId} 
+                  onValueChange={(val) => setSelectedVendaId(val === '__none__' ? '' : val)} 
+                  disabled={!selectedLoteId || vendas.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={vendas.length === 0 ? "Nenhuma venda" : "Selecione a venda"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhuma</SelectItem>
+                    {vendas.map((venda) => (
+                      <SelectItem key={venda.id} value={venda.id}>
+                        {formatDateBR(venda.data_venda)} - {formatCurrency(venda.valor_venda)} ({venda.status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="csvFile">Arquivo CSV</Label>
+              <div className="flex gap-2">
+                <Input
+                  ref={fileInputRef}
+                  id="csvFile"
+                  type="file"
+                  accept=".csv,.txt"
+                  onChange={handleFileChange}
+                  disabled={isImporting}
+                />
+                {csvFile && (
+                  <Button variant="outline" onClick={handleReset} disabled={isImporting}>
+                    Limpar
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {selectedLote && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Lote Selecionado</AlertTitle>
+                <AlertDescription>
+                  Quadra {selectedLote.quadra} - Lote {selectedLote.numero_lote}
+                  {selectedLote.matricula_ri && ` | Matrícula: ${selectedLote.matricula_ri}`}
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Erros de Parse */}
+        {parseError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Erro ao ler arquivo</AlertTitle>
+            <AlertDescription>{parseError}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Preview dos Dados */}
+        {parsedData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Preview dos Dados ({parsedData.length} registros)</span>
+                <Button 
+                  onClick={handleImport} 
+                  disabled={isImporting || !selectedLoteId}
+                  className="bg-primary"
+                >
+                  {isImporting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Importando...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Importar Dados
+                    </>
+                  )}
+                </Button>
+              </CardTitle>
+              {isImporting && (
+                <Progress value={importProgress} className="mt-2" />
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Histórico</TableHead>
+                      <TableHead>Referência</TableHead>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead className="text-right">%</TableHead>
+                      <TableHead className="text-right">Débito</TableHead>
+                      <TableHead className="text-right">Crédito</TableHead>
+                      <TableHead className="text-right">Saldo</TableHead>
+                      {importResults.length > 0 && <TableHead>Status</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedData.slice(0, 100).map((row, idx) => {
+                      const result = importResults.find(r => r.lineNumber === row.lineNumber);
+                      return (
+                        <TableRow key={idx}>
+                          <TableCell className="font-mono text-xs">{row.lineNumber}</TableCell>
+                          <TableCell>{formatDateBR(row.data_mov)}</TableCell>
+                          <TableCell>
+                            <span className="text-xs px-2 py-1 rounded bg-muted">
+                              {row.tipo_mov}
+                            </span>
+                          </TableCell>
+                          <TableCell className="max-w-[200px] truncate">{row.descricao}</TableCell>
+                          <TableCell>{row.referencia}</TableCell>
+                          <TableCell>
+                            {row.vencimento ? new Date(row.vencimento).toLocaleDateString('pt-BR') : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {row.percentual_calculo?.toFixed(4) || '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-destructive">
+                            {row.debito > 0 ? formatCurrency(row.debito) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-green-600">
+                            {row.credito > 0 ? formatCurrency(row.credito) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-medium">
+                            {formatCurrency(row.saldo)}
+                          </TableCell>
+                          {importResults.length > 0 && (
+                            <TableCell>
+                              {result?.success ? (
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              ) : result?.error ? (
+                                <span className="text-xs text-destructive" title={result.error}>
+                                  <AlertCircle className="h-4 w-4" />
+                                </span>
+                              ) : null}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              {parsedData.length > 100 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Mostrando os primeiros 100 registros de {parsedData.length} total.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Resultado da Importação */}
+        {importResults.length > 0 && !isImporting && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Resultado da Importação</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="font-medium">
+                    {importResults.filter(r => r.success).length} sucesso
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                  <span className="font-medium">
+                    {importResults.filter(r => !r.success).length} erros
+                  </span>
+                </div>
+              </div>
+              
+              {importResults.filter(r => !r.success).length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium">Erros encontrados:</p>
+                  <div className="max-h-40 overflow-y-auto text-sm">
+                    {importResults.filter(r => !r.success).map((result, idx) => (
+                      <div key={idx} className="text-destructive">
+                        Linha {result.lineNumber}: {result.error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </>
+    );
+  }
 }
