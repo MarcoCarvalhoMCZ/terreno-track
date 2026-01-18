@@ -405,7 +405,7 @@ export default function ContaCorrenteLote() {
         // Calcular atualização monetária: Saldo Anterior × Índice
         // Algoritmo:
         // 1. Usar data_mov informada no formulário
-        // 2. Buscar saldo imediatamente anterior à data_mov
+        // 2. Calcular saldo acumulado (soma débitos - soma créditos) até data anterior a data_mov
         // 3. Ver em vendas qual tipo de atualização (IGPM ou MEDIA)
         // 4. Ver em vendas a defasagem do índice
         // 5. Calcular competência do índice = data_mov (YYYY-MM) - defasagem
@@ -414,7 +414,8 @@ export default function ContaCorrenteLote() {
         // Usar data do movimento (formData.data_mov) ou data atual se não informada
         const dataMovimento = formData.data_mov ? parseDateOnly(formData.data_mov) : new Date();
         
-        // Buscar saldo imediatamente anterior à data do movimento
+        // Calcular saldo acumulado até a data anterior ao movimento
+        // Saldo = Soma(débitos) - Soma(créditos) das movimentações anteriores
         let saldoAnterior = 0;
         if (movimentacoes && formData.lote_id && dataMovimento) {
           // Filtrar movimentações do mesmo lote e tipo_fluxo, anteriores à data do movimento
@@ -424,17 +425,12 @@ export default function ContaCorrenteLote() {
               (m as any).tipo_fluxo === tipoFluxo &&
               m.data_mov && 
               parseDateOnly(m.data_mov)! < dataMovimento
-            )
-            .sort((a, b) => {
-              const dataA = parseDateOnly(a.data_mov)!;
-              const dataB = parseDateOnly(b.data_mov)!;
-              return dataB.getTime() - dataA.getTime();
-            });
+            );
           
-          // Pegar o saldo do último movimento anterior
-          if (movimentacoesAnteriores.length > 0) {
-            saldoAnterior = movimentacoesAnteriores[0].saldo || 0;
-          }
+          // Calcular saldo acumulado: soma débitos - soma créditos
+          movimentacoesAnteriores.forEach(m => {
+            saldoAnterior += (m.debito || 0) - (m.credito || 0);
+          });
         }
         
         let fatorPercentual = 0;
