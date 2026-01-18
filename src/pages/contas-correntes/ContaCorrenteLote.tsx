@@ -501,8 +501,16 @@ export default function ContaCorrenteLote() {
     }
   }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, formData.data_mov, loteSelecionado, vendaDoLote, resumoFluxoLote, movimentacoes, indicadoresValores, getIndicadorFator, calcularMediaIndicadores]);
 
-  // Referência para controlar se deve aplicar sugestão de valor
-  const [shouldApplyValueSuggestion, setShouldApplyValueSuggestion] = useState(true);
+  // Referência para controlar se deve aplicar sugestões automaticamente
+  const [shouldApplySuggestions, setShouldApplySuggestions] = useState(true);
+
+  // Função para normalizar valor numérico (aceita vírgula e ponto como decimal)
+  const parseValorBR = (value: string): number => {
+    if (!value) return 0;
+    // Remove pontos de milhar e troca vírgula por ponto decimal
+    const normalized = value.replace(/\./g, '').replace(',', '.');
+    return parseFloat(normalized) || 0;
+  };
 
   // Efeito para aplicar sugestões quando o tipo de movimento, lote ou data mudar
   useEffect(() => {
@@ -512,42 +520,32 @@ export default function ContaCorrenteLote() {
     // Só aplicar se houver lote e tipo selecionado
     if (!formData.lote_id || !formData.tipo_mov) return;
 
+    // Só aplicar sugestões se a flag estiver ativa
+    if (!shouldApplySuggestions) return;
+
     const sugestoes = calcularSugestoes;
     
-    // Para ATUALIZACAO, aplicar valor sugerido apenas se deve aplicar
-    if (formData.tipo_mov === "ATUALIZACAO") {
-      // Só atualiza o valor se shouldApplyValueSuggestion for true
-      if (shouldApplyValueSuggestion && sugestoes.valor) {
-        setValorMovimento(sugestoes.valor);
-      }
-      setFormData(prev => ({
-        ...prev,
-        referencia: "",
-        vencimento: null,
-        percentual_calculo: sugestoes.percentual ? parseFloat(sugestoes.percentual) : null,
-        descricao: sugestoes.descricao || "",
-      }));
-      return;
-    }
-    
-    // Aplicar sugestões sem sobrescrever valores já preenchidos pelo usuário
-    if (sugestoes.valor && !valorMovimento) {
+    // Aplicar sugestões como valores iniciais (podem ser alterados pelo usuário)
+    if (sugestoes.valor) {
       setValorMovimento(sugestoes.valor);
     }
     
     setFormData(prev => ({
       ...prev,
-      referencia: sugestoes.referencia || prev.referencia || "",
-      vencimento: sugestoes.vencimento || prev.vencimento || null,
-      percentual_calculo: sugestoes.percentual ? parseFloat(sugestoes.percentual) : prev.percentual_calculo,
-      descricao: sugestoes.descricao || prev.descricao || "",
+      referencia: sugestoes.referencia || "",
+      vencimento: sugestoes.vencimento || null,
+      percentual_calculo: sugestoes.percentual ? parseFloat(sugestoes.percentual) : null,
+      descricao: sugestoes.descricao || "",
     }));
-  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, formData.data_mov, editingMov, calcularSugestoes, shouldApplyValueSuggestion]);
+    
+    // Desabilitar sugestões após aplicar uma vez (evita sobrescrever edições do usuário)
+    setShouldApplySuggestions(false);
+  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, formData.data_mov, editingMov, calcularSugestoes, shouldApplySuggestions]);
   
-  // Resetar flag quando muda o tipo de movimento, lote ou data
+  // Resetar flag quando muda o tipo de movimento, lote ou tipo de fluxo (nova seleção)
   useEffect(() => {
-    setShouldApplyValueSuggestion(true);
-  }, [formData.tipo_mov, formData.lote_id, formData.data_mov]);
+    setShouldApplySuggestions(true);
+  }, [formData.tipo_mov, formData.lote_id, formData.tipo_fluxo_form]);
 
   // Efeito para calcular juros quando vencimento mudar (para tipo JUROS)
   useEffect(() => {
@@ -577,7 +575,7 @@ export default function ContaCorrenteLote() {
     setEditingMov(null);
     setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta });
     setValorMovimento("");
-    setShouldApplyValueSuggestion(true);
+    setShouldApplySuggestions(true);
   };
 
   const handleEdit = (mov: ContaCorrenteComRelacionamentos) => {
@@ -625,7 +623,7 @@ export default function ContaCorrenteLote() {
     if (!formData.data_mov) camposFaltando.push("Data Movimento");
     if (!formData.tipo_mov) camposFaltando.push("Tipo Movimento");
     
-    const valor = parseFloat(valorMovimento);
+    const valor = parseValorBR(valorMovimento);
     if (!valor || valor <= 0) camposFaltando.push("Valor");
 
     if (camposFaltando.length > 0) {
@@ -1065,11 +1063,9 @@ export default function ContaCorrenteLote() {
                       inputMode="decimal"
                       value={valorMovimento}
                       onChange={(e) => {
-                        // Permite apenas números, vírgula e ponto
+                        // Permite apenas números, vírgula e ponto (formato brasileiro)
                         const value = e.target.value.replace(/[^\d.,]/g, '');
                         setValorMovimento(value);
-                        // Quando usuário edita manualmente, desabilita sugestão automática
-                        setShouldApplyValueSuggestion(false);
                       }}
                       placeholder="0,00"
                       className="[appearance:textfield]"
