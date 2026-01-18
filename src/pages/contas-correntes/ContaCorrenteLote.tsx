@@ -201,17 +201,54 @@ export default function ContaCorrenteLote() {
   });
 
   // Fetch indicadores de atualização para calcular atualização monetária
-  const { data: indicadores } = useQuery({
+  // Fetch indicadores de atualização (nomes dos indicadores)
+  const { data: indicadoresBase } = useQuery({
+    queryKey: ["indicadores-atualizacao"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("indicadores_atualizacao")
+        .select("id, nome")
+        .eq("ativo", true);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch valores dos indicadores para calcular atualização monetária
+  const { data: indicadoresValores } = useQuery({
     queryKey: ["indicadores-atualizacao-valores"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("indicadores_atualizacao_valores")
-        .select("*, indicador:indicadores_atualizacao(nome)")
+        .select("*, indicador:indicadores_atualizacao(id, nome)")
         .order("competencia", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
+
+  // Indicadores principais para cálculo da média
+  const indicadoresPrincipais = ["IGPM", "INCC", "INPC", "IPCA"];
+
+  // Função para obter o fator de um indicador em uma competência específica
+  const getIndicadorFator = (indicadorNome: string, competencia: string): number | null => {
+    if (!indicadoresValores) return null;
+    const valor = indicadoresValores.find(
+      v => v.indicador?.nome?.toUpperCase() === indicadorNome.toUpperCase() && 
+           v.competencia?.substring(0, 7) === competencia.substring(0, 7)
+    );
+    return valor?.fator ?? null;
+  };
+
+  // Função para calcular a média dos indicadores principais em uma competência
+  const calcularMediaIndicadores = (competencia: string): number | null => {
+    const fatores = indicadoresPrincipais
+      .map(nome => getIndicadorFator(nome, competencia))
+      .filter((f): f is number => f !== null);
+    
+    if (fatores.length === 0) return null;
+    return fatores.reduce((a, b) => a + b, 0) / fatores.length;
+  };
 
   const createMutation = useMutation({
     mutationFn: async (mov: ContaCorrenteInsert) => {
@@ -366,22 +403,44 @@ export default function ContaCorrenteLote() {
 
       case "ATUALIZACAO": {
         // Calcular atualização monetária: Saldo Anterior × Índice
+        // Algoritmo:
+        // 1. Pegar saldo do lote
+        // 2. Ver em vendas qual tipo de atualização (IGPM ou MEDIA)
+        // 3. Ver em vendas a defasagem do índice
+        // 4. Calcular competência do índice = data atual - defasagem
+        // 5. Buscar o índice correto para essa competência
         const saldoAtual = resumoFluxoLote?.saldo_atualizado || 0;
         
-        // Buscar fator do último indicador (simplificado - idealmente considerar defasagem)
         let fatorPercentual = 0;
-        if (indicadores && indicadores.length > 0) {
-          // Usar média dos últimos indicadores ou o mais recente
-          fatorPercentual = indicadores[0]?.fator || 0;
+        
+        if (vendaDoLote) {
+          // Obter tipo de atualização e defasagem da venda
+          const tipoAtualizacao = vendaDoLote.tipo_atualizacao || "IGPM";
+          const defasagem = vendaDoLote.defasagem_indice || 1;
+          
+          // Calcular data de referência: mês atual - defasagem
+          const hoje = new Date();
+          const dataReferencia = new Date(hoje.getFullYear(), hoje.getMonth() - defasagem, 1);
+          const competenciaIndice = format(dataReferencia, "yyyy-MM");
+          
+          if (tipoAtualizacao === "MEDIA") {
+            // Calcular média dos indicadores principais (IGPM, INCC, INPC, IPCA)
+            const mediaFator = calcularMediaIndicadores(competenciaIndice);
+            fatorPercentual = mediaFator ?? 0;
+          } else {
+            // Usar o indicador específico (IGPM)
+            const fatorIndice = getIndicadorFator(tipoAtualizacao, competenciaIndice);
+            fatorPercentual = fatorIndice ?? 0;
+          }
         }
         
         const valorAtualizacao = saldoAtual * (fatorPercentual / 100);
         
         return {
-          valor: valorAtualizacao > 0 ? valorAtualizacao.toFixed(2) : "",
+          valor: valorAtualizacao !== 0 ? Math.abs(valorAtualizacao).toFixed(2) : "",
           referencia: "",
           vencimento: "",
-          percentual: fatorPercentual.toString(),
+          percentual: fatorPercentual.toFixed(2),
           descricao: `Atualização Monetária ${loteLabel}`,
         };
       }
@@ -419,7 +478,7 @@ export default function ContaCorrenteLote() {
       default:
         return { valor: "", referencia: "", vencimento: "", percentual: "", descricao: "" };
     }
-  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, loteSelecionado, vendaDoLote, resumoFluxoLote, indicadores]);
+  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, loteSelecionado, vendaDoLote, resumoFluxoLote, indicadoresValores, getIndicadorFator, calcularMediaIndicadores]);
 
   // Efeito para aplicar sugestões quando o tipo de movimento ou lote mudar
   useEffect(() => {
