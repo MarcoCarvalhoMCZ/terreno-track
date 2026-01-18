@@ -404,23 +404,48 @@ export default function ContaCorrenteLote() {
       case "ATUALIZACAO": {
         // Calcular atualização monetária: Saldo Anterior × Índice
         // Algoritmo:
-        // 1. Pegar saldo do lote
-        // 2. Ver em vendas qual tipo de atualização (IGPM ou MEDIA)
-        // 3. Ver em vendas a defasagem do índice
-        // 4. Calcular competência do índice = data atual - defasagem
-        // 5. Buscar o índice correto para essa competência
-        const saldoAtual = resumoFluxoLote?.saldo_atualizado || 0;
+        // 1. Usar data_mov informada no formulário
+        // 2. Buscar saldo imediatamente anterior à data_mov
+        // 3. Ver em vendas qual tipo de atualização (IGPM ou MEDIA)
+        // 4. Ver em vendas a defasagem do índice
+        // 5. Calcular competência do índice = data_mov (YYYY-MM) - defasagem
+        // 6. Buscar o índice correto para essa competência
+        
+        // Usar data do movimento (formData.data_mov) ou data atual se não informada
+        const dataMovimento = formData.data_mov ? parseDateOnly(formData.data_mov) : new Date();
+        
+        // Buscar saldo imediatamente anterior à data do movimento
+        let saldoAnterior = 0;
+        if (movimentacoes && formData.lote_id && dataMovimento) {
+          // Filtrar movimentações do mesmo lote e tipo_fluxo, anteriores à data do movimento
+          const movimentacoesAnteriores = movimentacoes
+            .filter(m => 
+              m.lote_id === formData.lote_id && 
+              (m as any).tipo_fluxo === tipoFluxo &&
+              m.data_mov && 
+              parseDateOnly(m.data_mov)! < dataMovimento
+            )
+            .sort((a, b) => {
+              const dataA = parseDateOnly(a.data_mov)!;
+              const dataB = parseDateOnly(b.data_mov)!;
+              return dataB.getTime() - dataA.getTime();
+            });
+          
+          // Pegar o saldo do último movimento anterior
+          if (movimentacoesAnteriores.length > 0) {
+            saldoAnterior = movimentacoesAnteriores[0].saldo || 0;
+          }
+        }
         
         let fatorPercentual = 0;
         
-        if (vendaDoLote) {
+        if (vendaDoLote && dataMovimento) {
           // Obter tipo de atualização e defasagem da venda
           const tipoAtualizacao = vendaDoLote.tipo_atualizacao || "IGPM";
           const defasagem = vendaDoLote.defasagem_indice || 1;
           
-          // Calcular data de referência: mês atual - defasagem
-          const hoje = new Date();
-          const dataReferencia = new Date(hoje.getFullYear(), hoje.getMonth() - defasagem, 1);
+          // Calcular data de referência: mês do data_mov - defasagem
+          const dataReferencia = new Date(dataMovimento.getFullYear(), dataMovimento.getMonth() - defasagem, 1);
           const competenciaIndice = format(dataReferencia, "yyyy-MM");
           
           if (tipoAtualizacao === "MEDIA") {
@@ -434,7 +459,7 @@ export default function ContaCorrenteLote() {
           }
         }
         
-        const valorAtualizacao = saldoAtual * (fatorPercentual / 100);
+        const valorAtualizacao = saldoAnterior * (fatorPercentual / 100);
         
         return {
           valor: valorAtualizacao !== 0 ? Math.abs(valorAtualizacao).toFixed(2) : "",
@@ -478,9 +503,9 @@ export default function ContaCorrenteLote() {
       default:
         return { valor: "", referencia: "", vencimento: "", percentual: "", descricao: "" };
     }
-  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, loteSelecionado, vendaDoLote, resumoFluxoLote, indicadoresValores, getIndicadorFator, calcularMediaIndicadores]);
+  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, formData.data_mov, loteSelecionado, vendaDoLote, resumoFluxoLote, movimentacoes, indicadoresValores, getIndicadorFator, calcularMediaIndicadores]);
 
-  // Efeito para aplicar sugestões quando o tipo de movimento ou lote mudar
+  // Efeito para aplicar sugestões quando o tipo de movimento, lote ou data mudar
   useEffect(() => {
     // Não aplicar sugestões se estiver editando
     if (editingMov) return;
@@ -489,6 +514,19 @@ export default function ContaCorrenteLote() {
     if (!formData.lote_id || !formData.tipo_mov) return;
 
     const sugestoes = calcularSugestoes;
+    
+    // Para ATUALIZACAO, sempre recalcular quando tipo ou data mudar
+    if (formData.tipo_mov === "ATUALIZACAO") {
+      setValorMovimento(sugestoes.valor || "");
+      setFormData(prev => ({
+        ...prev,
+        referencia: "",
+        vencimento: null,
+        percentual_calculo: sugestoes.percentual ? parseFloat(sugestoes.percentual) : null,
+        descricao: sugestoes.descricao || "",
+      }));
+      return;
+    }
     
     // Aplicar sugestões sem sobrescrever valores já preenchidos pelo usuário
     if (sugestoes.valor && !valorMovimento) {
@@ -502,7 +540,7 @@ export default function ContaCorrenteLote() {
       percentual_calculo: sugestoes.percentual ? parseFloat(sugestoes.percentual) : prev.percentual_calculo,
       descricao: sugestoes.descricao || prev.descricao || "",
     }));
-  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, editingMov]);
+  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, formData.data_mov, editingMov, calcularSugestoes]);
 
   // Efeito para calcular juros quando vencimento mudar (para tipo JUROS)
   useEffect(() => {
