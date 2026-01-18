@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { FileDown, Search, QrCode, CalendarIcon, X } from "lucide-react";
+import { FileDown, Search, QrCode, CalendarIcon, X, RefreshCw } from "lucide-react";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -32,6 +32,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { generatePixPayload, generateTxId, TipoFluxoTxId } from "@/lib/pix";
+import { toast } from "sonner";
 
 type TipoConta = "PARCELAMENTO" | "REFORCO";
 
@@ -71,6 +72,32 @@ export default function ConsultaLote() {
   const [dataInicial, setDataInicial] = useState<Date | undefined>(undefined);
   const [dataFinal, setDataFinal] = useState<Date | undefined>(undefined);
   const [filtroAtivo, setFiltroAtivo] = useState(false);
+
+  const queryClient = useQueryClient();
+
+  // Mutation para reorganizar saldos do lote
+  const reorganizarMutation = useMutation({
+    mutationFn: async (loteId: string) => {
+      const { data, error } = await supabase.rpc("reorganizar_lote_completo", {
+        p_lote_id: loteId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      // Invalidar queries para atualizar os dados
+      queryClient.invalidateQueries({ queryKey: ["todos-movimentos-parcelamento-lote", selectedLoteId] });
+      queryClient.invalidateQueries({ queryKey: ["todos-movimentos-reforco-lote", selectedLoteId] });
+      queryClient.invalidateQueries({ queryKey: ["resumo-lote-consulta", selectedLoteId] });
+      
+      const totalProcessados = data?.reduce((acc: number, item: any) => acc + (item.registros_processados || 0), 0) || 0;
+      toast.success(`Saldos reorganizados com sucesso! ${totalProcessados} registro(s) processado(s).`);
+    },
+    onError: (error: any) => {
+      console.error("Erro ao reorganizar saldos:", error);
+      toast.error("Erro ao reorganizar saldos: " + error.message);
+    },
+  });
 
   // Fetch lotes
   const { data: lotes } = useQuery({
@@ -904,8 +931,17 @@ export default function ConsultaLote() {
       {/* Informações do Lote */}
       {selectedLote && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Quadra {selectedLote.quadra} - Lote {selectedLote.numero_lote}</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => reorganizarMutation.mutate(selectedLoteId)}
+              disabled={reorganizarMutation.isPending}
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", reorganizarMutation.isPending && "animate-spin")} />
+              {reorganizarMutation.isPending ? "Reorganizando..." : "Reorganizar Saldos"}
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Vendedor */}
