@@ -126,7 +126,6 @@ type TipoAtualizacao = "IGPM" | "MEDIA";
 interface VendaFormData extends Partial<VendaInsert> {
   tipo_atualizacao?: TipoAtualizacao;
   defasagem_indice?: number;
-  comprador_solidario_1_id?: string;
   comprador_solidario_2_id?: string;
   valor_parcelamento?: number;
   qtd_parcelas?: number;
@@ -142,7 +141,6 @@ const emptyVenda: VendaFormData = {
   lote_id: "",
   data_venda: new Date().toISOString().split("T")[0],
   comprador_pessoa_id: "",
-  vendedor_pessoa_id: "",
   valor_venda: 0,
   valor_arras: null,
   indicador_atualizacao_id: "",
@@ -150,7 +148,6 @@ const emptyVenda: VendaFormData = {
   observacoes: "",
   tipo_atualizacao: "IGPM",
   defasagem_indice: 1,
-  comprador_solidario_1_id: "",
   comprador_solidario_2_id: "",
   valor_parcelamento: undefined,
   qtd_parcelas: 1,
@@ -357,15 +354,13 @@ export default function Vendas() {
   const handleEdit = (venda: VendaComRelacionamentos) => {
     setEditingVenda(venda);
     
-    // Find pessoa IDs from names if they exist
-    const comprador1 = pessoas?.find(p => p.nome_razao === venda.comprador_nome_1);
+    // Find pessoa ID from name if it exists (comprador solidário)
     const comprador2 = pessoas?.find(p => p.nome_razao === venda.comprador_nome_2);
     
     setFormData({
       lote_id: venda.lote_id,
       data_venda: venda.data_venda,
       comprador_pessoa_id: venda.comprador_pessoa_id,
-      vendedor_pessoa_id: venda.vendedor_pessoa_id || "",
       valor_venda: venda.valor_venda,
       valor_arras: venda.valor_arras,
       indicador_atualizacao_id: venda.indicador_atualizacao_id || "",
@@ -373,7 +368,6 @@ export default function Vendas() {
       observacoes: venda.observacoes || "",
       tipo_atualizacao: (venda.tipo_atualizacao as TipoAtualizacao) || "IGPM",
       defasagem_indice: venda.defasagem_indice || 1,
-      comprador_solidario_1_id: comprador1?.id || "",
       comprador_solidario_2_id: comprador2?.id || "",
       valor_parcelamento: venda.valor_parcelamento || undefined,
       qtd_parcelas: venda.qtd_parcelas || 1,
@@ -406,8 +400,7 @@ export default function Vendas() {
       return;
     }
 
-    // Get names from selected pessoas for compradores solidários
-    const comprador1 = pessoas?.find(p => p.id === formData.comprador_solidario_1_id);
+    // Get name from selected pessoa for comprador solidário
     const comprador2 = pessoas?.find(p => p.id === formData.comprador_solidario_2_id);
 
     const dataToSave: any = {
@@ -416,14 +409,14 @@ export default function Vendas() {
       comprador_pessoa_id: formData.comprador_pessoa_id,
       valor_venda: Number(formData.valor_venda),
       valor_arras: formData.valor_arras ? Number(formData.valor_arras) : null,
-      vendedor_pessoa_id: formData.vendedor_pessoa_id || null,
+      vendedor_pessoa_id: null, // Vendedor vem das configurações
       indicador_atualizacao_id: formData.indicador_atualizacao_id || null,
       status: formData.status,
       observacoes: formData.observacoes || null,
       tipo_atualizacao: formData.tipo_atualizacao || "IGPM",
       defasagem_indice: formData.defasagem_indice || 1,
-      comprador_nome_1: comprador1?.nome_razao || null,
-      comprador_cpf_1: comprador1?.cpf_cnpj || null,
+      comprador_nome_1: null, // Removido - era redundante
+      comprador_cpf_1: null,
       comprador_nome_2: comprador2?.nome_razao || null,
       comprador_cpf_2: comprador2?.cpf_cnpj || null,
       valor_parcelamento: formData.valor_parcelamento ? Number(formData.valor_parcelamento) : null,
