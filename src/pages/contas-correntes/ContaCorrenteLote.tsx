@@ -66,7 +66,7 @@ const tiposMovimento = [
   { value: "PARCELA", label: "Parcela Recebida", natureza: "credito" as const },
   { value: "ARRAS", label: "Sinal / Arras", natureza: "credito" as const },
   { value: "REFORCO", label: "Reforço", natureza: "credito" as const },
-  { value: "ATUALIZACAO", label: "Atualização Monetária", natureza: "debito" as const },
+  { value: "ATUALIZACAO", label: "Atualização Monetária", natureza: "auto" as const }, // auto = débito se positivo, crédito se negativo
   { value: "JUROS", label: "Juros", natureza: "debito" as const },
   { value: "MULTA", label: "Multa", natureza: "debito" as const },
   { value: "DESCONTO", label: "Desconto", natureza: "credito" as const },
@@ -80,7 +80,7 @@ const tiposMovimentoTodos = [
   ...tiposMovimento,
 ];
 
-type NaturezaMovimento = "debito" | "credito" | "pergunta";
+type NaturezaMovimento = "debito" | "credito" | "pergunta" | "auto";
 
 const getNaturezaMovimento = (tipoMov: string): NaturezaMovimento => {
   const tipo = tiposMovimentoTodos.find(t => t.value === tipoMov);
@@ -631,6 +631,11 @@ export default function ContaCorrenteLote() {
         return;
       }
       naturezaFinal = formData.natureza_outros;
+    } else if (naturezaDoTipo === "auto") {
+      // Para ATUALIZACAO: índice positivo = débito (aumenta saldo), índice negativo = crédito (reduz saldo)
+      // O percentual_calculo armazena o índice, que pode ser negativo
+      const percentual = formData.percentual_calculo || 0;
+      naturezaFinal = percentual >= 0 ? "debito" : "credito";
     } else {
       naturezaFinal = naturezaDoTipo;
     }
