@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,8 +61,8 @@ interface ContaCorrenteComRelacionamentos extends ContaCorrente {
 
 // Tipos de movimento conforme constraint do banco: VENDA, ARRAS, PARCELA, REFORCO, JUROS, MULTA, ATUALIZACAO, DESCONTO, ESTORNO, OUTROS
 // Convenção: débito = valores faturados, crédito = valores recebidos
+// Removido "VENDA" do dropdown - a venda é tratada automaticamente na tela de vendas
 const tiposMovimento = [
-  { value: "VENDA", label: "Venda do Lote", natureza: "debito" as const },
   { value: "PARCELA", label: "Parcela Recebida", natureza: "credito" as const },
   { value: "ARRAS", label: "Sinal / Arras", natureza: "credito" as const },
   { value: "REFORCO", label: "Reforço", natureza: "credito" as const },
@@ -74,10 +74,16 @@ const tiposMovimento = [
   { value: "OUTROS", label: "Outros", natureza: "pergunta" as const },
 ];
 
+// Mantemos VENDA apenas para exibição na tabela (movimentos existentes)
+const tiposMovimentoTodos = [
+  { value: "VENDA", label: "Venda do Lote", natureza: "debito" as const },
+  ...tiposMovimento,
+];
+
 type NaturezaMovimento = "debito" | "credito" | "pergunta";
 
 const getNaturezaMovimento = (tipoMov: string): NaturezaMovimento => {
-  const tipo = tiposMovimento.find(t => t.value === tipoMov);
+  const tipo = tiposMovimentoTodos.find(t => t.value === tipoMov);
   return tipo?.natureza || "pergunta";
 };
 
@@ -96,11 +102,20 @@ const emptyMovimento: Partial<ContaCorrenteInsert> & { natureza_outros?: "debito
   tipo_fluxo_form: "PARCELAMENTO",
 };
 
-// Tipos que se aplicam a cada conta
-const tiposParcelamento = ["VENDA", "PARCELA", "ARRAS", "ATUALIZACAO", "JUROS", "MULTA", "DESCONTO", "ESTORNO", "OUTROS"];
+// Tipos que se aplicam a cada conta (removido VENDA)
+const tiposParcelamento = ["PARCELA", "ARRAS", "ATUALIZACAO", "JUROS", "MULTA", "DESCONTO", "ESTORNO", "OUTROS"];
 const tiposReforco = ["REFORCO", "ATUALIZACAO", "JUROS", "MULTA", "DESCONTO", "ESTORNO", "OUTROS"];
 
 type TipoConta = "PARCELAMENTO" | "REFORCO";
+
+// Interface para dados de resumo de fluxo
+interface ResumoFluxo {
+  lote_id: string;
+  tipo_fluxo: string;
+  saldo_atualizado: number;
+  qtd_restante: number;
+  valor_proximo_titulo: number;
+}
 
 export default function ContaCorrenteLote() {
   const { canEdit } = useAuth();
@@ -173,6 +188,31 @@ export default function ContaCorrenteLote() {
     },
   });
 
+  // Fetch resumo de fluxo para sugestões automáticas
+  const { data: resumoFluxo } = useQuery({
+    queryKey: ["resumo-fluxo-lote"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vw_resumo_fluxo_lote")
+        .select("*");
+      if (error) throw error;
+      return data as ResumoFluxo[];
+    },
+  });
+
+  // Fetch indicadores de atualização para calcular atualização monetária
+  const { data: indicadores } = useQuery({
+    queryKey: ["indicadores-atualizacao-valores"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("indicadores_atualizacao_valores")
+        .select("*, indicador:indicadores_atualizacao(nome)")
+        .order("competencia", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async (mov: ContaCorrenteInsert) => {
       const { data, error } = await supabase
@@ -187,6 +227,7 @@ export default function ContaCorrenteLote() {
       queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
       queryClient.invalidateQueries({ queryKey: ["resumo-consolidado"] });
       queryClient.invalidateQueries({ queryKey: ["resumo-por-lote"] });
+      queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
       toast.success("Movimentação cadastrada com sucesso!");
       handleCloseDialog();
     },
@@ -210,6 +251,7 @@ export default function ContaCorrenteLote() {
       queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
       queryClient.invalidateQueries({ queryKey: ["resumo-consolidado"] });
       queryClient.invalidateQueries({ queryKey: ["resumo-por-lote"] });
+      queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
       toast.success("Movimentação atualizada com sucesso!");
       handleCloseDialog();
     },
@@ -227,6 +269,7 @@ export default function ContaCorrenteLote() {
       queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
       queryClient.invalidateQueries({ queryKey: ["resumo-consolidado"] });
       queryClient.invalidateQueries({ queryKey: ["resumo-por-lote"] });
+      queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
       toast.success("Movimentação excluída com sucesso!");
       setDeleteDialogOpen(false);
       setMovToDelete(null);
@@ -235,6 +278,195 @@ export default function ContaCorrenteLote() {
       toast.error("Erro ao excluir movimentação: " + error.message);
     },
   });
+
+  // Obter lote selecionado e sua venda
+  const loteSelecionado = useMemo(() => {
+    return lotes?.find(l => l.id === formData.lote_id);
+  }, [lotes, formData.lote_id]);
+
+  const vendaDoLote = useMemo(() => {
+    if (!formData.lote_id || !vendas) return null;
+    return vendas.find((v: any) => v.lote_id === formData.lote_id);
+  }, [vendas, formData.lote_id]);
+
+  // Obter resumo do fluxo para o lote e tipo selecionado
+  const resumoFluxoLote = useMemo(() => {
+    if (!resumoFluxo || !formData.lote_id || !formData.tipo_fluxo_form) return null;
+    return resumoFluxo.find(
+      r => r.lote_id === formData.lote_id && r.tipo_fluxo === formData.tipo_fluxo_form
+    );
+  }, [resumoFluxo, formData.lote_id, formData.tipo_fluxo_form]);
+
+  // Função para calcular sugestões com base no tipo de movimento
+  const calcularSugestoes = useMemo(() => {
+    if (!formData.lote_id || !formData.tipo_mov || !loteSelecionado) {
+      return { valor: "", referencia: "", vencimento: "", percentual: "", descricao: "" };
+    }
+
+    const loteLabel = `Qd${loteSelecionado.quadra} Lt${loteSelecionado.numero_lote}`;
+    const tipoFluxo = formData.tipo_fluxo_form || "PARCELAMENTO";
+
+    switch (formData.tipo_mov) {
+      case "PARCELA":
+      case "REFORCO": {
+        // Sugerir próxima parcela/reforço
+        const valorProximo = resumoFluxoLote?.valor_proximo_titulo || 0;
+        const qtdRestante = resumoFluxoLote?.qtd_restante || 0;
+        
+        // Calcular número da parcela atual
+        let qtdTotal = 0;
+        if (vendaDoLote) {
+          qtdTotal = tipoFluxo === "PARCELAMENTO" 
+            ? (vendaDoLote.qtd_parcelas || 0)
+            : (vendaDoLote.qtd_reforcos || 0);
+        }
+        const parcelaAtual = qtdTotal - qtdRestante + 1;
+        
+        // Calcular vencimento da próxima parcela
+        let vencimentoSugerido = "";
+        if (vendaDoLote) {
+          const primeiroVenc = tipoFluxo === "PARCELAMENTO"
+            ? vendaDoLote.primeiro_vencimento_parcela
+            : vendaDoLote.primeiro_vencimento_reforco;
+          const frequencia = tipoFluxo === "PARCELAMENTO"
+            ? (vendaDoLote.frequencia_parcelas_meses || 1)
+            : (vendaDoLote.frequencia_reforcos_meses || 6);
+          
+          if (primeiroVenc) {
+            const dataBase = parseDateOnly(primeiroVenc);
+            if (dataBase) {
+              dataBase.setMonth(dataBase.getMonth() + (parcelaAtual - 1) * frequencia);
+              vencimentoSugerido = format(dataBase, "yyyy-MM-dd");
+            }
+          }
+        }
+
+        const tipoLabel = formData.tipo_mov === "PARCELA" ? "Parcela Recebida" : "Reforço Recebido";
+        
+        return {
+          valor: valorProximo > 0 ? valorProximo.toFixed(2) : "",
+          referencia: qtdTotal > 0 ? `${parcelaAtual} de ${qtdTotal}` : "",
+          vencimento: vencimentoSugerido,
+          percentual: "",
+          descricao: `${tipoLabel} ${loteLabel}`,
+        };
+      }
+
+      case "ARRAS": {
+        // Sugerir valor de arras da venda
+        const valorArras = vendaDoLote?.valor_arras || 0;
+        return {
+          valor: valorArras > 0 ? valorArras.toFixed(2) : "",
+          referencia: "Arras",
+          vencimento: "",
+          percentual: "",
+          descricao: `Arras Venda Lote ${loteLabel}`,
+        };
+      }
+
+      case "ATUALIZACAO": {
+        // Calcular atualização monetária: Saldo Anterior × Índice
+        const saldoAtual = resumoFluxoLote?.saldo_atualizado || 0;
+        
+        // Buscar fator do último indicador (simplificado - idealmente considerar defasagem)
+        let fatorPercentual = 0;
+        if (indicadores && indicadores.length > 0) {
+          // Usar média dos últimos indicadores ou o mais recente
+          fatorPercentual = indicadores[0]?.fator || 0;
+        }
+        
+        const valorAtualizacao = saldoAtual * (fatorPercentual / 100);
+        
+        return {
+          valor: valorAtualizacao > 0 ? valorAtualizacao.toFixed(2) : "",
+          referencia: "",
+          vencimento: "",
+          percentual: fatorPercentual.toString(),
+          descricao: `Atualização Monetária ${loteLabel}`,
+        };
+      }
+
+      case "JUROS": {
+        // Calcular juros: valor parcela × meses em atraso × taxa (1% a.m. padrão)
+        const valorParcela = resumoFluxoLote?.valor_proximo_titulo || 0;
+        // Taxa de juros padrão: 1% ao mês
+        const taxaJuros = 1;
+        
+        return {
+          valor: "", // Será calculado após informar vencimento
+          referencia: "",
+          vencimento: "", // Usuário precisa informar para calcular
+          percentual: taxaJuros.toString(),
+          descricao: `Juros de Mora ${loteLabel}`,
+        };
+      }
+
+      case "MULTA": {
+        // Multa: 2% do valor da parcela
+        const valorParcela = resumoFluxoLote?.valor_proximo_titulo || 0;
+        const taxaMulta = 2;
+        const valorMulta = valorParcela * (taxaMulta / 100);
+        
+        return {
+          valor: valorMulta > 0 ? valorMulta.toFixed(2) : "",
+          referencia: "",
+          vencimento: "",
+          percentual: taxaMulta.toString(),
+          descricao: `Multa ${loteLabel}`,
+        };
+      }
+
+      default:
+        return { valor: "", referencia: "", vencimento: "", percentual: "", descricao: "" };
+    }
+  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, loteSelecionado, vendaDoLote, resumoFluxoLote, indicadores]);
+
+  // Efeito para aplicar sugestões quando o tipo de movimento ou lote mudar
+  useEffect(() => {
+    // Não aplicar sugestões se estiver editando
+    if (editingMov) return;
+    
+    // Só aplicar se houver lote e tipo selecionado
+    if (!formData.lote_id || !formData.tipo_mov) return;
+
+    const sugestoes = calcularSugestoes;
+    
+    // Aplicar sugestões sem sobrescrever valores já preenchidos pelo usuário
+    if (sugestoes.valor && !valorMovimento) {
+      setValorMovimento(sugestoes.valor);
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      referencia: sugestoes.referencia || prev.referencia || "",
+      vencimento: sugestoes.vencimento || prev.vencimento || null,
+      percentual_calculo: sugestoes.percentual ? parseFloat(sugestoes.percentual) : prev.percentual_calculo,
+      descricao: sugestoes.descricao || prev.descricao || "",
+    }));
+  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, editingMov]);
+
+  // Efeito para calcular juros quando vencimento mudar (para tipo JUROS)
+  useEffect(() => {
+    if (editingMov || formData.tipo_mov !== "JUROS" || !formData.vencimento || !resumoFluxoLote) return;
+
+    const vencimento = parseDateOnly(formData.vencimento);
+    const hoje = new Date();
+    
+    if (vencimento && vencimento < hoje) {
+      const mesesAtraso = Math.floor((hoje.getTime() - vencimento.getTime()) / (1000 * 60 * 60 * 24 * 30));
+      const valorParcela = resumoFluxoLote.valor_proximo_titulo || 0;
+      const taxaJuros = 1; // 1% ao mês
+      const valorJuros = valorParcela * (taxaJuros / 100) * mesesAtraso;
+      
+      if (valorJuros > 0) {
+        setValorMovimento(valorJuros.toFixed(2));
+        setFormData(prev => ({
+          ...prev,
+          percentual_calculo: taxaJuros * mesesAtraso,
+        }));
+      }
+    }
+  }, [formData.vencimento, formData.tipo_mov, resumoFluxoLote, editingMov]);
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
@@ -319,7 +551,7 @@ export default function ContaCorrenteLote() {
       debito: naturezaFinal === "debito" ? valor : null,
       credito: naturezaFinal === "credito" ? valor : null,
       percentual_calculo: formData.percentual_calculo ? Number(formData.percentual_calculo) : null,
-      venda_id: formData.venda_id || null,
+      venda_id: null, // Removido campo venda_id
     };
 
     if (editingMov) {
@@ -398,16 +630,20 @@ export default function ContaCorrenteLote() {
   };
 
   const getTipoLabel = (tipo: string) => {
-    return tiposMovimento.find((t) => t.value === tipo)?.label || tipo;
+    return tiposMovimentoTodos.find((t) => t.value === tipo)?.label || tipo;
   };
 
-  // Get vendas for selected lote
-  const vendasDoLote = vendas?.filter((v) => v.lote_id === formData.lote_id);
-
-  // Get tipos de movimento baseado no tipo de conta selecionado NO FORMULÁRIO
+  // Get tipos de movimento baseado no tipo de conta selecionado NO FORMULÁRIO (sem VENDA)
   const tiposMovimentoFiltrados = tiposMovimento.filter(t => 
     formData.tipo_fluxo_form === "PARCELAMENTO" 
       ? tiposParcelamento.includes(t.value)
+      : tiposReforco.includes(t.value)
+  );
+
+  // Get tipos para filtro (inclui VENDA para visualização)
+  const tiposMovimentoFiltro = tiposMovimentoTodos.filter(t => 
+    tipoConta === "PARCELAMENTO" 
+      ? [...tiposParcelamento, "VENDA"].includes(t.value)
       : tiposReforco.includes(t.value)
   );
 
@@ -494,7 +730,7 @@ export default function ContaCorrenteLote() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="TODOS">Todos os tipos</SelectItem>
-                {tiposMovimentoFiltrados.map((tipo) => (
+                {tiposMovimentoFiltro.map((tipo) => (
                   <SelectItem key={tipo.value} value={tipo.value}>
                     {tipo.label}
                   </SelectItem>
@@ -604,7 +840,11 @@ export default function ContaCorrenteLote() {
         {canEdit && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta })}>
+              <Button onClick={() => {
+                setEditingMov(null);
+                setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta });
+                setValorMovimento("");
+              }}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Movimentação
               </Button>
@@ -621,16 +861,20 @@ export default function ContaCorrenteLote() {
                   <Label htmlFor="tipo_fluxo_form">Tipo de Conta <span className="text-destructive">*</span></Label>
                   <Select
                     value={formData.tipo_fluxo_form || "PARCELAMENTO"}
-                    onValueChange={(value) =>
+                    onValueChange={(value) => {
+                      const novoTipoConta = value as TipoConta;
+                      const tiposValidos = novoTipoConta === "PARCELAMENTO" ? tiposParcelamento : tiposReforco;
+                      const novoTipoMov = tiposValidos.includes(formData.tipo_mov || "") 
+                        ? formData.tipo_mov 
+                        : (novoTipoConta === "PARCELAMENTO" ? "PARCELA" : "REFORCO");
+                      
                       setFormData({ 
                         ...formData, 
-                        tipo_fluxo_form: value as TipoConta,
-                        // Resetar tipo_mov se não for compatível com o novo tipo de conta
-                        tipo_mov: value === "PARCELAMENTO" 
-                          ? (tiposParcelamento.includes(formData.tipo_mov || "") ? formData.tipo_mov : "PARCELA")
-                          : (tiposReforco.includes(formData.tipo_mov || "") ? formData.tipo_mov : "REFORCO")
-                      })
-                    }
+                        tipo_fluxo_form: novoTipoConta,
+                        tipo_mov: novoTipoMov,
+                      });
+                      setValorMovimento("");
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o tipo de conta" />
@@ -648,9 +892,10 @@ export default function ContaCorrenteLote() {
                     <Label htmlFor="lote_id">Lote <span className="text-destructive">*</span></Label>
                     <Select
                       value={formData.lote_id || ""}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, lote_id: value, venda_id: null })
-                      }
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, lote_id: value });
+                        setValorMovimento("");
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o lote" />
@@ -677,49 +922,27 @@ export default function ContaCorrenteLote() {
                   </div>
                 </div>
 
-                {/* Tipo e Venda */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="tipo_mov">Tipo Movimento <span className="text-destructive">*</span></Label>
-                    <Select
-                      value={formData.tipo_mov || ""}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, tipo_mov: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tiposMovimentoFiltrados.map((tipo) => (
-                          <SelectItem key={tipo.value} value={tipo.value}>
-                            {tipo.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="venda_id">Venda (opcional)</Label>
-                    <Select
-                      value={formData.venda_id || "none"}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, venda_id: value === "none" ? null : value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a venda" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhuma</SelectItem>
-                        {vendasDoLote?.map((v: any) => (
-                          <SelectItem key={v.id} value={v.id}>
-                            {formatDateBR(v.data_venda)} - Q{v.lote?.quadra} L{v.lote?.numero_lote}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Tipo de Movimento */}
+                <div className="space-y-2">
+                  <Label htmlFor="tipo_mov">Tipo Movimento <span className="text-destructive">*</span></Label>
+                  <Select
+                    value={formData.tipo_mov || ""}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, tipo_mov: value });
+                      setValorMovimento("");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tiposMovimentoFiltrados.map((tipo) => (
+                        <SelectItem key={tipo.value} value={tipo.value}>
+                          {tipo.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Valor e Natureza (para tipos pergunta) */}
