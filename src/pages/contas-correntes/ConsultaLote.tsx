@@ -112,93 +112,105 @@ export default function ConsultaLote() {
   const dataInicialISO = dataInicial ? format(dataInicial, "yyyy-MM-dd") : null;
   const dataFinalISO = dataFinal ? format(dataFinal, "yyyy-MM-dd") : null;
 
-  // Fetch movimentos de PARCELAMENTO (últimos 12, exibidos do mais antigo ao mais recente)
-  const { data: movimentosParcelamento } = useQuery({
-    queryKey: ["movimentos-parcelamento-lote", selectedLoteId, filtroAtivo, dataInicialISO, dataFinalISO],
+  // Fetch TODOS movimentos de PARCELAMENTO para cálculo correto do saldo
+  const { data: todosMovimentosParcelamento } = useQuery({
+    queryKey: ["todos-movimentos-parcelamento-lote", selectedLoteId],
     queryFn: async () => {
       if (!selectedLoteId) return [];
-      let query = supabase
+      const { data, error } = await supabase
         .from("conta_corrente_lote")
         .select("*")
         .eq("lote_id", selectedLoteId)
-        .eq("tipo_fluxo", "PARCELAMENTO");
-      
-      // Aplicar filtros de data se ativos
-      if (filtroAtivo && dataInicialISO) {
-        query = query.gte("data_mov", dataInicialISO);
-      }
-      if (filtroAtivo && dataFinalISO) {
-        query = query.lte("data_mov", dataFinalISO);
-      }
-      
-      if (filtroAtivo) {
-        // Com filtro: buscar todos do período, ordenados ascendente
-        query = query
-          .order("data_mov", { ascending: true })
-          .order("created_at", { ascending: true });
-      } else {
-        // Sem filtro: buscar os 12 mais recentes (desc), depois inverter no frontend
-        query = query
-          .order("data_mov", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(12);
-      }
-      
-      const { data, error } = await query;
+        .eq("tipo_fluxo", "PARCELAMENTO")
+        .order("data_mov", { ascending: true })
+        .order("created_at", { ascending: true });
       if (error) throw error;
-      
-      // Se não tem filtro, inverter para exibir do mais antigo ao mais recente
-      if (!filtroAtivo && data) {
-        return data.reverse();
-      }
-      return data;
+      return data || [];
     },
     enabled: !!selectedLoteId,
   });
 
-  // Fetch movimentos de REFORÇO (últimos 12, exibidos do mais antigo ao mais recente)
-  const { data: movimentosReforco } = useQuery({
-    queryKey: ["movimentos-reforco-lote", selectedLoteId, filtroAtivo, dataInicialISO, dataFinalISO],
+  // Fetch TODOS movimentos de REFORÇO para cálculo correto do saldo
+  const { data: todosMovimentosReforco } = useQuery({
+    queryKey: ["todos-movimentos-reforco-lote", selectedLoteId],
     queryFn: async () => {
       if (!selectedLoteId) return [];
-      let query = supabase
+      const { data, error } = await supabase
         .from("conta_corrente_lote")
         .select("*")
         .eq("lote_id", selectedLoteId)
-        .eq("tipo_fluxo", "REFORCO");
-      
-      // Aplicar filtros de data se ativos
-      if (filtroAtivo && dataInicialISO) {
-        query = query.gte("data_mov", dataInicialISO);
-      }
-      if (filtroAtivo && dataFinalISO) {
-        query = query.lte("data_mov", dataFinalISO);
-      }
-      
-      if (filtroAtivo) {
-        // Com filtro: buscar todos do período, ordenados ascendente
-        query = query
-          .order("data_mov", { ascending: true })
-          .order("created_at", { ascending: true });
-      } else {
-        // Sem filtro: buscar os 12 mais recentes (desc), depois inverter no frontend
-        query = query
-          .order("data_mov", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(12);
-      }
-      
-      const { data, error } = await query;
+        .eq("tipo_fluxo", "REFORCO")
+        .order("data_mov", { ascending: true })
+        .order("created_at", { ascending: true });
       if (error) throw error;
-      
-      // Se não tem filtro, inverter para exibir do mais antigo ao mais recente
-      if (!filtroAtivo && data) {
-        return data.reverse();
-      }
-      return data;
+      return data || [];
     },
     enabled: !!selectedLoteId,
   });
+
+  // Calcular saldo acumulado para todos os movimentos de PARCELAMENTO
+  const movimentosParcelamentoComSaldo = useMemo(() => {
+    if (!todosMovimentosParcelamento) return [];
+    let saldoAcumulado = 0;
+    const comSaldo = todosMovimentosParcelamento.map((mov) => {
+      saldoAcumulado += (mov.debito || 0) - (mov.credito || 0);
+      return { ...mov, saldo_calculado: saldoAcumulado };
+    });
+    return comSaldo;
+  }, [todosMovimentosParcelamento]);
+
+  // Calcular saldo acumulado para todos os movimentos de REFORÇO
+  const movimentosReforcoComSaldo = useMemo(() => {
+    if (!todosMovimentosReforco) return [];
+    let saldoAcumulado = 0;
+    const comSaldo = todosMovimentosReforco.map((mov) => {
+      saldoAcumulado += (mov.debito || 0) - (mov.credito || 0);
+      return { ...mov, saldo_calculado: saldoAcumulado };
+    });
+    return comSaldo;
+  }, [todosMovimentosReforco]);
+
+  // Filtrar/limitar movimentos de PARCELAMENTO para exibição
+  const movimentosParcelamento = useMemo(() => {
+    if (!movimentosParcelamentoComSaldo.length) return [];
+    
+    let filtered = movimentosParcelamentoComSaldo;
+    
+    // Aplicar filtros de data se ativos
+    if (filtroAtivo) {
+      if (dataInicialISO) {
+        filtered = filtered.filter(m => m.data_mov >= dataInicialISO);
+      }
+      if (dataFinalISO) {
+        filtered = filtered.filter(m => m.data_mov <= dataFinalISO);
+      }
+      return filtered;
+    }
+    
+    // Sem filtro: retornar os últimos 12
+    return filtered.slice(-12);
+  }, [movimentosParcelamentoComSaldo, filtroAtivo, dataInicialISO, dataFinalISO]);
+
+  // Filtrar/limitar movimentos de REFORÇO para exibição
+  const movimentosReforco = useMemo(() => {
+    if (!movimentosReforcoComSaldo.length) return [];
+    
+    let filtered = movimentosReforcoComSaldo;
+    
+    // Aplicar filtros de data se ativos
+    if (filtroAtivo) {
+      if (dataInicialISO) {
+        filtered = filtered.filter(m => m.data_mov >= dataInicialISO);
+      }
+      if (dataFinalISO) {
+        filtered = filtered.filter(m => m.data_mov <= dataFinalISO);
+      }
+      return filtered;
+    }
+    
+    // Sem filtro: retornar os últimos 12
+    return filtered.slice(-12);
+  }, [movimentosReforcoComSaldo, filtroAtivo, dataInicialISO, dataFinalISO]);
 
   // Fetch resumo do lote com todas as informações - SEPARADO POR FLUXO
   const { data: resumo } = useQuery({
@@ -968,8 +980,8 @@ export default function ConsultaLote() {
                               <TableCell className="text-right">{formatPercent(mov.percentual_calculo)}</TableCell>
                               <TableCell className="text-right">{mov.debito && mov.debito > 0 ? formatCurrency(mov.debito) : ""}</TableCell>
                               <TableCell className="text-right">{mov.credito && mov.credito > 0 ? formatCurrency(mov.credito) : ""}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(mov.saldo)}</TableCell>
-                              <TableCell className="text-center">{(mov.saldo || 0) >= 0 ? "D" : "C"}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(mov.saldo_calculado)}</TableCell>
+                              <TableCell className="text-center">{(mov.saldo_calculado || 0) >= 0 ? "D" : "C"}</TableCell>
                             </TableRow>
                           ))
                         )}
@@ -1017,8 +1029,8 @@ export default function ConsultaLote() {
                               <TableCell className="text-right">{formatPercent(mov.percentual_calculo)}</TableCell>
                               <TableCell className="text-right">{mov.debito && mov.debito > 0 ? formatCurrency(mov.debito) : ""}</TableCell>
                               <TableCell className="text-right">{mov.credito && mov.credito > 0 ? formatCurrency(mov.credito) : ""}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(mov.saldo)}</TableCell>
-                              <TableCell className="text-center">{(mov.saldo || 0) >= 0 ? "D" : "C"}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(mov.saldo_calculado)}</TableCell>
+                              <TableCell className="text-center">{(mov.saldo_calculado || 0) >= 0 ? "D" : "C"}</TableCell>
                             </TableRow>
                           ))
                         )}
