@@ -501,6 +501,9 @@ export default function ContaCorrenteLote() {
     }
   }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, formData.data_mov, loteSelecionado, vendaDoLote, resumoFluxoLote, movimentacoes, indicadoresValores, getIndicadorFator, calcularMediaIndicadores]);
 
+  // Referência para controlar se deve aplicar sugestão de valor
+  const [shouldApplyValueSuggestion, setShouldApplyValueSuggestion] = useState(true);
+
   // Efeito para aplicar sugestões quando o tipo de movimento, lote ou data mudar
   useEffect(() => {
     // Não aplicar sugestões se estiver editando
@@ -511,9 +514,12 @@ export default function ContaCorrenteLote() {
 
     const sugestoes = calcularSugestoes;
     
-    // Para ATUALIZACAO, sempre recalcular quando tipo ou data mudar
+    // Para ATUALIZACAO, aplicar valor sugerido apenas se deve aplicar
     if (formData.tipo_mov === "ATUALIZACAO") {
-      setValorMovimento(sugestoes.valor || "");
+      // Só atualiza o valor se shouldApplyValueSuggestion for true
+      if (shouldApplyValueSuggestion && sugestoes.valor) {
+        setValorMovimento(sugestoes.valor);
+      }
       setFormData(prev => ({
         ...prev,
         referencia: "",
@@ -536,7 +542,12 @@ export default function ContaCorrenteLote() {
       percentual_calculo: sugestoes.percentual ? parseFloat(sugestoes.percentual) : prev.percentual_calculo,
       descricao: sugestoes.descricao || prev.descricao || "",
     }));
-  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, formData.data_mov, editingMov, calcularSugestoes]);
+  }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, formData.data_mov, editingMov, calcularSugestoes, shouldApplyValueSuggestion]);
+  
+  // Resetar flag quando muda o tipo de movimento, lote ou data
+  useEffect(() => {
+    setShouldApplyValueSuggestion(true);
+  }, [formData.tipo_mov, formData.lote_id, formData.data_mov]);
 
   // Efeito para calcular juros quando vencimento mudar (para tipo JUROS)
   useEffect(() => {
@@ -566,6 +577,7 @@ export default function ContaCorrenteLote() {
     setEditingMov(null);
     setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta });
     setValorMovimento("");
+    setShouldApplyValueSuggestion(true);
   };
 
   const handleEdit = (mov: ContaCorrenteComRelacionamentos) => {
@@ -1056,6 +1068,8 @@ export default function ContaCorrenteLote() {
                         // Permite apenas números, vírgula e ponto
                         const value = e.target.value.replace(/[^\d.,]/g, '');
                         setValorMovimento(value);
+                        // Quando usuário edita manualmente, desabilita sugestão automática
+                        setShouldApplyValueSuggestion(false);
                       }}
                       placeholder="0,00"
                       className="[appearance:textfield]"
