@@ -534,7 +534,7 @@ export default function Vendas() {
                   </div>
                 </div>
 
-                {/* Comprador e Vendedor */}
+                {/* Comprador e Comprador Solidário */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="comprador_pessoa_id">Comprador *</Label>
@@ -557,21 +557,21 @@ export default function Vendas() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="vendedor_pessoa_id">Vendedor</Label>
+                    <Label htmlFor="comprador_solidario_2_id">Comprador Solidário (opcional)</Label>
                     <Select
-                      value={formData.vendedor_pessoa_id || "none"}
+                      value={formData.comprador_solidario_2_id || "none"}
                       onValueChange={(value) =>
-                        setFormData({ ...formData, vendedor_pessoa_id: value === "none" ? "" : value })
+                        setFormData({ ...formData, comprador_solidario_2_id: value === "none" ? "" : value })
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o vendedor" />
+                        <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Nenhum</SelectItem>
                         {pessoas?.map((pessoa) => (
                           <SelectItem key={pessoa.id} value={pessoa.id}>
-                            {pessoa.nome_razao}
+                            {pessoa.nome_razao} {pessoa.cpf_cnpj ? `(${pessoa.cpf_cnpj})` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -749,54 +749,6 @@ export default function Vendas() {
                   </div>
                 </div>
 
-                {/* Compradores Solidários */}
-                <div className="border rounded-lg p-4 space-y-4">
-                  <Label className="text-base font-semibold">Compradores Solidários</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="comprador_solidario_1_id">1º Comprador Solidário</Label>
-                      <Select
-                        value={formData.comprador_solidario_1_id || "none"}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, comprador_solidario_1_id: value === "none" ? "" : value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o 1º comprador" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Nenhum</SelectItem>
-                          {pessoas?.map((pessoa) => (
-                            <SelectItem key={pessoa.id} value={pessoa.id}>
-                              {pessoa.nome_razao} {pessoa.cpf_cnpj ? `(${pessoa.cpf_cnpj})` : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="comprador_solidario_2_id">2º Comprador Solidário (opcional)</Label>
-                      <Select
-                        value={formData.comprador_solidario_2_id || "none"}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, comprador_solidario_2_id: value === "none" ? "" : value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o 2º comprador" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Nenhum</SelectItem>
-                          {pessoas?.map((pessoa) => (
-                            <SelectItem key={pessoa.id} value={pessoa.id}>
-                              {pessoa.nome_razao} {pessoa.cpf_cnpj ? `(${pessoa.cpf_cnpj})` : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Tipo de Atualização e Defasagem */}
                 <div className="grid grid-cols-2 gap-4">
