@@ -1049,12 +1049,16 @@ export default function ContaCorrenteLote() {
                     <Label htmlFor="valor">Valor <span className="text-destructive">*</span></Label>
                     <Input
                       id="valor"
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       value={valorMovimento}
-                      onChange={(e) => setValorMovimento(e.target.value)}
+                      onChange={(e) => {
+                        // Permite apenas números, vírgula e ponto
+                        const value = e.target.value.replace(/[^\d.,]/g, '');
+                        setValorMovimento(value);
+                      }}
                       placeholder="0,00"
+                      className="[appearance:textfield]"
                     />
                   </div>
                   {getNaturezaMovimento(formData.tipo_mov || "") === "pergunta" && (
