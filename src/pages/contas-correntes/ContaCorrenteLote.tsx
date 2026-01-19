@@ -1070,6 +1070,7 @@ export default function ContaCorrenteLote() {
                       placeholder="0,00"
                       className="[appearance:textfield]"
                     />
+                    <p className="text-xs text-muted-foreground">Sugestão calculada. Pode ser alterado.</p>
                   </div>
                   {getNaturezaMovimento(formData.tipo_mov || "") === "pergunta" && (
                     <div className="space-y-2">
@@ -1104,6 +1105,7 @@ export default function ContaCorrenteLote() {
                       }
                       placeholder="Ex: Parcela 1 de 24"
                     />
+                    <p className="text-xs text-muted-foreground">Sugestão. Pode ser alterado.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="vencimento">Vencimento</Label>
@@ -1115,6 +1117,7 @@ export default function ContaCorrenteLote() {
                         setFormData({ ...formData, vencimento: e.target.value || null })
                       }
                     />
+                    <p className="text-xs text-muted-foreground">Sugestão. Pode ser alterado.</p>
                   </div>
                 </div>
 
