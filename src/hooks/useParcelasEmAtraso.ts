@@ -242,8 +242,9 @@ export function useParcelasEmAtraso(
       const jurosPercentual = mesesAtraso * juros_mora_percentual;
       const valorJuros = valorParcela * (jurosPercentual / 100);
       
-      // Multa incide apenas uma vez sobre o valor da parcela (se vencida)
-      const valorMulta = vencida ? valorParcela * (multa_mora_percentual / 100) : 0;
+      // Multa incide apenas uma vez sobre o valor da parcela, MAS SOMENTE quando há juros (mesesAtraso > 0)
+      // Multa e juros sempre vêm acompanhados
+      const valorMulta = mesesAtraso > 0 ? valorParcela * (multa_mora_percentual / 100) : 0;
       
       const totalParcela = valorParcela + valorJuros + valorMulta;
 
