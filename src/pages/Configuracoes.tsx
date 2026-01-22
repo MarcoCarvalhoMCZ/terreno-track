@@ -21,9 +21,17 @@ type Configuracao = Tables<"configuracoes">;
 type ConfiguracaoUpdate = TablesUpdate<"configuracoes">;
 type Pessoa = Tables<"pessoas">;
 
+// Tipo estendido para incluir campos que podem não estar no types gerado ainda
+interface ConfiguracaoFormData extends Partial<ConfiguracaoUpdate> {
+  juros_mora_percentual?: number | null;
+  multa_mora_percentual?: number | null;
+  criterio_juros_mora?: string | null;
+  tolerancia_dias_juros?: number | null;
+}
+
 export default function Configuracoes() {
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState<Partial<ConfiguracaoUpdate>>({});
+  const [formData, setFormData] = useState<ConfiguracaoFormData>({});
   const [hasChanges, setHasChanges] = useState(false);
 
   // Fetch configuração
@@ -70,6 +78,11 @@ export default function Configuracoes() {
         nome_beneficiario: (configuracao as any).nome_beneficiario || "",
         cidade_beneficiario: (configuracao as any).cidade_beneficiario || "",
         observacoes: configuracao.observacoes || "",
+        // Campos de mora
+        juros_mora_percentual: (configuracao as any).juros_mora_percentual ?? 1.0,
+        multa_mora_percentual: (configuracao as any).multa_mora_percentual ?? 2.0,
+        criterio_juros_mora: (configuracao as any).criterio_juros_mora || "MES_SUBSEQUENTE",
+        tolerancia_dias_juros: (configuracao as any).tolerancia_dias_juros ?? 0,
       });
       setHasChanges(false);
     }
@@ -152,6 +165,11 @@ export default function Configuracoes() {
         nome_beneficiario: (configuracao as any).nome_beneficiario || "",
         cidade_beneficiario: (configuracao as any).cidade_beneficiario || "",
         observacoes: configuracao.observacoes || "",
+        // Campos de mora
+        juros_mora_percentual: (configuracao as any).juros_mora_percentual ?? 1.0,
+        multa_mora_percentual: (configuracao as any).multa_mora_percentual ?? 2.0,
+        criterio_juros_mora: (configuracao as any).criterio_juros_mora || "MES_SUBSEQUENTE",
+        tolerancia_dias_juros: (configuracao as any).tolerancia_dias_juros ?? 0,
       });
       setHasChanges(false);
     }
@@ -422,6 +440,113 @@ export default function Configuracoes() {
                     placeholder="Ex: São Paulo"
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Configurações de Mora */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Configurações de Mora (Atraso)</CardTitle>
+              <CardDescription>
+                Defina os parâmetros para cálculo de juros e multa por atraso de pagamento
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="juros_mora_percentual">Juros de Mora (% ao mês)</Label>
+                  <Input
+                    id="juros_mora_percentual"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={(formData as any).juros_mora_percentual ?? ""}
+                    onChange={(e) =>
+                      handleChange(
+                        "juros_mora_percentual" as any,
+                        e.target.value ? parseFloat(e.target.value) : null
+                      )
+                    }
+                    placeholder="Ex: 1.00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="multa_mora_percentual">Multa por Atraso (%)</Label>
+                  <Input
+                    id="multa_mora_percentual"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={(formData as any).multa_mora_percentual ?? ""}
+                    onChange={(e) =>
+                      handleChange(
+                        "multa_mora_percentual" as any,
+                        e.target.value ? parseFloat(e.target.value) : null
+                      )
+                    }
+                    placeholder="Ex: 2.00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="criterio_juros_mora">Critério de Cálculo de Juros</Label>
+                  <Select
+                    value={(formData as any).criterio_juros_mora || "MES_SUBSEQUENTE"}
+                    onValueChange={(value) =>
+                      handleChange("criterio_juros_mora" as any, value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o critério" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MES_SUBSEQUENTE">
+                        Após mês subsequente ao vencimento
+                      </SelectItem>
+                      <SelectItem value="TOLERANCIA">
+                        Tolerância em dias
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tolerancia_dias_juros">
+                    Tolerância (dias)
+                    {(formData as any).criterio_juros_mora !== "TOLERANCIA" && (
+                      <span className="text-muted-foreground text-xs ml-1">(desabilitado)</span>
+                    )}
+                  </Label>
+                  <Input
+                    id="tolerancia_dias_juros"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="365"
+                    disabled={(formData as any).criterio_juros_mora !== "TOLERANCIA"}
+                    value={(formData as any).tolerancia_dias_juros ?? ""}
+                    onChange={(e) =>
+                      handleChange(
+                        "tolerancia_dias_juros" as any,
+                        e.target.value ? parseInt(e.target.value) : null
+                      )
+                    }
+                    placeholder="Ex: 5"
+                  />
+                </div>
+              </div>
+
+              <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+                <strong>Nota:</strong> 
+                {(formData as any).criterio_juros_mora === "TOLERANCIA" ? (
+                  <> Os juros serão calculados após {(formData as any).tolerancia_dias_juros || 0} dia(s) do vencimento.</>
+                ) : (
+                  <> Os juros serão calculados a partir do primeiro dia do mês subsequente ao vencimento.</>
+                )}
               </div>
             </CardContent>
           </Card>
