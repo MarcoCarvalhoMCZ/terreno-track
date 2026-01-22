@@ -33,6 +33,7 @@ import { useNavigate } from "react-router-dom";
 import { format, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { parseDateOnly } from "@/lib/date";
+import { formatCurrency, formatCompactCurrency } from "@/lib/formatters";
 import { LoteamentoMap } from "@/components/LoteamentoMap";
 
 export default function Dashboard() {
@@ -229,22 +230,6 @@ export default function Dashboard() {
     recebido: Number(item.total_creditos || 0),
   }));
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const formatCompactCurrency = (value: number) => {
-    if (value >= 1000000) {
-      return `R$ ${(value / 1000000).toFixed(1)} mi`;
-    }
-    if (value >= 1000) {
-      return `R$ ${(value / 1000).toFixed(0)} mil`;
-    }
-    return formatCurrency(value);
-  };
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
