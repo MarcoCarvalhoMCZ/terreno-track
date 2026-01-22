@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -43,9 +43,14 @@ import {
   buildPixPayload,
   getPixDisplayData,
 } from "@/hooks/useConsultaLote";
+import { useMoraConfig, useParcelasEmAtraso, type ParcelaEmAtraso } from "@/hooks/useParcelasEmAtraso";
+
+// Components
+import { ParcelasEmAtrasoTable } from "@/components/ParcelasEmAtrasoTable";
 
 // PDF export
 import { exportConsultaLoteToPDF } from "@/lib/consulta-lote-pdf";
+import { generatePixPayload, generateTxId, TipoFluxoTxId } from "@/lib/pix";
 
 // Format date for display
 const formatDateDisplay = (date: string | Date | null): string => {
@@ -78,7 +83,12 @@ export default function ConsultaLote() {
   const { data: todosMovimentosReforco } = useMovimentosFluxo(selectedLoteId, "REFORCO");
   const { data: resumo } = useResumoLoteConsulta(selectedLoteId, venda);
   const { data: pixConfig } = usePixConfig();
+  const { data: moraConfig } = useMoraConfig();
   const reorganizarMutation = useReorganizarLote(selectedLoteId);
+
+  // Calcular parcelas em atraso para cada fluxo
+  const resumoAtrasoParcelamento = useParcelasEmAtraso("PARCELAMENTO", venda, resumo, moraConfig);
+  const resumoAtrasoReforco = useParcelasEmAtraso("REFORCO", venda, resumo, moraConfig);
 
   // Converter datas para formato ISO para query
   const dataInicialISO = dataInicial ? format(dataInicial, "yyyy-MM-dd") : null;
@@ -123,6 +133,42 @@ export default function ConsultaLote() {
   const pixDisplayData = useMemo(
     () => getPixDisplayData(resumo, tipoConta),
     [resumo, tipoConta]
+  );
+
+  // Builder de PIX payload por parcela individual (para QR codes no relatório de atraso)
+  const buildPixPayloadForParcela = useCallback(
+    (parcela: ParcelaEmAtraso): string | null => {
+      if (!pixConfig?.chave_pix || !pixConfig?.nome_beneficiario || !pixConfig?.cidade_beneficiario) {
+        return null;
+      }
+      if (!selectedLote) return null;
+
+      try {
+        const tipoFluxo: TipoFluxoTxId = tipoConta === "PARCELAMENTO" ? "PARCELAMENTO" : "REFORCO";
+        const anoCompetencia = parcela.vencimento.getFullYear();
+        
+        const txid = generateTxId(
+          selectedLote.quadra,
+          selectedLote.numero_lote,
+          parcela.numero,
+          tipoFluxo,
+          anoCompetencia
+        );
+
+        return generatePixPayload({
+          chavePix: pixConfig.chave_pix,
+          nomeBeneficiario: pixConfig.nome_beneficiario,
+          cidadeBeneficiario: pixConfig.cidade_beneficiario,
+          valor: parcela.totalParcela,
+          txid,
+          descricao: `Q${selectedLote.quadra}L${selectedLote.numero_lote}`,
+        });
+      } catch (error) {
+        console.error("Erro ao gerar payload PIX para parcela:", error);
+        return null;
+      }
+    },
+    [pixConfig, selectedLote, tipoConta]
   );
 
   // PDF export handler
@@ -550,7 +596,34 @@ export default function ConsultaLote() {
               )}
             </div>
 
-            {/* QR Code PIX - Dinâmico baseado na aba ativa */}
+            {/* Quadro de Parcelas em Atraso - com cálculo de juros e multa */}
+            {tipoConta === "PARCELAMENTO" && resumoAtrasoParcelamento.parcelas.length > 0 && (
+              <>
+                <Separator />
+                <ParcelasEmAtrasoTable
+                  resumoAtraso={resumoAtrasoParcelamento}
+                  tipoFluxo="PARCELAMENTO"
+                  moraConfig={moraConfig}
+                  pixConfig={pixConfig}
+                  lote={selectedLote}
+                  buildPixPayloadForParcela={buildPixPayloadForParcela}
+                />
+              </>
+            )}
+
+            {tipoConta === "REFORCO" && resumoAtrasoReforco.parcelas.length > 0 && (
+              <>
+                <Separator />
+                <ParcelasEmAtrasoTable
+                  resumoAtraso={resumoAtrasoReforco}
+                  tipoFluxo="REFORCO"
+                  moraConfig={moraConfig}
+                  pixConfig={pixConfig}
+                  lote={selectedLote}
+                  buildPixPayloadForParcela={buildPixPayloadForParcela}
+                />
+              </>
+            )}
             {pixDisplayData && pixDisplayData.qtdAPagar > 0 && pixPayload && (
               <>
                 <Separator />
