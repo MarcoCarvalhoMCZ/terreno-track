@@ -17,6 +17,7 @@ import {
   FileSearch,
   RefreshCw,
   Shield,
+  AlertTriangle,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -58,6 +59,7 @@ const cadastroItems: MenuItem[] = [
 const contaCorrenteItems: MenuItem[] = [
   { title: "Conta Corrente do Lote", url: "/contas-correntes/lote", icon: Wallet, menuKey: "contaCorrenteLote" },
   { title: "Consulta de Lote", url: "/contas-correntes/consulta", icon: FileSearch, menuKey: "consultaLote" },
+  { title: "Relatório de Inadimplência", url: "/contas-correntes/inadimplencia", icon: AlertTriangle, menuKey: "relatorioInadimplencia" },
   { title: "Atualização Monetária", url: "/contas-correntes/atualizacao", icon: TrendingUp, menuKey: "atualizacaoMonetaria" },
   { title: "Resumo das Operações", url: "/contas-correntes/resumo", icon: FileSpreadsheet, menuKey: "resumoOperacoes" },
   { title: "Reorganização", url: "/contas-correntes/reorganizacao", icon: RefreshCw, menuKey: "reorganizacao" },
