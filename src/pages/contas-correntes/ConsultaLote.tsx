@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { FileDown, Search, QrCode, CalendarIcon, X, RefreshCw } from "lucide-react";
+import { FileDown, Search, QrCode, CalendarIcon, X, RefreshCw, Loader2, CheckCircle2, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -41,6 +41,7 @@ import {
   usePixConfig,
   useVendedorConfig,
   useReorganizarLote,
+  useAtualizacaoMonetariaAutomatica,
   buildPixPayload,
   getPixDisplayData,
 } from "@/hooks/useConsultaLote";
@@ -88,6 +89,9 @@ export default function ConsultaLote() {
   const { data: moraConfig } = useMoraConfig();
   const { data: ultimaAtualizacao } = useUltimaAtualizacaoLote(selectedLoteId);
   const reorganizarMutation = useReorganizarLote(selectedLoteId);
+
+  // Atualização monetária automática
+  const atualizacaoAuto = useAtualizacaoMonetariaAutomatica(selectedLoteId, venda);
 
   // Calcular parcelas em atraso para cada fluxo (com filtro de mês de atualização)
   const resumoAtrasoParcelamento = useParcelasEmAtraso("PARCELAMENTO", venda, resumo, moraConfig, ultimaAtualizacao);
@@ -335,7 +339,22 @@ export default function ConsultaLote() {
       {selectedLote && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Quadra {selectedLote.quadra} - Lote {selectedLote.numero_lote}</CardTitle>
+            <div className="flex items-center gap-3">
+              <CardTitle>Quadra {selectedLote.quadra} - Lote {selectedLote.numero_lote}</CardTitle>
+              {/* Indicador de atualização monetária automática */}
+              {atualizacaoAuto.isUpdating && (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Atualizando...
+                </span>
+              )}
+              {atualizacaoAuto.jaAtualizado && !atualizacaoAuto.isUpdating && (
+                <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Atualizado ({atualizacaoAuto.mesReferencia})
+                </span>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"

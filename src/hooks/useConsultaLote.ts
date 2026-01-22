@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths } from "date-fns";
+import { addMonths, format, subMonths, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { generatePixPayload, generateTxId, TipoFluxoTxId } from "@/lib/pix";
 import type { ResumoFluxo, ResumoLote, TipoConta } from "@/types/conta-corrente.types";
@@ -426,5 +426,237 @@ export function getPixDisplayData(resumo: ResumoLote | null, tipo: TipoConta) {
     valor: resumo.valorProximoReforco,
     vencimento: resumo.vencimentoProximoReforco,
     qtdAPagar: resumo.qtdReforcosAPagar,
+  };
+}
+
+// ============================
+// Hook para atualização monetária automática
+// ============================
+
+interface AtualizacaoAutomaticaResult {
+  isChecking: boolean;
+  isUpdating: boolean;
+  jaAtualizado: boolean;
+  mesReferencia: string;
+}
+
+/**
+ * Hook para verificar e executar atualização monetária automaticamente
+ * quando o usuário acessa a Consulta de Lote e ela ainda não foi feita no mês.
+ */
+export function useAtualizacaoMonetariaAutomatica(
+  loteId: string | null,
+  vendaData: any | null | undefined
+): AtualizacaoAutomaticaResult {
+  const queryClient = useQueryClient();
+  const executadoRef = useRef<Set<string>>(new Set());
+  
+  // Data de movimento padrão: primeiro dia do mês atual
+  const dataMovimento = useMemo(() => {
+    const now = new Date();
+    return format(startOfMonth(now), "yyyy-MM-dd");
+  }, []);
+  
+  const referenciaMes = dataMovimento.substring(0, 7);
+
+  // Verificar se já existe atualização no mês
+  const { data: jaAtualizado, isLoading: isChecking } = useQuery({
+    queryKey: ["verificar-atualizacao-mes", loteId, referenciaMes],
+    queryFn: async (): Promise<boolean> => {
+      if (!loteId) return false;
+      
+      const { data, error } = await supabase
+        .from("conta_corrente_lote")
+        .select("id")
+        .eq("lote_id", loteId)
+        .eq("tipo_mov", "ATUALIZACAO")
+        .eq("referencia", referenciaMes)
+        .limit(1);
+      
+      if (error) throw error;
+      return data && data.length > 0;
+    },
+    enabled: !!loteId,
+    staleTime: 30000, // Cache por 30 segundos
+  });
+
+  // Buscar indicadores e seus valores
+  const { data: indicadores } = useQuery({
+    queryKey: ["indicadores-atualizacao-auto"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("indicadores_atualizacao")
+        .select(`
+          *,
+          valores:indicadores_atualizacao_valores(*)
+        `)
+        .eq("ativo", true);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!loteId && !jaAtualizado && jaAtualizado !== undefined,
+  });
+
+  // Buscar movimentações para calcular saldo
+  const { data: movimentacoes } = useQuery({
+    queryKey: ["movimentacoes-atualizacao-auto", loteId],
+    queryFn: async () => {
+      if (!loteId) return [];
+      const { data, error } = await supabase
+        .from("conta_corrente_lote")
+        .select("*")
+        .eq("lote_id", loteId)
+        .order("data_mov", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!loteId && !jaAtualizado && jaAtualizado !== undefined,
+  });
+
+  // Mutation para executar a atualização
+  const executarMutation = useMutation({
+    mutationFn: async () => {
+      if (!loteId || !vendaData || !indicadores || !movimentacoes) {
+        throw new Error("Dados insuficientes para atualização");
+      }
+
+      const dataMov = parseISO(dataMovimento);
+      const tiposFluxo: ("PARCELAMENTO" | "REFORCO")[] = ["PARCELAMENTO", "REFORCO"];
+      const lancamentos: any[] = [];
+
+      // Buscar índice para um indicador e competência
+      const buscarIndice = (tipoAtualizacao: string, competenciaIndice: string): number | null => {
+        const indicador = indicadores.find(
+          (ind: any) => ind.nome.toUpperCase() === tipoAtualizacao.toUpperCase()
+        );
+        
+        if (!indicador || !indicador.valores) return null;
+        
+        const valor = indicador.valores.find(
+          (v: any) => v.competencia.substring(0, 7) === competenciaIndice
+        );
+        
+        return valor ? Number(valor.fator) : null;
+      };
+
+      // Calcular saldo anterior por tipo_fluxo
+      const calcularSaldoAnterior = (tipoFluxo: string): number => {
+        const movsFluxo = movimentacoes.filter(
+          (m: any) => m.tipo_fluxo === tipoFluxo && m.data_mov < dataMovimento
+        );
+        
+        return movsFluxo.reduce((acc: number, mov: any) => {
+          return acc + (mov.debito || 0) - (mov.credito || 0);
+        }, 0);
+      };
+
+      for (const tipoFluxo of tiposFluxo) {
+        // Verificar se tem saldo no fluxo
+        const saldoAnterior = calcularSaldoAnterior(tipoFluxo);
+        if (saldoAnterior <= 0) continue;
+
+        // Verificar se já existe atualização para este fluxo
+        const jaExiste = movimentacoes.some(
+          (m: any) => 
+            m.tipo_fluxo === tipoFluxo && 
+            m.tipo_mov === "ATUALIZACAO" &&
+            m.referencia === referenciaMes
+        );
+        if (jaExiste) continue;
+
+        // Calcular competência do índice (data_mov - defasagem meses)
+        const defasagem = vendaData.defasagem_indice || 1;
+        const competenciaDate = subMonths(dataMov, defasagem);
+        const competenciaIndice = format(competenciaDate, "yyyy-MM");
+        
+        // Buscar índice
+        const tipoAtualizacao = vendaData.tipo_atualizacao || "IGPM";
+        const indice = buscarIndice(tipoAtualizacao, competenciaIndice);
+        
+        if (indice === null) continue;
+
+        // Calcular valor da atualização
+        const valorCalculado = Math.round(saldoAnterior * (indice / 100) * 100) / 100;
+        if (valorCalculado === 0) continue;
+
+        // Determinar natureza (débito ou crédito)
+        const isNegativo = indice < 0;
+        const valorAbs = Math.abs(valorCalculado);
+        const novoSaldo = saldoAnterior + valorCalculado;
+
+        // Buscar dados do lote
+        const { data: loteData } = await supabase
+          .from("lotes")
+          .select("quadra, numero_lote")
+          .eq("id", loteId)
+          .single();
+
+        lancamentos.push({
+          lote_id: loteId,
+          venda_id: vendaData.id,
+          tipo_fluxo: tipoFluxo,
+          tipo_mov: "ATUALIZACAO",
+          data_mov: dataMovimento,
+          descricao: `Atualização Monetária Q${loteData?.quadra}Lt${loteData?.numero_lote}`,
+          percentual_calculo: indice,
+          debito: isNegativo ? 0 : valorAbs,
+          credito: isNegativo ? valorAbs : 0,
+          saldo: novoSaldo,
+          referencia: referenciaMes,
+        });
+      }
+
+      if (lancamentos.length === 0) {
+        return 0;
+      }
+
+      const { error } = await supabase.from("conta_corrente_lote").insert(lancamentos);
+      if (error) throw error;
+
+      return lancamentos.length;
+    },
+    onSuccess: (count) => {
+      if (count > 0) {
+        // Invalidar queries relacionadas
+        queryClient.invalidateQueries({ queryKey: ["verificar-atualizacao-mes", loteId] });
+        queryClient.invalidateQueries({ queryKey: ["todos-movimentos-parcelamento-lote", loteId] });
+        queryClient.invalidateQueries({ queryKey: ["todos-movimentos-reforco-lote", loteId] });
+        queryClient.invalidateQueries({ queryKey: ["resumo-lote-consulta", loteId] });
+        queryClient.invalidateQueries({ queryKey: ["ultima-atualizacao-lote", loteId] });
+        queryClient.invalidateQueries({ queryKey: ["movimentacoes-atualizacao-auto", loteId] });
+        
+        toast.success(`Atualização monetária automática aplicada! (${count} lançamento(s))`);
+      }
+    },
+    onError: (error: any) => {
+      console.error("Erro na atualização monetária automática:", error);
+      // Não exibe toast de erro para não incomodar o usuário
+    },
+  });
+
+  // Executar automaticamente quando os dados estiverem disponíveis
+  useEffect(() => {
+    const chaveExecucao = `${loteId}-${referenciaMes}`;
+    
+    if (
+      loteId &&
+      vendaData &&
+      jaAtualizado === false &&
+      indicadores &&
+      movimentacoes &&
+      !executarMutation.isPending &&
+      !executadoRef.current.has(chaveExecucao)
+    ) {
+      executadoRef.current.add(chaveExecucao);
+      executarMutation.mutate();
+    }
+  }, [loteId, vendaData, jaAtualizado, indicadores, movimentacoes, executarMutation.isPending, referenciaMes]);
+
+  return {
+    isChecking,
+    isUpdating: executarMutation.isPending,
+    jaAtualizado: jaAtualizado || false,
+    mesReferencia: referenciaMes,
   };
 }
