@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-import type { ContaCorrenteComRelacionamentos, ResumoFluxo } from "@/types/conta-corrente.types";
+import type { ContaCorrenteComRelacionamentos, ResumoFluxoView } from "@/types/conta-corrente.types";
 
 type ContaCorrenteInsert = TablesInsert<"conta_corrente_lote">;
 type ContaCorrenteUpdate = TablesUpdate<"conta_corrente_lote">;
@@ -75,7 +75,7 @@ export function useResumoFluxoLote() {
         .from("vw_resumo_fluxo_lote")
         .select("*");
       if (error) throw error;
-      return data as ResumoFluxo[];
+      return data as ResumoFluxoView[];
     },
   });
 }
