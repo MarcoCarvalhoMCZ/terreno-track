@@ -1,22 +1,17 @@
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-
-interface Lote {
-  id: string;
-  quadra: string;
-  numero_lote: string;
-  status: string | null;
-}
+import { loteMapColors, loteMapLabels } from "@/constants/status";
+import type { LoteMinimal } from "@/types/lote.types";
 
 interface LoteamentoMapProps {
-  lotes: Lote[];
+  lotes: LoteMinimal[];
   onLoteClick?: (loteId: string) => void;
 }
 
 export function LoteamentoMap({ lotes, onLoteClick }: LoteamentoMapProps) {
   const navigate = useNavigate();
 
-  const handleLoteClick = (lote: Lote) => {
+  const handleLoteClick = (lote: LoteMinimal) => {
     if (onLoteClick) {
       onLoteClick(lote.id);
     } else {
@@ -32,44 +27,18 @@ export function LoteamentoMap({ lotes, onLoteClick }: LoteamentoMapProps) {
     }
     acc[quadra].push(lote);
     return acc;
-  }, {} as Record<string, Lote[]>);
+  }, {} as Record<string, LoteMinimal[]>);
 
   // Ordenar quadras
   const quadrasOrdenadas = Object.keys(lotesPorQuadra).sort();
 
   // Função para determinar a cor de fundo baseada no status
   const getStatusColor = (status: string | null) => {
-    switch (status) {
-      case "VENDIDO":
-        return "bg-red-500 text-white"; // Vermelho para vendidos
-      case "QUITADO":
-        return "bg-black text-white"; // Preto para quitados
-      case "RESERVADO":
-        return "bg-yellow-400 text-black"; // Amarelo para em venda/reservado
-      case "DISPONIVEL":
-        return "bg-green-500 text-white"; // Verde para disponíveis
-      case "CANCELADO":
-        return "bg-gray-400 text-white"; // Cinza para cancelados
-      default:
-        return "bg-gray-200 text-gray-700";
-    }
+    return loteMapColors[status || ""] || "bg-gray-200 text-gray-700";
   };
 
   const getStatusLabel = (status: string | null) => {
-    switch (status) {
-      case "VENDIDO":
-        return "Vendido";
-      case "QUITADO":
-        return "Quitado";
-      case "RESERVADO":
-        return "Em Venda";
-      case "DISPONIVEL":
-        return "Disponível";
-      case "CANCELADO":
-        return "Cancelado";
-      default:
-        return status || "N/A";
-    }
+    return loteMapLabels[status || ""] || status || "N/A";
   };
 
   if (lotes.length === 0) {

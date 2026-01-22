@@ -20,20 +20,17 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, TrendingUp, TrendingDown, Wallet, BarChart3 } from "lucide-react";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import type { Tables } from "@/integrations/supabase/types";
+import { formatCurrency, formatCompetencia } from "@/lib/formatters";
+import type { Lote } from "@/types";
 
-type Lote = Tables<"lotes">;
-
-interface ResumoConsolidado {
+interface ResumoConsolidadoLocal {
   competencia: string;
   total_creditos: number;
   total_debitos: number;
   saldo_final: number;
 }
 
-interface ResumoPorLote {
+interface ResumoPorLoteLocal {
   competencia: string;
   lote_id: string;
   quadra: string;
@@ -57,7 +54,7 @@ export default function ResumoOperacoes() {
         .select("*")
         .order("competencia", { ascending: false });
       if (error) throw error;
-      return data as ResumoConsolidado[];
+      return data as ResumoConsolidadoLocal[];
     },
   });
 
@@ -72,7 +69,7 @@ export default function ResumoOperacoes() {
         .order("quadra")
         .order("numero_lote");
       if (error) throw error;
-      return data as ResumoPorLote[];
+      return data as ResumoPorLoteLocal[];
     },
   });
 
@@ -137,20 +134,6 @@ export default function ResumoOperacoes() {
     { creditos: 0, debitos: 0, saldo: 0 }
   );
 
-  const formatCurrency = (value: number | null) => {
-    if (value === null || value === undefined) return "R$ 0,00";
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-  };
-
-  const formatCompetencia = (competencia: string | null) => {
-    if (!competencia) return "-";
-    try {
-      const date = parseISO(competencia);
-      return format(date, "MMMM/yyyy", { locale: ptBR });
-    } catch {
-      return competencia;
-    }
-  };
 
   return (
     <div className="space-y-6">

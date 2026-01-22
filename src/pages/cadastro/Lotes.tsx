@@ -42,36 +42,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, MapPin } from "lucide-react";
 import { toast } from "sonner";
-import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-
-type Lote = Tables<"lotes">;
-type LoteInsert = TablesInsert<"lotes">;
-type LoteUpdate = TablesUpdate<"lotes">;
-
-const statusColors: Record<string, string> = {
-  DISPONIVEL: "bg-success text-success-foreground",
-  VENDIDO: "bg-info text-info-foreground",
-  RESERVADO: "bg-warning text-warning-foreground",
-  CANCELADO: "bg-destructive text-destructive-foreground",
-};
-
-const statusLabels: Record<string, string> = {
-  DISPONIVEL: "Disponível",
-  VENDIDO: "Vendido",
-  RESERVADO: "Reservado",
-  CANCELADO: "Cancelado",
-};
-
-const emptyLote: Partial<LoteInsert> = {
-  quadra: "",
-  numero_lote: "",
-  matricula_ri: "",
-  area_m2: null,
-  custo_contabil: null,
-  etiqueta_patrimonial: "",
-  status: "DISPONIVEL",
-  observacoes: "",
-};
+import { formatCurrency, formatArea } from "@/lib/formatters";
+import { loteStatusColors, loteStatusLabels } from "@/constants/status";
+import type { Lote, LoteInsert, LoteUpdate } from "@/types/lote.types";
+import { emptyLote } from "@/types/lote.types";
 
 export default function Lotes() {
   const { canEdit } = useAuth();
@@ -220,15 +194,6 @@ export default function Lotes() {
     return matchesSearch && matchesStatus;
   });
 
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "-";
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-  };
-
-  const formatArea = (value: number | null) => {
-    if (!value) return "-";
-    return `${value} m²`;
-  };
 
   return (
     <div className="space-y-6">
@@ -452,8 +417,8 @@ export default function Lotes() {
                     <TableCell>{formatCurrency(lote.custo_contabil)}</TableCell>
                     <TableCell>{lote.etiqueta_patrimonial || "-"}</TableCell>
                     <TableCell>
-                      <Badge className={statusColors[lote.status || "DISPONIVEL"]}>
-                        {statusLabels[lote.status || "DISPONIVEL"]}
+                      <Badge className={loteStatusColors[lote.status || "DISPONIVEL"]}>
+                        {loteStatusLabels[lote.status || "DISPONIVEL"]}
                       </Badge>
                     </TableCell>
                     {canEdit && (
