@@ -53,8 +53,8 @@ export function ParcelasEmAtrasoTable({
 
   const hasPixConfig = pixConfig?.chave_pix && pixConfig?.nome_beneficiario && pixConfig?.cidade_beneficiario;
   
-  // Filtrar parcelas que devem ter QR Code: vencidas + primeira a vencer
-  const parcelasComQr = parcelas.filter((p) => p.isVencida || p.isPrimeiraAVencer);
+  // Filtrar parcelas que devem ter QR Code: vencidas + primeira a vencer E com exibirQrCode = true
+  const parcelasComQr = parcelas.filter((p) => (p.isVencida || p.isPrimeiraAVencer) && p.exibirQrCode);
 
   return (
     <Card className={isInadimplente ? "border-destructive" : ""}>
@@ -64,8 +64,8 @@ export function ParcelasEmAtrasoTable({
           {tipoLabel}s {isInadimplente ? "em Atraso" : "a Vencer"} ({tipoFluxo})
         </CardTitle>
         {isInadimplente && (
-          <Badge variant="destructive" className="text-sm px-3 py-1">
-            ☒ INADIMPLENTE
+          <Badge variant="destructive" className="text-sm px-3 py-1 font-bold">
+            INADIMPLENTE
           </Badge>
         )}
       </CardHeader>

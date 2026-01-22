@@ -44,7 +44,7 @@ import {
   buildPixPayload,
   getPixDisplayData,
 } from "@/hooks/useConsultaLote";
-import { useMoraConfig, useParcelasEmAtraso, type ParcelaEmAtraso } from "@/hooks/useParcelasEmAtraso";
+import { useMoraConfig, useParcelasEmAtraso, useUltimaAtualizacaoLote, type ParcelaEmAtraso } from "@/hooks/useParcelasEmAtraso";
 
 // Components
 import { ParcelasEmAtrasoTable } from "@/components/ParcelasEmAtrasoTable";
@@ -86,11 +86,12 @@ export default function ConsultaLote() {
   const { data: pixConfig } = usePixConfig();
   const { data: vendedorConfig } = useVendedorConfig();
   const { data: moraConfig } = useMoraConfig();
+  const { data: ultimaAtualizacao } = useUltimaAtualizacaoLote(selectedLoteId);
   const reorganizarMutation = useReorganizarLote(selectedLoteId);
 
-  // Calcular parcelas em atraso para cada fluxo
-  const resumoAtrasoParcelamento = useParcelasEmAtraso("PARCELAMENTO", venda, resumo, moraConfig);
-  const resumoAtrasoReforco = useParcelasEmAtraso("REFORCO", venda, resumo, moraConfig);
+  // Calcular parcelas em atraso para cada fluxo (com filtro de mês de atualização)
+  const resumoAtrasoParcelamento = useParcelasEmAtraso("PARCELAMENTO", venda, resumo, moraConfig, ultimaAtualizacao);
+  const resumoAtrasoReforco = useParcelasEmAtraso("REFORCO", venda, resumo, moraConfig, ultimaAtualizacao);
 
   // Converter datas para formato ISO para query
   const dataInicialISO = dataInicial ? format(dataInicial, "yyyy-MM-dd") : null;
