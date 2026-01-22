@@ -1,7 +1,9 @@
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-import type { TipoConta } from "@/constants/movimento";
 import type { Lote } from "./lote.types";
 import type { Venda } from "./venda.types";
+
+// Re-export TipoConta from constants for convenience
+export type { TipoConta } from "@/constants/movimento";
 
 /**
  * Conta corrente type from database
@@ -23,7 +25,7 @@ export interface ContaCorrenteComRelacionamentos extends ContaCorrente {
  */
 export interface ContaCorrenteFormData extends Partial<ContaCorrenteInsert> {
   natureza_outros?: "debito" | "credito";
-  tipo_fluxo_form?: TipoConta;
+  tipo_fluxo_form?: "PARCELAMENTO" | "REFORCO";
 }
 
 /**
@@ -45,14 +47,50 @@ export const emptyMovimento: ContaCorrenteFormData = {
 };
 
 /**
- * Resumo de fluxo por lote
+ * Resumo de fluxo por lote (from database view)
  */
-export interface ResumoFluxo {
+export interface ResumoFluxoView {
   lote_id: string;
   tipo_fluxo: string;
   saldo_atualizado: number;
   qtd_restante: number;
   valor_proximo_titulo: number;
+}
+
+/**
+ * Resumo de fluxo para cálculos (ConsultaLote)
+ */
+export interface ResumoFluxo {
+  totalVenda: number;
+  totalAtualizacoes: number;
+  totalJurosMora: number;
+  totalMultasMora: number;
+  totalRecebido: number;
+  saldoReceber: number;
+}
+
+/**
+ * Resumo completo do lote (ConsultaLote)
+ */
+export interface ResumoLote {
+  // Valores separados por fluxo
+  parcelamento: ResumoFluxo;
+  reforco: ResumoFluxo;
+  // Parcelas
+  qtdParcelasContratadas: number;
+  qtdParcelasPagas: number;
+  qtdParcelasAPagar: number;
+  // Reforços
+  qtdReforcosContratados: number;
+  qtdReforcosPagos: number;
+  qtdReforcosAPagar: number;
+  // Próxima parcela/reforço
+  valorProximaParcela: number;
+  vencimentoProximaParcela: Date | null;
+  valorProximoReforco: number;
+  vencimentoProximoReforco: Date | null;
+  primeiroVencimentoParcela: Date | null;
+  primeiroVencimentoReforco: Date | null;
 }
 
 /**

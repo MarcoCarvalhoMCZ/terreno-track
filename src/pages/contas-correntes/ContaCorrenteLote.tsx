@@ -46,7 +46,7 @@ import { format } from "date-fns";
 import { formatDateBR, parseDateOnly } from "@/lib/date";
 import { formatCurrency, parseValorBR } from "@/lib/formatters";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-import type { ContaCorrenteComRelacionamentos, ContaCorrenteFormData, ResumoFluxo } from "@/types/conta-corrente.types";
+import type { ContaCorrenteComRelacionamentos, ContaCorrenteFormData, ResumoFluxoView } from "@/types/conta-corrente.types";
 import { emptyMovimento } from "@/types/conta-corrente.types";
 import {
   tiposMovimento,
