@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, differenceInMonths, startOfMonth, isBefore, isAfter } from "date-fns";
+import { addMonths, differenceInMonths, startOfMonth, isBefore, isAfter, isSameMonth, parseISO } from "date-fns";
 import type { TipoConta } from "@/types/conta-corrente.types";
 
 /**
@@ -29,6 +29,7 @@ export interface ParcelaEmAtraso {
   totalParcela: number;
   isVencida: boolean;
   isPrimeiraAVencer: boolean;
+  exibirQrCode: boolean;
 }
 
 /**
@@ -62,6 +63,33 @@ export function useMoraConfig() {
         tolerancia_dias_juros: data?.tolerancia_dias_juros ?? 0,
       };
     },
+  });
+}
+
+/**
+ * Hook para buscar a data da última atualização monetária de um lote
+ */
+export function useUltimaAtualizacaoLote(loteId: string | null) {
+  return useQuery({
+    queryKey: ["ultima-atualizacao-lote", loteId],
+    queryFn: async (): Promise<Date | null> => {
+      if (!loteId) return null;
+      
+      const { data, error } = await supabase
+        .from("conta_corrente_lote")
+        .select("data_mov")
+        .eq("lote_id", loteId)
+        .eq("tipo_mov", "ATUALIZACAO")
+        .order("data_mov", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data?.data_mov) return null;
+      
+      return parseISO(data.data_mov);
+    },
+    enabled: !!loteId,
   });
 }
 
@@ -147,14 +175,25 @@ interface ResumoLoteData {
   primeiroVencimentoReforco: Date | null;
 }
 
+interface UseParcelasParams {
+  tipoFluxo: TipoConta;
+  venda: VendaData | null | undefined;
+  resumo: ResumoLoteData | null | undefined;
+  moraConfig: MoraConfig | null | undefined;
+  ultimaAtualizacao: Date | null | undefined;
+}
+
 /**
  * Hook para calcular parcelas em atraso com juros e multa
+ * QR codes só aparecem para parcelas vencidas + primeira a vencer, 
+ * mas apenas se estiverem no mesmo mês da última atualização monetária
  */
 export function useParcelasEmAtraso(
   tipoFluxo: TipoConta,
   venda: VendaData | null | undefined,
   resumo: ResumoLoteData | null | undefined,
-  moraConfig: MoraConfig | null | undefined
+  moraConfig: MoraConfig | null | undefined,
+  ultimaAtualizacao?: Date | null
 ): ResumoParcelasEmAtraso {
   return useMemo(() => {
     const resultado: ResumoParcelasEmAtraso = {
@@ -225,6 +264,7 @@ export function useParcelasEmAtraso(
         totalParcela,
         isVencida: vencida,
         isPrimeiraAVencer: false, // será definido depois
+        exibirQrCode: false, // será definido depois
       });
 
       if (vencida) {
@@ -239,8 +279,18 @@ export function useParcelasEmAtraso(
 
     // Filtrar: apenas vencidas + primeira a vencer
     resultado.parcelas = todasParcelas.filter(p => p.isVencida || p.isPrimeiraAVencer);
+    
+    // Definir quais parcelas podem exibir QR code:
+    // Apenas se estiverem no mesmo mês da última atualização monetária
+    resultado.parcelas = resultado.parcelas.map(p => ({
+      ...p,
+      exibirQrCode: ultimaAtualizacao 
+        ? isSameMonth(p.vencimento, ultimaAtualizacao)
+        : true, // Se não há atualização, exibe todos (fallback)
+    }));
+    
     resultado.totalDevido = resultado.parcelas.reduce((acc, p) => acc + p.totalParcela, 0);
 
     return resultado;
-  }, [tipoFluxo, venda, resumo, moraConfig]);
+  }, [tipoFluxo, venda, resumo, moraConfig, ultimaAtualizacao]);
 }

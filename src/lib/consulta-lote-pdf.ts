@@ -91,7 +91,7 @@ const addHeader = (
     doc.setFont("helvetica", "bold");
     doc.setFillColor(220, 53, 69);
     doc.setTextColor(255, 255, 255);
-    const badgeText = "☒ INADIMPLENTE";
+    const badgeText = "INADIMPLENTE";
     const textWidth = doc.getTextWidth(badgeText);
     const badgeX = pageWidth - textWidth - 18;
     doc.rect(badgeX - 4, yPos - 6, textWidth + 8, 10, "F");
@@ -367,8 +367,8 @@ const addQrCodesAtraso = (
   tipoFluxo: TipoConta,
   resumoAtraso: ResumoParcelasEmAtraso
 ): number => {
-  // Apenas parcelas vencidas + primeira a vencer
-  const parcelasComQr = resumoAtraso.parcelas.filter(p => p.isVencida || p.isPrimeiraAVencer);
+  // Apenas parcelas vencidas + primeira a vencer + que devem exibir QR code
+  const parcelasComQr = resumoAtraso.parcelas.filter(p => (p.isVencida || p.isPrimeiraAVencer) && p.exibirQrCode);
   if (parcelasComQr.length === 0) return yStart;
 
   let yPos = yStart;
