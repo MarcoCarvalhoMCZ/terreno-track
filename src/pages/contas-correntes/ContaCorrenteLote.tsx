@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,91 +44,64 @@ import { Plus, Pencil, Trash2, Search, Receipt, TrendingUp, TrendingDown, Wallet
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { formatDateBR, parseDateOnly } from "@/lib/date";
-import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { formatCurrency, parseValorBR } from "@/lib/formatters";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import type { ContaCorrenteComRelacionamentos, ContaCorrenteFormData, ResumoFluxo } from "@/types/conta-corrente.types";
+import { emptyMovimento } from "@/types/conta-corrente.types";
+import {
+  tiposMovimento,
+  tiposMovimentoTodos,
+  tiposParcelamento,
+  tiposReforco,
+  getNaturezaMovimento,
+  getTipoMovimentoLabel,
+  type TipoConta,
+  type NaturezaMovimento,
+} from "@/constants/movimento";
+import {
+  useContaCorrenteMovimentacoes,
+  useLotes,
+  useVendasComLote,
+  useResumoFluxoLote,
+  useIndicadoresValores,
+  useContaCorrenteMutations,
+} from "@/hooks/useContaCorrente";
 
-type ContaCorrente = Tables<"conta_corrente_lote">;
 type ContaCorrenteInsert = TablesInsert<"conta_corrente_lote">;
 type ContaCorrenteUpdate = TablesUpdate<"conta_corrente_lote">;
-type Lote = Tables<"lotes">;
-type Venda = Tables<"vendas">;
-
-interface ContaCorrenteComRelacionamentos extends ContaCorrente {
-  lote?: Lote;
-  venda?: Venda;
-}
-
-// Tipos de movimento conforme constraint do banco: VENDA, ARRAS, PARCELA, REFORCO, JUROS, MULTA, ATUALIZACAO, DESCONTO, ESTORNO, OUTROS
-// Convenção: débito = valores faturados, crédito = valores recebidos
-// Removido "VENDA" do dropdown - a venda é tratada automaticamente na tela de vendas
-const tiposMovimento = [
-  { value: "PARCELA", label: "Parcela Recebida", natureza: "credito" as const },
-  { value: "ARRAS", label: "Sinal / Arras", natureza: "credito" as const },
-  { value: "REFORCO", label: "Reforço", natureza: "credito" as const },
-  { value: "ATUALIZACAO", label: "Atualização Monetária", natureza: "auto" as const }, // auto = débito se positivo, crédito se negativo
-  { value: "JUROS", label: "Juros", natureza: "debito" as const },
-  { value: "MULTA", label: "Multa", natureza: "debito" as const },
-  { value: "DESCONTO", label: "Desconto", natureza: "credito" as const },
-  { value: "ESTORNO", label: "Estorno", natureza: "pergunta" as const },
-  { value: "OUTROS", label: "Outros", natureza: "pergunta" as const },
-];
-
-// Mantemos VENDA apenas para exibição na tabela (movimentos existentes)
-const tiposMovimentoTodos = [
-  { value: "VENDA", label: "Venda do Lote", natureza: "debito" as const },
-  ...tiposMovimento,
-];
-
-type NaturezaMovimento = "debito" | "credito" | "pergunta" | "auto";
-
-const getNaturezaMovimento = (tipoMov: string): NaturezaMovimento => {
-  const tipo = tiposMovimentoTodos.find(t => t.value === tipoMov);
-  return tipo?.natureza || "pergunta";
-};
-
-const emptyMovimento: Partial<ContaCorrenteInsert> & { natureza_outros?: "debito" | "credito"; tipo_fluxo_form?: TipoConta } = {
-  lote_id: "",
-  data_mov: new Date().toISOString().split("T")[0],
-  tipo_mov: "PARCELA",
-  descricao: "",
-  credito: null,
-  debito: null,
-  referencia: "",
-  vencimento: null,
-  percentual_calculo: null,
-  venda_id: null,
-  natureza_outros: undefined,
-  tipo_fluxo_form: "PARCELAMENTO",
-};
-
-// Tipos que se aplicam a cada conta (removido VENDA)
-const tiposParcelamento = ["PARCELA", "ARRAS", "ATUALIZACAO", "JUROS", "MULTA", "DESCONTO", "ESTORNO", "OUTROS"];
-const tiposReforco = ["REFORCO", "ATUALIZACAO", "JUROS", "MULTA", "DESCONTO", "ESTORNO", "OUTROS"];
-
-type TipoConta = "PARCELAMENTO" | "REFORCO";
-
-// Interface para dados de resumo de fluxo
-interface ResumoFluxo {
-  lote_id: string;
-  tipo_fluxo: string;
-  saldo_atualizado: number;
-  qtd_restante: number;
-  valor_proximo_titulo: number;
-}
 
 export default function ContaCorrenteLote() {
   const { canEdit } = useAuth();
-  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [movToDelete, setMovToDelete] = useState<ContaCorrenteComRelacionamentos | null>(null);
   const [editingMov, setEditingMov] = useState<ContaCorrenteComRelacionamentos | null>(null);
-  const [formData, setFormData] = useState<Partial<ContaCorrenteInsert> & { natureza_outros?: "debito" | "credito"; tipo_fluxo_form?: TipoConta }>(emptyMovimento);
+  const [formData, setFormData] = useState<ContaCorrenteFormData>(emptyMovimento);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLote, setFilterLote] = useState<string>("TODOS");
   const [filterTipo, setFilterTipo] = useState<string>("TODOS");
   const [valorMovimento, setValorMovimento] = useState<string>("");
   const [tipoConta, setTipoConta] = useState<TipoConta>("PARCELAMENTO");
+
+  // Use centralized hooks for data fetching
+  const { data: movimentacoes, isLoading } = useContaCorrenteMovimentacoes();
+  const { data: lotes } = useLotes();
+  const { data: vendas } = useVendasComLote();
+  const { data: resumoFluxo } = useResumoFluxoLote();
+  const { data: indicadoresValores } = useIndicadoresValores();
+
+  // Close dialog handler to pass to mutations
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setEditingMov(null);
+    setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta });
+    setValorMovimento("");
+    setShouldApplySuggestions(true);
+  };
+
+  // Use centralized mutations hook
+  const { createMutation, updateMutation, deleteMutation } = useContaCorrenteMutations(handleCloseDialog);
 
   // Ler loteId da URL query param
   useEffect(() => {
@@ -143,90 +114,6 @@ export default function ContaCorrenteLote() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Fetch movimentações
-  const { data: movimentacoes, isLoading } = useQuery({
-    queryKey: ["conta-corrente-lote"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("conta_corrente_lote")
-        .select(`
-          *,
-          lote:lotes(id, quadra, numero_lote),
-          venda:vendas(id, data_venda)
-        `)
-        .order("data_mov", { ascending: false })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as ContaCorrenteComRelacionamentos[];
-    },
-  });
-
-  // Fetch lotes
-  const { data: lotes } = useQuery({
-    queryKey: ["lotes"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lotes")
-        .select("*")
-        .order("quadra")
-        .order("numero_lote");
-      if (error) throw error;
-      return data as Lote[];
-    },
-  });
-
-  // Fetch vendas
-  const { data: vendas } = useQuery({
-    queryKey: ["vendas"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendas")
-        .select("*, lote:lotes(quadra, numero_lote)")
-        .order("data_venda", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch resumo de fluxo para sugestões automáticas
-  const { data: resumoFluxo } = useQuery({
-    queryKey: ["resumo-fluxo-lote"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vw_resumo_fluxo_lote")
-        .select("*");
-      if (error) throw error;
-      return data as ResumoFluxo[];
-    },
-  });
-
-  // Fetch indicadores de atualização para calcular atualização monetária
-  // Fetch indicadores de atualização (nomes dos indicadores)
-  const { data: indicadoresBase } = useQuery({
-    queryKey: ["indicadores-atualizacao"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("indicadores_atualizacao")
-        .select("id, nome")
-        .eq("ativo", true);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch valores dos indicadores para calcular atualização monetária
-  const { data: indicadoresValores } = useQuery({
-    queryKey: ["indicadores-atualizacao-valores"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("indicadores_atualizacao_valores")
-        .select("*, indicador:indicadores_atualizacao(id, nome)")
-        .order("competencia", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
   // Indicadores principais para cálculo da média
   const indicadoresPrincipais = ["IGPM", "INCC", "INPC", "IPCA"];
 
@@ -234,7 +121,7 @@ export default function ContaCorrenteLote() {
   const getIndicadorFator = (indicadorNome: string, competencia: string): number | null => {
     if (!indicadoresValores) return null;
     const valor = indicadoresValores.find(
-      v => v.indicador?.nome?.toUpperCase() === indicadorNome.toUpperCase() && 
+      (v: any) => v.indicador?.nome?.toUpperCase() === indicadorNome.toUpperCase() && 
            v.competencia?.substring(0, 7) === competencia.substring(0, 7)
     );
     return valor?.fator ?? null;
@@ -249,72 +136,6 @@ export default function ContaCorrenteLote() {
     if (fatores.length === 0) return null;
     return fatores.reduce((a, b) => a + b, 0) / fatores.length;
   };
-
-  const createMutation = useMutation({
-    mutationFn: async (mov: ContaCorrenteInsert) => {
-      const { data, error } = await supabase
-        .from("conta_corrente_lote")
-        .insert(mov)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-consolidado"] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-por-lote"] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
-      toast.success("Movimentação cadastrada com sucesso!");
-      handleCloseDialog();
-    },
-    onError: (error) => {
-      toast.error("Erro ao cadastrar movimentação: " + error.message);
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: ContaCorrenteUpdate }) => {
-      const { data, error } = await supabase
-        .from("conta_corrente_lote")
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-consolidado"] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-por-lote"] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
-      toast.success("Movimentação atualizada com sucesso!");
-      handleCloseDialog();
-    },
-    onError: (error) => {
-      toast.error("Erro ao atualizar movimentação: " + error.message);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("conta_corrente_lote").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-consolidado"] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-por-lote"] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
-      toast.success("Movimentação excluída com sucesso!");
-      setDeleteDialogOpen(false);
-      setMovToDelete(null);
-    },
-    onError: (error) => {
-      toast.error("Erro ao excluir movimentação: " + error.message);
-    },
-  });
 
   // Obter lote selecionado e sua venda
   const loteSelecionado = useMemo(() => {
@@ -504,13 +325,7 @@ export default function ContaCorrenteLote() {
   // Referência para controlar se deve aplicar sugestões automaticamente
   const [shouldApplySuggestions, setShouldApplySuggestions] = useState(true);
 
-  // Função para normalizar valor numérico (aceita vírgula e ponto como decimal)
-  const parseValorBR = (value: string): number => {
-    if (!value) return 0;
-    // Remove pontos de milhar e troca vírgula por ponto decimal
-    const normalized = value.replace(/\./g, '').replace(',', '.');
-    return parseFloat(normalized) || 0;
-  };
+  // Using parseValorBR from centralized formatters
 
   // Efeito para aplicar sugestões quando o tipo de movimento, lote ou data mudar
   useEffect(() => {
@@ -570,13 +385,7 @@ export default function ContaCorrenteLote() {
     }
   }, [formData.vencimento, formData.tipo_mov, resumoFluxoLote, editingMov]);
 
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingMov(null);
-    setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta });
-    setValorMovimento("");
-    setShouldApplySuggestions(true);
-  };
+  // handleCloseDialog is defined above with mutations
 
   const handleEdit = (mov: ContaCorrenteComRelacionamentos) => {
     setEditingMov(mov);
@@ -728,18 +537,10 @@ export default function ContaCorrenteLote() {
     return withBalance.reverse();
   })();
 
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "-";
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-  };
+  // Using formatCurrency from centralized formatters
+  const formatDate = (date: string | null) => formatDateBR(date);
 
-  const formatDate = (date: string | null) => {
-    return formatDateBR(date);
-  };
-
-  const getTipoLabel = (tipo: string) => {
-    return tiposMovimentoTodos.find((t) => t.value === tipo)?.label || tipo;
-  };
+  // Using getTipoMovimentoLabel from centralized constants
 
   // Get tipos de movimento baseado no tipo de conta selecionado NO FORMULÁRIO (sem VENDA)
   const tiposMovimentoFiltrados = tiposMovimento.filter(t => 
@@ -887,7 +688,7 @@ export default function ContaCorrenteLote() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {getTipoLabel(mov.tipo_mov)}
+                          {getTipoMovimentoLabel(mov.tipo_mov)}
                         </Badge>
                       </TableCell>
                       <TableCell className="max-w-48 truncate">
