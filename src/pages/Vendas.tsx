@@ -42,8 +42,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { formatCurrency, formatDate } from "@/lib/formatters";
+import { vendaStatusColors, vendaStatusLabels } from "@/constants/status";
 
 type Venda = Tables<"vendas">;
 type VendaInsert = TablesInsert<"vendas">;
@@ -100,20 +101,6 @@ interface VendaComRelacionamentos {
   qtd_reforcos?: number | null;
   frequencia_reforcos_meses?: number | null;
 }
-
-const statusColors: Record<string, string> = {
-  ATIVA: "bg-success text-success-foreground",
-  QUITADA: "bg-info text-info-foreground",
-  INADIMPLENTE: "bg-warning text-warning-foreground",
-  CANCELADA: "bg-destructive text-destructive-foreground",
-};
-
-const statusLabels: Record<string, string> = {
-  ATIVA: "Ativa",
-  QUITADA: "Quitada",
-  INADIMPLENTE: "Inadimplente",
-  CANCELADA: "Cancelada",
-};
 
 // Tipos de atualização monetária
 const tiposAtualizacao = [
@@ -450,20 +437,7 @@ export default function Vendas() {
     return matchesSearch && matchesStatus;
   });
 
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "-";
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-  };
-
-  const formatDate = (date: string | null) => {
-    if (!date) return "-";
-    return format(new Date(date), "dd/MM/yyyy");
-  };
-
-  const formatPercent = (value: number | null) => {
-    if (!value) return "-";
-    return `${value}%`;
-  };
+  // Using centralized formatters from @/lib/formatters
 
   // Get available lotes for selection (include current lote when editing)
   const availableLotes = editingVenda
@@ -908,8 +882,8 @@ export default function Vendas() {
                         {venda.qtd_parcelas ? `${venda.qtd_parcelas}x` : "-"}
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColors[venda.status || "ATIVA"]}>
-                          {statusLabels[venda.status || "ATIVA"]}
+                        <Badge className={vendaStatusColors[venda.status || "ATIVA"]}>
+                          {vendaStatusLabels[venda.status || "ATIVA"]}
                         </Badge>
                       </TableCell>
                       {canEdit && (
