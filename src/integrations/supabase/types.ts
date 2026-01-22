@@ -23,14 +23,18 @@ export type Database = {
           conta_corrente: string | null
           created_at: string | null
           created_by: string | null
+          criterio_juros_mora: string | null
           data_criacao_app: string | null
           id: string
+          juros_mora_percentual: number | null
+          multa_mora_percentual: number | null
           nome_beneficiario: string | null
           observacoes: string | null
           padrao_corretor_pessoa_id: string | null
           padrao_percentual_corretagem: number | null
           representante_legal_2_pessoa_id: string | null
           representante_legal_pessoa_id: string | null
+          tolerancia_dias_juros: number | null
           updated_at: string | null
           updated_by: string | null
           vendedor_pessoa_id: string | null
@@ -43,14 +47,18 @@ export type Database = {
           conta_corrente?: string | null
           created_at?: string | null
           created_by?: string | null
+          criterio_juros_mora?: string | null
           data_criacao_app?: string | null
           id?: string
+          juros_mora_percentual?: number | null
+          multa_mora_percentual?: number | null
           nome_beneficiario?: string | null
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
           representante_legal_2_pessoa_id?: string | null
           representante_legal_pessoa_id?: string | null
+          tolerancia_dias_juros?: number | null
           updated_at?: string | null
           updated_by?: string | null
           vendedor_pessoa_id?: string | null
@@ -63,14 +71,18 @@ export type Database = {
           conta_corrente?: string | null
           created_at?: string | null
           created_by?: string | null
+          criterio_juros_mora?: string | null
           data_criacao_app?: string | null
           id?: string
+          juros_mora_percentual?: number | null
+          multa_mora_percentual?: number | null
           nome_beneficiario?: string | null
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
           representante_legal_2_pessoa_id?: string | null
           representante_legal_pessoa_id?: string | null
+          tolerancia_dias_juros?: number | null
           updated_at?: string | null
           updated_by?: string | null
           vendedor_pessoa_id?: string | null
