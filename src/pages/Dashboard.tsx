@@ -222,13 +222,24 @@ export default function Dashboard() {
     },
   });
 
-  const barChartData = (recebimentosMensais || []).map((item) => ({
-    mes: item.competencia
-      ? format(new Date(item.competencia + "T00:00:00"), "MMM/yy", { locale: ptBR })
-      : "",
-    previsto: Number(item.total_debitos || 0),
-    recebido: Number(item.total_creditos || 0),
-  }));
+  const barChartData = (recebimentosMensais || []).map((item) => {
+    let mes = "";
+    if (item.competencia) {
+      try {
+        const date = new Date(item.competencia + "T00:00:00");
+        if (!isNaN(date.getTime())) {
+          mes = format(date, "MMM/yy", { locale: ptBR });
+        }
+      } catch {
+        mes = item.competencia || "";
+      }
+    }
+    return {
+      mes,
+      previsto: Number(item.total_debitos || 0),
+      recebido: Number(item.total_creditos || 0),
+    };
+  }).filter(item => item.mes !== "");
 
 
   const getStatusBadge = (status: string | null) => {
