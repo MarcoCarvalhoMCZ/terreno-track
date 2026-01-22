@@ -248,6 +248,31 @@ export function useResumoLoteConsulta(loteId: string, venda: any) {
   });
 }
 
+// Fetch vendedor from configuracoes (for header display)
+export function useVendedorConfig() {
+  return useQuery({
+    queryKey: ["configuracoes-vendedor"],
+    queryFn: async () => {
+      const { data: config, error: configError } = await supabase
+        .from("configuracoes")
+        .select("vendedor_pessoa_id")
+        .limit(1)
+        .maybeSingle();
+      if (configError) throw configError;
+      if (!config?.vendedor_pessoa_id) return null;
+
+      const { data: vendedor, error: vendedorError } = await supabase
+        .from("pessoas")
+        .select("nome_razao, cpf_cnpj")
+        .eq("id", config.vendedor_pessoa_id)
+        .single();
+      if (vendedorError) throw vendedorError;
+
+      return vendedor;
+    },
+  });
+}
+
 // Fetch PIX configuration
 export function usePixConfig() {
   return useQuery({

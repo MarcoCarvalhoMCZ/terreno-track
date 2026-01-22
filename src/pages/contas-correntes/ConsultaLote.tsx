@@ -39,6 +39,7 @@ import {
   useMovimentosFiltrados,
   useResumoLoteConsulta,
   usePixConfig,
+  useVendedorConfig,
   useReorganizarLote,
   buildPixPayload,
   getPixDisplayData,
@@ -83,6 +84,7 @@ export default function ConsultaLote() {
   const { data: todosMovimentosReforco } = useMovimentosFluxo(selectedLoteId, "REFORCO");
   const { data: resumo } = useResumoLoteConsulta(selectedLoteId, venda);
   const { data: pixConfig } = usePixConfig();
+  const { data: vendedorConfig } = useVendedorConfig();
   const { data: moraConfig } = useMoraConfig();
   const reorganizarMutation = useReorganizarLote(selectedLoteId);
 
@@ -178,11 +180,14 @@ export default function ConsultaLote() {
     exportConsultaLoteToPDF({
       lote: selectedLote,
       venda: venda || null,
+      vendedorConfig: vendedorConfig || null,
       resumo: resumo || null,
       movimentosParcelamento: movimentosParcelamento || [],
       movimentosReforco: movimentosReforco || [],
       pixPayloadParcelamento,
       pixPayloadReforco,
+      resumoAtrasoParcelamento,
+      resumoAtrasoReforco,
     });
   };
 
@@ -341,10 +346,13 @@ export default function ConsultaLote() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Vendedor */}
+            {/* Vendedor - da configuração */}
             <div>
               <span className="font-semibold">Vendedor:</span>{" "}
-              <span>{venda?.vendedor?.nome_razao || "Não informado"}</span>
+              <span>
+                {vendedorConfig?.nome_razao || "Não informado"}
+                {vendedorConfig?.cpf_cnpj && ` (CNPJ ${vendedorConfig.cpf_cnpj})`}
+              </span>
             </div>
 
             {/* Compradores */}

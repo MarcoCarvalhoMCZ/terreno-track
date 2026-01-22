@@ -51,8 +51,10 @@ export function ParcelasEmAtrasoTable({
     return null;
   }
 
-  const parcelasVencidas = parcelas.filter((p) => p.mesesAtraso > 0);
   const hasPixConfig = pixConfig?.chave_pix && pixConfig?.nome_beneficiario && pixConfig?.cidade_beneficiario;
+  
+  // Filtrar parcelas que devem ter QR Code: vencidas + primeira a vencer
+  const parcelasComQr = parcelas.filter((p) => p.isVencida || p.isPrimeiraAVencer);
 
   return (
     <Card className={isInadimplente ? "border-destructive" : ""}>
@@ -86,24 +88,26 @@ export function ParcelasEmAtrasoTable({
             </TableHeader>
             <TableBody>
               {parcelas.map((parcela, idx) => {
-                const isVencida = parcela.mesesAtraso > 0;
                 return (
-                  <TableRow key={idx} className={isVencida ? "bg-destructive/5" : ""}>
+                  <TableRow key={idx} className={parcela.isVencida ? "bg-destructive/5" : parcela.isPrimeiraAVencer ? "bg-primary/5" : ""}>
                     <TableCell className="font-medium">
                       {parcela.numero} de {parcela.totalParcelas}
+                      {parcela.isPrimeiraAVencer && !parcela.isVencida && (
+                        <span className="ml-2 text-xs text-primary">(A Vencer)</span>
+                      )}
                     </TableCell>
-                    <TableCell className={isVencida ? "text-destructive font-medium" : ""}>
+                    <TableCell className={parcela.isVencida ? "text-destructive font-medium" : ""}>
                       {format(parcela.vencimento, "dd/MM/yyyy")}
                     </TableCell>
                     <TableCell className="text-right">
-                      {isVencida ? `${parcela.jurosPercentual.toFixed(0)}%` : ""}
+                      {parcela.isVencida ? `${parcela.jurosPercentual.toFixed(0)}%` : ""}
                     </TableCell>
                     <TableCell className="text-right">{formatCurrency(parcela.valorParcela)}</TableCell>
                     <TableCell className="text-right">
-                      {isVencida ? formatCurrency(parcela.valorJuros) : ""}
+                      {parcela.isVencida ? formatCurrency(parcela.valorJuros) : ""}
                     </TableCell>
                     <TableCell className="text-right">
-                      {isVencida ? formatCurrency(parcela.valorMulta) : ""}
+                      {parcela.isVencida ? formatCurrency(parcela.valorMulta) : ""}
                     </TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(parcela.totalParcela)}</TableCell>
                   </TableRow>
@@ -121,25 +125,23 @@ export function ParcelasEmAtrasoTable({
           </Table>
         </div>
 
-        {/* QR Codes para cada parcela */}
-        {hasPixConfig && parcelas.length > 0 && (
+        {/* QR Codes para parcelas vencidas + primeira a vencer */}
+        {hasPixConfig && parcelasComQr.length > 0 && (
           <div className="space-y-4">
             <h4 className="font-semibold text-lg flex items-center gap-2">
               <QrCode className="h-5 w-5" />
               QR Codes PIX por {tipoLabel}
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {parcelas.map((parcela, idx) => {
+              {parcelasComQr.map((parcela, idx) => {
                 const pixPayload = buildPixPayloadForParcela(parcela);
                 if (!pixPayload) return null;
-
-                const isVencida = parcela.mesesAtraso > 0;
 
                 return (
                   <div
                     key={idx}
                     className={`p-4 rounded-lg border-2 ${
-                      isVencida ? "border-destructive bg-destructive/5" : "border-muted bg-muted/30"
+                      parcela.isVencida ? "border-destructive bg-destructive/5" : "border-primary bg-primary/5"
                     }`}
                   >
                     <div className="text-center mb-3">
