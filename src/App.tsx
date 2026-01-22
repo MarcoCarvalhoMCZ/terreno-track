@@ -17,6 +17,7 @@ const Indicadores = lazy(() => import("./pages/cadastro/Indicadores"));
 const Vendas = lazy(() => import("./pages/Vendas"));
 const ContaCorrenteLote = lazy(() => import("./pages/contas-correntes/ContaCorrenteLote"));
 const ConsultaLote = lazy(() => import("./pages/contas-correntes/ConsultaLote"));
+const RelatorioInadimplencia = lazy(() => import("./pages/contas-correntes/RelatorioInadimplencia"));
 const ResumoOperacoes = lazy(() => import("./pages/contas-correntes/ResumoOperacoes"));
 const AtualizacaoMonetaria = lazy(() => import("./pages/contas-correntes/AtualizacaoMonetaria"));
 const Reorganizacao = lazy(() => import("./pages/contas-correntes/Reorganizacao"));
@@ -71,6 +72,7 @@ function AppRoutes() {
         <Route path="/vendas" element={<ProtectedRoute><Vendas /></ProtectedRoute>} />
         <Route path="/contas-correntes/lote" element={<ProtectedRoute><ContaCorrenteLote /></ProtectedRoute>} />
         <Route path="/contas-correntes/consulta" element={<ProtectedRoute><ConsultaLote /></ProtectedRoute>} />
+        <Route path="/contas-correntes/inadimplencia" element={<ProtectedRoute><RelatorioInadimplencia /></ProtectedRoute>} />
         <Route path="/contas-correntes/resumo" element={<ProtectedRoute><ResumoOperacoes /></ProtectedRoute>} />
         <Route path="/contas-correntes/atualizacao" element={<ProtectedRoute><AtualizacaoMonetaria /></ProtectedRoute>} />
         <Route path="/contas-correntes/reorganizacao" element={<ProtectedRoute><Reorganizacao /></ProtectedRoute>} />
