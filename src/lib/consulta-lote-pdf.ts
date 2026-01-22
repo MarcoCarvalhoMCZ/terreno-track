@@ -4,10 +4,16 @@ import { format } from "date-fns";
 import { formatDateBR } from "@/lib/date";
 import { formatNumber, formatCurrency } from "@/lib/formatters";
 import type { ResumoFluxo, ResumoLote, TipoConta } from "@/types/conta-corrente.types";
+import type { ParcelaEmAtraso, ResumoParcelasEmAtraso } from "@/hooks/useParcelasEmAtraso";
 
 interface LoteInfo {
   quadra: string;
   numero_lote: string;
+}
+
+interface VendedorConfigInfo {
+  nome_razao: string | null;
+  cpf_cnpj: string | null;
 }
 
 interface VendaInfo {
@@ -34,11 +40,14 @@ interface MovimentoRow {
 interface PDFExportParams {
   lote: LoteInfo;
   venda: VendaInfo | null;
+  vendedorConfig: VendedorConfigInfo | null;
   resumo: ResumoLote | null;
   movimentosParcelamento: MovimentoRow[];
   movimentosReforco: MovimentoRow[];
   pixPayloadParcelamento: string | null;
   pixPayloadReforco: string | null;
+  resumoAtrasoParcelamento: ResumoParcelasEmAtraso;
+  resumoAtrasoReforco: ResumoParcelasEmAtraso;
 }
 
 // Format date for PDF
@@ -69,9 +78,26 @@ const addHeader = (
   doc: jsPDF, 
   lote: LoteInfo, 
   venda: VendaInfo | null, 
-  tituloFluxo: string
+  vendedorConfig: VendedorConfigInfo | null,
+  tituloFluxo: string,
+  isInadimplente: boolean
 ): number => {
   let yPos = 20;
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Badge INADIMPLENTE no canto superior direito
+  if (isInadimplente) {
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setFillColor(220, 53, 69);
+    doc.setTextColor(255, 255, 255);
+    const badgeText = "☒ INADIMPLENTE";
+    const textWidth = doc.getTextWidth(badgeText);
+    const badgeX = pageWidth - textWidth - 18;
+    doc.rect(badgeX - 4, yPos - 6, textWidth + 8, 10, "F");
+    doc.text(badgeText, badgeX, yPos);
+    doc.setTextColor(0, 0, 0);
+  }
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
@@ -85,7 +111,10 @@ const addHeader = (
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
 
-  doc.text(`Vendedor: ${venda?.vendedor?.nome_razao || "Não informado"}`, 14, yPos);
+  // Vendedor da configuração
+  const vendedorNome = vendedorConfig?.nome_razao || "Não informado";
+  const vendedorCnpj = vendedorConfig?.cpf_cnpj ? ` (CNPJ ${vendedorConfig.cpf_cnpj})` : "";
+  doc.text(`Vendedor: ${vendedorNome}${vendedorCnpj}`, 14, yPos);
   yPos += 7;
 
   const comprador1 = venda?.comprador_nome_1 || venda?.comprador?.nome_razao || "Não informado";
@@ -267,16 +296,140 @@ const addQrSection = (
   return yPos + qrSize + 10;
 };
 
+// Add parcelas em atraso table to PDF
+const addParcelasAtrasoTable = (
+  doc: jsPDF,
+  yStart: number,
+  titulo: string,
+  resumoAtraso: ResumoParcelasEmAtraso
+): number => {
+  if (!resumoAtraso.parcelas || resumoAtraso.parcelas.length === 0) {
+    return yStart;
+  }
+
+  let yPos = yStart;
+
+  doc.setDrawColor(200, 200, 200);
+  doc.line(14, yPos - 5, 196, yPos - 5);
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${titulo} - Parcelas em Atraso:`, 14, yPos);
+  yPos += 8;
+
+  const tableData = resumoAtraso.parcelas.map((p) => [
+    `${p.numero} de ${p.totalParcelas}${p.isPrimeiraAVencer && !p.isVencida ? " (A Vencer)" : ""}`,
+    formatDatePDF(p.vencimento),
+    p.isVencida ? `${p.jurosPercentual.toFixed(0)}%` : "",
+    formatNumber(p.valorParcela),
+    p.isVencida ? formatNumber(p.valorJuros) : "",
+    p.isVencida ? formatNumber(p.valorMulta) : "",
+    formatNumber(p.totalParcela),
+  ]);
+
+  // Add total row
+  tableData.push([
+    "", "", "", "", "", "TOTAL DEVIDO",
+    formatNumber(resumoAtraso.totalDevido),
+  ]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Parcela", "Vencimento", "Juros%", "Valor Parcela", "Valor Juros", "Valor Multa", "Total"]],
+    body: tableData,
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [66, 66, 66] },
+    bodyStyles: { valign: "middle" },
+    columnStyles: {
+      0: { cellWidth: 28 },
+      1: { cellWidth: 25 },
+      2: { cellWidth: 18, halign: "right" },
+      3: { cellWidth: 28, halign: "right" },
+      4: { cellWidth: 25, halign: "right" },
+      5: { cellWidth: 25, halign: "right" },
+      6: { cellWidth: 28, halign: "right" },
+    },
+    didParseCell: (data) => {
+      // Make last row bold
+      if (data.row.index === tableData.length - 1) {
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+
+  return (doc as any).lastAutoTable.finalY + 10;
+};
+
+// Add QR codes for parcelas em atraso
+const addQrCodesAtraso = (
+  doc: jsPDF,
+  yStart: number,
+  tipoFluxo: TipoConta,
+  resumoAtraso: ResumoParcelasEmAtraso
+): number => {
+  // Apenas parcelas vencidas + primeira a vencer
+  const parcelasComQr = resumoAtraso.parcelas.filter(p => p.isVencida || p.isPrimeiraAVencer);
+  if (parcelasComQr.length === 0) return yStart;
+
+  let yPos = yStart;
+  if (yPos > 240) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(`QR Codes PIX - ${tipoFluxo === "PARCELAMENTO" ? "Parcelas" : "Reforços"}:`, 14, yPos);
+  yPos += 10;
+
+  const qrSize = 40;
+  const colWidth = 60;
+  let xPos = 14;
+  const startY = yPos;
+
+  parcelasComQr.forEach((parcela, idx) => {
+    const canvasId = `qr-code-parcela-${tipoFluxo}-${parcela.numero}`;
+    const qrCanvas = document.getElementById(canvasId) as HTMLCanvasElement;
+    if (!qrCanvas) return;
+
+    // New row if needed
+    if (xPos + colWidth > 200) {
+      xPos = 14;
+      yPos += qrSize + 30;
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 20;
+      }
+    }
+
+    const qrDataUrl = qrCanvas.toDataURL("image/png");
+    doc.addImage(qrDataUrl, "PNG", xPos, yPos, qrSize, qrSize);
+    
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    const label = `${parcela.numero}/${parcela.totalParcelas}${parcela.isPrimeiraAVencer && !parcela.isVencida ? " (A Vencer)" : ""}`;
+    doc.text(label, xPos + qrSize / 2, yPos + qrSize + 5, { align: "center" });
+    doc.text(formatCurrency(parcela.totalParcela), xPos + qrSize / 2, yPos + qrSize + 10, { align: "center" });
+
+    xPos += colWidth;
+  });
+
+  return yPos + qrSize + 20;
+};
+
 // Main export function
 export function exportConsultaLoteToPDF(params: PDFExportParams): void {
   const { 
     lote, 
     venda, 
+    vendedorConfig,
     resumo, 
     movimentosParcelamento, 
     movimentosReforco,
     pixPayloadParcelamento,
-    pixPayloadReforco
+    pixPayloadReforco,
+    resumoAtrasoParcelamento,
+    resumoAtrasoReforco,
   } = params;
 
   const doc = new jsPDF();
@@ -286,6 +439,7 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
 
     const tituloFluxo = isParcelamento ? "PARCELAMENTO" : "REFORÇOS";
     const movimentos = isParcelamento ? movimentosParcelamento : movimentosReforco;
+    const resumoAtraso = isParcelamento ? resumoAtrasoParcelamento : resumoAtrasoReforco;
 
     const fluxoResumo = isParcelamento ? resumo?.parcelamento : resumo?.reforco;
     const qtdContratadas = isParcelamento ? resumo?.qtdParcelasContratadas : resumo?.qtdReforcosContratados;
@@ -295,23 +449,21 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
     const proximoValor = isParcelamento ? resumo?.valorProximaParcela : resumo?.valorProximoReforco;
     const proximoVenc = isParcelamento ? resumo?.vencimentoProximaParcela : resumo?.vencimentoProximoReforco;
 
-    let yPos = addHeader(doc, lote, venda, tituloFluxo);
+    let yPos = addHeader(doc, lote, venda, vendedorConfig, tituloFluxo, resumoAtraso.isInadimplente);
     yPos = addExtratoTable(doc, yPos, `Últimos 12 movimentos (${tituloFluxo}):`, movimentos);
 
     if (fluxoResumo) {
       yPos = addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0);
     }
 
-    if ((qtdAPagar || 0) > 0 && (proximoValor || 0) > 0) {
-      const label = isParcelamento ? "da próxima parcela" : "do próximo reforço";
-      yPos = addProximoTitulo(doc, yPos, label, proximoValor || 0, proximoVenc || null);
+    // Adicionar tabela de parcelas em atraso
+    if (resumoAtraso.parcelas.length > 0) {
+      yPos = addParcelasAtrasoTable(doc, yPos, tituloFluxo, resumoAtraso);
+    }
 
-      const payload = isParcelamento ? pixPayloadParcelamento : pixPayloadReforco;
-      const canvasId = isParcelamento ? "qr-code-pdf-canvas-parcelamento" : "qr-code-pdf-canvas-reforco";
-
-      if (payload) {
-        yPos = addQrSection(doc, yPos, isParcelamento ? "Próxima Parcela" : "Próximo Reforço", proximoValor || 0, proximoVenc || null, canvasId);
-      }
+    // QR codes para parcelas em atraso
+    if (resumoAtraso.parcelas.length > 0) {
+      yPos = addQrCodesAtraso(doc, yPos, tipo, resumoAtraso);
     }
   };
 

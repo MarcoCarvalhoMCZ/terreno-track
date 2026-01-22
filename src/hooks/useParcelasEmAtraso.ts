@@ -27,6 +27,8 @@ export interface ParcelaEmAtraso {
   valorJuros: number;
   valorMulta: number;
   totalParcela: number;
+  isVencida: boolean;
+  isPrimeiraAVencer: boolean;
 }
 
 /**
@@ -184,7 +186,10 @@ export function useParcelasEmAtraso(
 
     const { juros_mora_percentual, multa_mora_percentual, criterio_juros_mora, tolerancia_dias_juros } = moraConfig;
 
-    // Gerar todas as parcelas a pagar e identificar as em atraso
+    // Primeiro, gerar todas as parcelas a pagar
+    const todasParcelas: ParcelaEmAtraso[] = [];
+    let primeiraAVencerIdx = -1;
+
     for (let i = 0; i < qtdAPagar; i++) {
       const numeroParcela = qtdPagas + i + 1;
       const vencimento = addMonths(primeiroVencimento, (qtdPagas + i) * frequenciaMeses);
@@ -203,7 +208,12 @@ export function useParcelasEmAtraso(
       
       const totalParcela = valorParcela + valorJuros + valorMulta;
 
-      resultado.parcelas.push({
+      // Identificar primeira parcela a vencer (não vencida)
+      if (!vencida && primeiraAVencerIdx === -1) {
+        primeiraAVencerIdx = i;
+      }
+
+      todasParcelas.push({
         numero: numeroParcela,
         totalParcelas: qtdTotal,
         vencimento,
@@ -213,14 +223,23 @@ export function useParcelasEmAtraso(
         valorJuros,
         valorMulta,
         totalParcela,
+        isVencida: vencida,
+        isPrimeiraAVencer: false, // será definido depois
       });
-
-      resultado.totalDevido += totalParcela;
 
       if (vencida) {
         resultado.isInadimplente = true;
       }
     }
+
+    // Marcar a primeira a vencer
+    if (primeiraAVencerIdx >= 0) {
+      todasParcelas[primeiraAVencerIdx].isPrimeiraAVencer = true;
+    }
+
+    // Filtrar: apenas vencidas + primeira a vencer
+    resultado.parcelas = todasParcelas.filter(p => p.isVencida || p.isPrimeiraAVencer);
+    resultado.totalDevido = resultado.parcelas.reduce((acc, p) => acc + p.totalParcela, 0);
 
     return resultado;
   }, [tipoFluxo, venda, resumo, moraConfig]);
