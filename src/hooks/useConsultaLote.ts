@@ -390,8 +390,7 @@ export function buildPixPayload(
       lote.quadra,
       lote.numero_lote,
       qtdPagas + 1,
-      tipoFluxo,
-      anoCompetencia
+      tipoFluxo
     );
 
     return generatePixPayload({

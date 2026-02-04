@@ -111,26 +111,25 @@ export function generatePixPayload(data: PixPayload): string {
 // Tipo do fluxo para TxID
 export type TipoFluxoTxId = 'PARCELAMENTO' | 'REFORCO';
 
-// Gera um txid baseado nos dados do lote no formato BACEN
-// Exemplo: "QAL01-R02-2027" para Quadra A, Lote 01, 2º Reforço, ano 2027
-// Exemplo: "QAL03-P05-2026" para Quadra A, Lote 03, 5ª Parcela, ano 2026
+// Gera um txid baseado nos dados do lote no formato AESAPIX
+// Exemplo: "AESAPIXQBL01P01" para Quadra B, Lote 01, Parcela 01
+// Exemplo: "AESAPIXQAL03R02" para Quadra A, Lote 03, 2º Reforço
 export function generateTxId(
   quadra: string, 
   lote: string, 
   numero: number, 
-  tipoFluxo: TipoFluxoTxId = 'PARCELAMENTO',
-  anoCompetencia?: number
+  tipoFluxo: TipoFluxoTxId = 'PARCELAMENTO'
 ): string {
+  // Prefixo constante AESAPIX
+  const prefixoConstante = 'AESAPIX';
   // Formatar quadra: manter letras e números (ex: "A" -> "A", "01" -> "01")
   const q = quadra.trim().toUpperCase();
   // Formatar lote com 2 dígitos
   const l = lote.replace(/\D/g, '').padStart(2, '0');
   // Prefixo P para Parcelamento, R para Reforço
-  const prefixo = tipoFluxo === 'REFORCO' ? 'R' : 'P';
+  const prefixoTipo = tipoFluxo === 'REFORCO' ? 'R' : 'P';
   // Número com 2 dígitos
   const n = numero.toString().padStart(2, '0');
-  // Ano de competência (default: ano atual)
-  const ano = anoCompetencia || new Date().getFullYear();
   
-  return `Q${q}L${l}-${prefixo}${n}-${ano}`;
+  return `${prefixoConstante}Q${q}L${l}${prefixoTipo}${n}`;
 }

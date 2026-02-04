@@ -158,8 +158,7 @@ export default function ConsultaLote() {
           selectedLote.quadra,
           selectedLote.numero_lote,
           parcela.numero,
-          tipoFluxo,
-          anoCompetencia
+          tipoFluxo
         );
 
         return generatePixPayload({
