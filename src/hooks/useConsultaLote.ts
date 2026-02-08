@@ -147,8 +147,8 @@ export function useResumoLoteConsulta(loteId: string, venda: any) {
 
         const totalRecebido = movimentos.reduce((acc, m) => acc + (m.credito || 0), 0);
 
-        const ultimoMovimento = movimentos.length > 0 ? movimentos[movimentos.length - 1] : null;
-        const saldoReceber = ultimoMovimento?.saldo || 0;
+        // Calcular saldo acumulado (débitos - créditos) em vez de usar o campo saldo do último registro
+        const saldoReceber = movimentos.reduce((acc, m) => acc + (m.debito || 0) - (m.credito || 0), 0);
 
         return {
           totalVenda,
