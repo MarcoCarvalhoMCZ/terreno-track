@@ -182,7 +182,7 @@ const addExtratoTable = (
   return (doc as any).lastAutoTable.finalY + 10;
 };
 
-// Add resumo section to PDF
+// Add resumo section to PDF (with optional QR code to the right)
 const addResumo = (
   doc: jsPDF,
   yStart: number, 
@@ -190,7 +190,8 @@ const addResumo = (
   fluxo: ResumoFluxo, 
   qtdContratadas: number, 
   qtdPagas: number, 
-  qtdAPagar: number
+  qtdAPagar: number,
+  qrCanvasId?: string
 ): number => {
   let yPos = yStart;
 
@@ -215,6 +216,8 @@ const addResumo = (
     yPos += 6;
   };
 
+  const resumoStartY = yPos;
+
   row("Total da Venda", formatNumber(fluxo.totalVenda || 0));
   row("Total Atualizações Monetárias", formatNumber(fluxo.totalAtualizacoes || 0));
   row("Total Juros de Mora", formatNumber(fluxo.totalJurosMora || 0));
@@ -226,6 +229,21 @@ const addResumo = (
   row("Qtde contratadas", `${qtdContratadas || 0}`);
   row("Qtde já pagas", `${qtdPagas || 0}`);
   row("Qtde a pagar", `${qtdAPagar || 0}`);
+
+  // QR code to the right of the resumo
+  if (qrCanvasId) {
+    const qrCanvas = document.getElementById(qrCanvasId) as HTMLCanvasElement;
+    if (qrCanvas) {
+      const qrDataUrl = qrCanvas.toDataURL("image/png");
+      const qrSize = 45;
+      const qrX = 145;
+      const qrY = resumoStartY - 2;
+      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text("PIX - Próximo Título", qrX + qrSize / 2, qrY + qrSize + 4, { align: "center" });
+    }
+  }
 
   return yPos + 4;
 };
@@ -453,7 +471,8 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
     yPos = addExtratoTable(doc, yPos, `Últimos 12 movimentos (${tituloFluxo}):`, movimentos);
 
     if (fluxoResumo) {
-      yPos = addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0);
+      const qrCanvasId = isParcelamento ? "qr-code-pdf-canvas-parcelamento" : "qr-code-pdf-canvas-reforco";
+      yPos = addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0, qrCanvasId);
     }
 
     // Adicionar tabela de parcelas em atraso

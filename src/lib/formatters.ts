@@ -95,13 +95,32 @@ export const formatDocument = (doc: string | null | undefined): string => {
 };
 
 /**
- * Parse Brazilian number format (1.234,56) to float
+ * Parse number string to float, auto-detecting locale format.
+ * Handles both BR format (1.234,56) and US format (1,234.56 or 111.18).
  */
 export const parseValorBR = (value: string | null | undefined): number => {
   if (!value) return 0;
-  // Remove thousand separators and replace comma with dot
-  const normalized = value.replace(/\./g, '').replace(',', '.');
-  return parseFloat(normalized) || 0;
+  let str = String(value).trim();
+  
+  // Remove currency symbols and spaces
+  str = str.replace(/[R$\s]/g, "");
+  
+  if (!str) return 0;
+
+  const lastComma = str.lastIndexOf(",");
+  const lastDot = str.lastIndexOf(".");
+
+  if (lastComma > lastDot) {
+    // Comma is the decimal separator (BR format): 1.234,56
+    str = str.replace(/\./g, "").replace(",", ".");
+  } else if (lastDot > lastComma) {
+    // Dot is the decimal separator (US format): 1,234.56 or 111.18
+    str = str.replace(/,/g, "");
+  }
+  // If only one separator exists, the logic above already handles it correctly
+
+  const parsed = parseFloat(str);
+  return isNaN(parsed) ? 0 : parsed;
 };
 
 /**
