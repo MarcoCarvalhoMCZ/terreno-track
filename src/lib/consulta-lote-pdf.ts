@@ -475,14 +475,18 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
       yPos = addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0, qrCanvasId);
     }
 
-    // Adicionar tabela de parcelas em atraso
-    if (resumoAtraso.parcelas.length > 0) {
-      yPos = addParcelasAtrasoTable(doc, yPos, tituloFluxo, resumoAtraso);
-    }
-
-    // QR codes para parcelas em atraso
-    if (resumoAtraso.parcelas.length > 0) {
-      yPos = addQrCodesAtraso(doc, yPos, tipo, resumoAtraso);
+    // Filtrar apenas parcelas realmente vencidas para a seção "em Atraso"
+    const parcelasVencidas = resumoAtraso.parcelas.filter(p => p.isVencida);
+    
+    // Só exibir tabela e QR codes de atraso se houver parcelas realmente vencidas
+    if (parcelasVencidas.length > 0) {
+      const resumoApenasVencidas: ResumoParcelasEmAtraso = {
+        ...resumoAtraso,
+        parcelas: parcelasVencidas,
+        totalDevido: parcelasVencidas.reduce((acc, p) => acc + p.totalParcela, 0),
+      };
+      yPos = addParcelasAtrasoTable(doc, yPos, tituloFluxo, resumoApenasVencidas);
+      yPos = addQrCodesAtraso(doc, yPos, tipo, resumoApenasVencidas);
     }
   };
 
