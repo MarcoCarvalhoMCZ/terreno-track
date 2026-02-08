@@ -65,7 +65,7 @@ export function ParcelasEmAtrasoTable({
         </CardTitle>
         {isInadimplente && (
           <Badge variant="destructive" className="text-sm px-3 py-1 font-bold">
-            INADIMPLENTE
+            PARCELAS EM ABERTO
           </Badge>
         )}
       </CardHeader>

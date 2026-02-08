@@ -85,13 +85,13 @@ const addHeader = (
   let yPos = 20;
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Badge INADIMPLENTE no canto superior direito
+  // Badge PARCELAS EM ABERTO no canto superior direito
   if (isInadimplente) {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setFillColor(220, 53, 69);
     doc.setTextColor(255, 255, 255);
-    const badgeText = "INADIMPLENTE";
+    const badgeText = "PARCELAS EM ABERTO";
     const textWidth = doc.getTextWidth(badgeText);
     const badgeX = pageWidth - textWidth - 18;
     doc.rect(badgeX - 4, yPos - 6, textWidth + 8, 10, "F");

@@ -163,16 +163,22 @@ export function useResumoLoteConsulta(loteId: string, venda: any) {
       const parcelamentoTotais = calcularTotaisFluxo(movParcelamento);
       const reforcoTotais = calcularTotaisFluxo(movReforco);
 
+      // Regex para detectar referência no formato "N de N" (parcela identificada)
+      const isParcelaRef = (referencia: string | null) => {
+        if (!referencia) return false;
+        return /^\d+\s+de\s+\d+$/i.test(referencia.trim());
+      };
+
       const parcelasPagas = movParcelamento.filter(m => 
-        m.tipo_mov === "PARCELA" && 
         (m.credito || 0) > 0 &&
-        !isArrasSinal(m.referencia)
+        !isArrasSinal(m.referencia) &&
+        (m.tipo_mov === "PARCELA" || (m.tipo_mov === "OUTROS" && isParcelaRef(m.referencia)))
       );
       const qtdParcelasPagas = parcelasPagas.length;
 
       const reforcosPagos = movReforco.filter(m => 
-        m.tipo_mov === "REFORCO" && 
-        (m.credito || 0) > 0
+        (m.credito || 0) > 0 &&
+        (m.tipo_mov === "REFORCO" || (m.tipo_mov === "OUTROS" && isParcelaRef(m.referencia)))
       );
       const qtdReforcosPagos = reforcosPagos.length;
 
