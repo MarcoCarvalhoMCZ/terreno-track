@@ -181,13 +181,19 @@ export default function ConsultaLote() {
   const handleExportPDF = () => {
     if (!selectedLote) return;
     
+    // Map saldo_calculado to saldo for PDF (ensures accumulated balance is used)
+    const mapMovimentos = (movs: any[]) => movs.map(m => ({
+      ...m,
+      saldo: m.saldo_calculado ?? m.saldo,
+    }));
+    
     exportConsultaLoteToPDF({
       lote: selectedLote,
       venda: venda || null,
       vendedorConfig: vendedorConfig || null,
       resumo: resumo || null,
-      movimentosParcelamento: movimentosParcelamento || [],
-      movimentosReforco: movimentosReforco || [],
+      movimentosParcelamento: mapMovimentos(movimentosParcelamento || []),
+      movimentosReforco: mapMovimentos(movimentosReforco || []),
       pixPayloadParcelamento,
       pixPayloadReforco,
       resumoAtrasoParcelamento,

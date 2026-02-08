@@ -185,8 +185,8 @@ interface UseParcelasParams {
 
 /**
  * Hook para calcular parcelas em atraso com juros e multa
- * QR codes só aparecem para parcelas vencidas + primeira a vencer, 
- * mas apenas se estiverem no mesmo mês da última atualização monetária
+ * PARCELAMENTO: QR codes para todas as parcelas que vencem no mês da última atualização monetária
+ * REFORÇO: QR codes para parcelas vencidas + primeira a vencer
  */
 export function useParcelasEmAtraso(
   tipoFluxo: TipoConta,
@@ -278,17 +278,30 @@ export function useParcelasEmAtraso(
       todasParcelas[primeiraAVencerIdx].isPrimeiraAVencer = true;
     }
 
-    // Filtrar: apenas vencidas + primeira a vencer
-    resultado.parcelas = todasParcelas.filter(p => p.isVencida || p.isPrimeiraAVencer);
-    
-    // Definir quais parcelas podem exibir QR code:
-    // Apenas se estiverem no mesmo mês da última atualização monetária
-    resultado.parcelas = resultado.parcelas.map(p => ({
-      ...p,
-      exibirQrCode: ultimaAtualizacao 
-        ? isSameMonth(p.vencimento, ultimaAtualizacao)
-        : true, // Se não há atualização, exibe todos (fallback)
-    }));
+    if (isParcelamento) {
+      // PARCELAMENTO: vencidas + parcelas que vencem no mês da última atualização monetária
+      resultado.parcelas = todasParcelas.filter(p => {
+        if (p.isVencida) return true;
+        if (ultimaAtualizacao && isSameMonth(p.vencimento, ultimaAtualizacao)) return true;
+        if (p.isPrimeiraAVencer) return true;
+        return false;
+      });
+      
+      // QR codes: apenas parcelas cujo vencimento cai no mês da última atualização
+      resultado.parcelas = resultado.parcelas.map(p => ({
+        ...p,
+        exibirQrCode: ultimaAtualizacao 
+          ? isSameMonth(p.vencimento, ultimaAtualizacao)
+          : true,
+      }));
+    } else {
+      // REFORÇO: vencidas + primeira a vencer, todas com QR code
+      resultado.parcelas = todasParcelas.filter(p => p.isVencida || p.isPrimeiraAVencer);
+      resultado.parcelas = resultado.parcelas.map(p => ({
+        ...p,
+        exibirQrCode: true,
+      }));
+    }
     
     resultado.totalDevido = resultado.parcelas.reduce((acc, p) => acc + p.totalParcela, 0);
 
