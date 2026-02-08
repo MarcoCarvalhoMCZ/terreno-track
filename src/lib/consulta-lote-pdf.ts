@@ -191,7 +191,9 @@ const addResumo = (
   qtdContratadas: number, 
   qtdPagas: number, 
   qtdAPagar: number,
-  qrCanvasId?: string
+  qrCanvasId?: string,
+  proximoValor?: number,
+  proximoVenc?: Date | null
 ): number => {
   let yPos = yStart;
 
@@ -239,9 +241,24 @@ const addResumo = (
       const qrX = 145;
       const qrY = resumoStartY - 2;
       doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "normal");
-      doc.text("PIX - Próximo Título", qrX + qrSize / 2, qrY + qrSize + 4, { align: "center" });
+      
+      const labelCenterX = qrX + qrSize / 2;
+      let labelY = qrY + qrSize + 5;
+      
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.text("PIX - Próximo Título", labelCenterX, labelY, { align: "center" });
+      labelY += 5;
+      
+      if (proximoValor && proximoValor > 0) {
+        doc.setFont("helvetica", "normal");
+        doc.text(`Valor: ${formatCurrency(proximoValor)}`, labelCenterX, labelY, { align: "center" });
+        labelY += 4;
+      }
+      if (proximoVenc) {
+        doc.setFont("helvetica", "normal");
+        doc.text(`Venc: ${formatDatePDF(proximoVenc)}`, labelCenterX, labelY, { align: "center" });
+      }
     }
   }
 
@@ -472,7 +489,7 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
 
     if (fluxoResumo) {
       const qrCanvasId = isParcelamento ? "qr-code-pdf-canvas-parcelamento" : "qr-code-pdf-canvas-reforco";
-      yPos = addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0, qrCanvasId);
+      yPos = addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0, qrCanvasId, proximoValor, proximoVenc);
     }
 
     // Filtrar apenas parcelas realmente vencidas para a seção "em Atraso"
