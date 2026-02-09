@@ -664,6 +664,28 @@ export default function ConsultaLote() {
                 />
               </>
             )}
+            {/* Hidden canvases for PDF export - SEMPRE renderizados, independente de ter parcelas em atraso */}
+            <div style={{ position: 'absolute', left: '-9999px', visibility: 'hidden' }}>
+              {pixPayloadParcelamento && (
+                <QRCodeCanvas
+                  id="qr-code-pdf-canvas-parcelamento"
+                  value={pixPayloadParcelamento}
+                  size={300}
+                  level="M"
+                  includeMargin={true}
+                />
+              )}
+              {pixPayloadReforco && (
+                <QRCodeCanvas
+                  id="qr-code-pdf-canvas-reforco"
+                  value={pixPayloadReforco}
+                  size={300}
+                  level="M"
+                  includeMargin={true}
+                />
+              )}
+            </div>
+
             {/* QR Code PIX - Próxima Parcela: só exibe se NÃO houver parcelas em atraso com QR codes */}
             {pixDisplayData && pixDisplayData.qtdAPagar > 0 && pixPayload && (() => {
               const resumoAtrasoAtivo = tipoConta === "PARCELAMENTO" ? resumoAtrasoParcelamento : resumoAtrasoReforco;
@@ -679,28 +701,6 @@ export default function ConsultaLote() {
                     </div>
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <QRCodeSVG value={pixPayload} size={200} level="M" includeMargin={true} />
-                    </div>
-
-                    {/* Hidden canvases for PDF export (um por fluxo) */}
-                    <div className="hidden">
-                      {pixPayloadParcelamento && (
-                        <QRCodeCanvas
-                          id="qr-code-pdf-canvas-parcelamento"
-                          value={pixPayloadParcelamento}
-                          size={300}
-                          level="M"
-                          includeMargin={true}
-                        />
-                      )}
-                      {pixPayloadReforco && (
-                        <QRCodeCanvas
-                          id="qr-code-pdf-canvas-reforco"
-                          value={pixPayloadReforco}
-                          size={300}
-                          level="M"
-                          includeMargin={true}
-                        />
-                      )}
                     </div>
 
                     <div className="text-center text-sm text-muted-foreground max-w-md">
