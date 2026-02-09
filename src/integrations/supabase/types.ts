@@ -644,6 +644,67 @@ export type Database = {
           },
         ]
       }
+      parcelas_controle: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          data_base: string
+          id: string
+          lote_id: string
+          observacoes: string | null
+          qtd_pagas_base: number
+          tipo_fluxo: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          data_base: string
+          id?: string
+          lote_id: string
+          observacoes?: string | null
+          qtd_pagas_base?: number
+          tipo_fluxo?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          data_base?: string
+          id?: string
+          lote_id?: string
+          observacoes?: string | null
+          qtd_pagas_base?: number
+          tipo_fluxo?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcelas_controle_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcelas_controle_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_operacoes_lote"
+            referencedColumns: ["lote_id"]
+          },
+          {
+            foreignKeyName: "parcelas_controle_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "vw_totalizacao_mensal_por_lote"
+            referencedColumns: ["lote_id"]
+          },
+        ]
+      }
       pessoas: {
         Row: {
           cpf_cnpj: string | null

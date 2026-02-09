@@ -49,6 +49,7 @@ import { useMoraConfig, useParcelasEmAtraso, useUltimaAtualizacaoLote, type Parc
 
 // Components
 import { ParcelasEmAtrasoTable } from "@/components/ParcelasEmAtrasoTable";
+import { ParcelasControleDialog } from "@/components/ParcelasControleDialog";
 
 // PDF export
 import { exportConsultaLoteToPDF } from "@/lib/consulta-lote-pdf";
@@ -360,15 +361,21 @@ export default function ConsultaLote() {
                 </span>
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => reorganizarMutation.mutate(selectedLoteId)}
-              disabled={reorganizarMutation.isPending}
-            >
-              <RefreshCw className={cn("h-4 w-4 mr-2", reorganizarMutation.isPending && "animate-spin")} />
-              {reorganizarMutation.isPending ? "Reorganizando..." : "Reorganizar Saldos"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <ParcelasControleDialog
+                loteId={selectedLoteId}
+                loteLabel={`Quadra ${selectedLote.quadra} - Lote ${selectedLote.numero_lote}`}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => reorganizarMutation.mutate(selectedLoteId)}
+                disabled={reorganizarMutation.isPending}
+              >
+                <RefreshCw className={cn("h-4 w-4 mr-2", reorganizarMutation.isPending && "animate-spin")} />
+                {reorganizarMutation.isPending ? "Reorganizando..." : "Reorganizar Saldos"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Vendedor - da configuração */}

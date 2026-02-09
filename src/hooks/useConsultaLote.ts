@@ -111,13 +111,22 @@ export function useResumoLoteConsulta(loteId: string, venda: any) {
     queryFn: async (): Promise<ResumoLote | null> => {
       if (!loteId) return null;
       
-      const { data: allMovimentos, error } = await supabase
-        .from("conta_corrente_lote")
-        .select("*")
-        .eq("lote_id", loteId)
-        .order("data_mov", { ascending: true })
-        .order("created_at", { ascending: true });
-      if (error) throw error;
+      // Buscar movimentos e baseline de parcelas em paralelo
+      const [movResult, controleResult] = await Promise.all([
+        supabase
+          .from("conta_corrente_lote")
+          .select("*")
+          .eq("lote_id", loteId)
+          .order("data_mov", { ascending: true })
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("parcelas_controle")
+          .select("*")
+          .eq("lote_id", loteId)
+      ]);
+      if (movResult.error) throw movResult.error;
+      const allMovimentos = movResult.data;
+      const parcelasControle = controleResult.data || [];
       
       const movParcelamento = allMovimentos.filter(m => m.tipo_fluxo === "PARCELAMENTO");
       const movReforco = allMovimentos.filter(m => m.tipo_fluxo === "REFORCO");
@@ -163,24 +172,30 @@ export function useResumoLoteConsulta(loteId: string, venda: any) {
       const parcelamentoTotais = calcularTotaisFluxo(movParcelamento);
       const reforcoTotais = calcularTotaisFluxo(movReforco);
 
-      // Regex para detectar referência no formato "N de N" (parcela identificada)
-      const isParcelaRef = (referencia: string | null) => {
-        if (!referencia) return false;
-        return /^\d+\s+de\s+\d+$/i.test(referencia.trim());
+      // Usar baseline da tabela parcelas_controle se existir
+      const parcelamentoBaseline = parcelasControle?.find(c => c.tipo_fluxo === 'PARCELAMENTO');
+      const reforcoBaseline = parcelasControle?.find(c => c.tipo_fluxo === 'REFORCO');
+
+      // Contar pagamentos APÓS a data base (novos pagamentos rastreados pelo sistema)
+      const contarPagamentosAposBase = (movimentos: typeof allMovimentos, baseline: typeof parcelamentoBaseline) => {
+        if (!baseline) {
+          // Sem baseline: contar todos os créditos (comportamento legado)
+          return movimentos.filter(m => 
+            (m.credito || 0) > 0 && !isArrasSinal(m.referencia) &&
+            ["PARCELA", "REFORCO"].includes(m.tipo_mov)
+          ).length;
+        }
+        // Com baseline: contar apenas movimentos com crédito após data_base
+        return movimentos.filter(m => 
+          (m.credito || 0) > 0 &&
+          !isArrasSinal(m.referencia) &&
+          m.data_mov > baseline.data_base &&
+          ["PARCELA", "REFORCO"].includes(m.tipo_mov)
+        ).length;
       };
 
-      const parcelasPagas = movParcelamento.filter(m => 
-        (m.credito || 0) > 0 &&
-        !isArrasSinal(m.referencia) &&
-        (m.tipo_mov === "PARCELA" || (m.tipo_mov === "OUTROS" && isParcelaRef(m.referencia)))
-      );
-      const qtdParcelasPagas = parcelasPagas.length;
-
-      const reforcosPagos = movReforco.filter(m => 
-        (m.credito || 0) > 0 &&
-        (m.tipo_mov === "REFORCO" || (m.tipo_mov === "OUTROS" && isParcelaRef(m.referencia)))
-      );
-      const qtdReforcosPagos = reforcosPagos.length;
+      const qtdParcelasPagas = (parcelamentoBaseline?.qtd_pagas_base || 0) + contarPagamentosAposBase(movParcelamento, parcelamentoBaseline);
+      const qtdReforcosPagos = (reforcoBaseline?.qtd_pagas_base || 0) + contarPagamentosAposBase(movReforco, reforcoBaseline);
 
       const qtdParcelasContratadas = venda?.qtd_parcelas || 0;
       const qtdReforcosContratados = venda?.qtd_reforcos || 0;
