@@ -279,20 +279,19 @@ export function useParcelasEmAtraso(
     }
 
     if (isParcelamento) {
-      // PARCELAMENTO: vencidas + parcelas que vencem no mês da última atualização monetária
+      // PARCELAMENTO: vencidas + primeira a vencer
       resultado.parcelas = todasParcelas.filter(p => {
         if (p.isVencida) return true;
-        if (ultimaAtualizacao && isSameMonth(p.vencimento, ultimaAtualizacao)) return true;
         if (p.isPrimeiraAVencer) return true;
         return false;
       });
       
-      // QR codes: apenas parcelas cujo vencimento cai no mês da última atualização
+      // QR codes: todas as vencidas + primeira a vencer (se no mês da última atualização)
       resultado.parcelas = resultado.parcelas.map(p => ({
         ...p,
-        exibirQrCode: ultimaAtualizacao 
-          ? isSameMonth(p.vencimento, ultimaAtualizacao)
-          : true,
+        exibirQrCode: p.isVencida 
+          ? true 
+          : (ultimaAtualizacao ? isSameMonth(p.vencimento, ultimaAtualizacao) : true),
       }));
     } else {
       // REFORÇO: vencidas + primeira a vencer, todas com QR code
