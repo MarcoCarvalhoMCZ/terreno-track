@@ -156,8 +156,8 @@ export function ParcelasEmAtrasoTable({
                     <div className="flex justify-center bg-white p-2 rounded-lg">
                       <QRCodeSVG value={pixPayload} size={120} level="M" includeMargin={true} />
                     </div>
-                    {/* Hidden canvas for PDF */}
-                    <div className="hidden">
+                    {/* Hidden canvas for PDF - use visibility:hidden instead of display:none so canvas renders */}
+                    <div style={{ position: 'absolute', left: '-9999px', visibility: 'hidden' }}>
                       <QRCodeCanvas
                         id={`qr-code-parcela-${tipoFluxo}-${parcela.numero}`}
                         value={pixPayload}
