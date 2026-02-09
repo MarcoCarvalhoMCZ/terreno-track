@@ -487,8 +487,11 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
     let yPos = addHeader(doc, lote, venda, vendedorConfig, tituloFluxo, resumoAtraso.isInadimplente);
     yPos = addExtratoTable(doc, yPos, `Últimos 12 movimentos (${tituloFluxo}):`, movimentos);
 
-    // Verificar se há QR codes individuais nas parcelas em atraso
-    const parcelasComQrAtraso = resumoAtraso.parcelas.filter(p => (p.isVencida || p.isPrimeiraAVencer) && p.exibirQrCode);
+    // Verificar se há QR codes individuais nas parcelas em atraso (somente se houver vencidas)
+    const temParcelasVencidasCheck = resumoAtraso.parcelas.some(p => p.isVencida);
+    const parcelasComQrAtraso = temParcelasVencidasCheck 
+      ? resumoAtraso.parcelas.filter(p => (p.isVencida || p.isPrimeiraAVencer) && p.exibirQrCode)
+      : [];
     const temQrCodesIndividuais = parcelasComQrAtraso.length > 0;
 
     if (fluxoResumo) {
@@ -497,8 +500,9 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
       yPos = addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0, qrCanvasId, proximoValor, proximoVenc);
     }
 
-    // Exibir parcelas em atraso (vencidas + primeira a vencer) com QR codes individuais
-    if (resumoAtraso.parcelas.length > 0) {
+    // Exibir parcelas em atraso somente se houver parcelas REALMENTE vencidas
+    const temParcelasVencidas = resumoAtraso.parcelas.some(p => p.isVencida);
+    if (temParcelasVencidas && resumoAtraso.parcelas.length > 0) {
       yPos = addParcelasAtrasoTable(doc, yPos, tituloFluxo, resumoAtraso);
       yPos = addQrCodesAtraso(doc, yPos, tipo, resumoAtraso);
     }
