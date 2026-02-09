@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
+import { QRCodeSVG } from "qrcode.react";
 import { AlertTriangle, QrCode } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/formatters";
 import type { ParcelaEmAtraso, ResumoParcelasEmAtraso, MoraConfig } from "@/hooks/useParcelasEmAtraso";
@@ -155,16 +155,6 @@ export function ParcelasEmAtrasoTable({
                     </div>
                     <div className="flex justify-center bg-white p-2 rounded-lg">
                       <QRCodeSVG value={pixPayload} size={120} level="M" includeMargin={true} />
-                    </div>
-                    {/* Hidden canvas for PDF - use visibility:hidden instead of display:none so canvas renders */}
-                    <div style={{ position: 'absolute', left: '-9999px', visibility: 'hidden' }}>
-                      <QRCodeCanvas
-                        id={`qr-code-parcela-${tipoFluxo}-${parcela.numero}`}
-                        value={pixPayload}
-                        size={200}
-                        level="M"
-                        includeMargin={true}
-                      />
                     </div>
                   </div>
                 );
