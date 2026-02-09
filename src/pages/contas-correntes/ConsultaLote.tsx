@@ -664,48 +664,54 @@ export default function ConsultaLote() {
                 />
               </>
             )}
-            {pixDisplayData && pixDisplayData.qtdAPagar > 0 && pixPayload && (
-              <>
-                <Separator />
-                <div className="flex flex-col items-center gap-4 p-6 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2 text-lg font-semibold">
-                    <QrCode className="h-5 w-5" />
-                    QR Code PIX - {pixDisplayData.titulo}
-                  </div>
-                  <div className="bg-white p-4 rounded-lg shadow-sm">
-                    <QRCodeSVG value={pixPayload} size={200} level="M" includeMargin={true} />
-                  </div>
+            {/* QR Code PIX - Próxima Parcela: só exibe se NÃO houver parcelas em atraso com QR codes */}
+            {pixDisplayData && pixDisplayData.qtdAPagar > 0 && pixPayload && (() => {
+              const resumoAtrasoAtivo = tipoConta === "PARCELAMENTO" ? resumoAtrasoParcelamento : resumoAtrasoReforco;
+              const parcelasComQr = resumoAtrasoAtivo.parcelas.filter(p => (p.isVencida || p.isPrimeiraAVencer) && p.exibirQrCode);
+              if (parcelasComQr.length > 0) return null;
+              return (
+                <>
+                  <Separator />
+                  <div className="flex flex-col items-center gap-4 p-6 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2 text-lg font-semibold">
+                      <QrCode className="h-5 w-5" />
+                      QR Code PIX - {pixDisplayData.titulo}
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <QRCodeSVG value={pixPayload} size={200} level="M" includeMargin={true} />
+                    </div>
 
-                  {/* Hidden canvases for PDF export (um por fluxo) */}
-                  <div className="hidden">
-                    {pixPayloadParcelamento && (
-                      <QRCodeCanvas
-                        id="qr-code-pdf-canvas-parcelamento"
-                        value={pixPayloadParcelamento}
-                        size={300}
-                        level="M"
-                        includeMargin={true}
-                      />
-                    )}
-                    {pixPayloadReforco && (
-                      <QRCodeCanvas
-                        id="qr-code-pdf-canvas-reforco"
-                        value={pixPayloadReforco}
-                        size={300}
-                        level="M"
-                        includeMargin={true}
-                      />
-                    )}
-                  </div>
+                    {/* Hidden canvases for PDF export (um por fluxo) */}
+                    <div className="hidden">
+                      {pixPayloadParcelamento && (
+                        <QRCodeCanvas
+                          id="qr-code-pdf-canvas-parcelamento"
+                          value={pixPayloadParcelamento}
+                          size={300}
+                          level="M"
+                          includeMargin={true}
+                        />
+                      )}
+                      {pixPayloadReforco && (
+                        <QRCodeCanvas
+                          id="qr-code-pdf-canvas-reforco"
+                          value={pixPayloadReforco}
+                          size={300}
+                          level="M"
+                          includeMargin={true}
+                        />
+                      )}
+                    </div>
 
-                  <div className="text-center text-sm text-muted-foreground max-w-md">
-                    <p>Escaneie o QR Code acima com o app do seu banco para pagar.</p>
-                    <p className="mt-1 font-medium">Valor: {formatCurrency(pixDisplayData.valor)}</p>
-                    <p className="mt-1">Vencimento: {pixDisplayData.vencimento ? formatDateDisplay(pixDisplayData.vencimento) : "-"}</p>
+                    <div className="text-center text-sm text-muted-foreground max-w-md">
+                      <p>Escaneie o QR Code acima com o app do seu banco para pagar.</p>
+                      <p className="mt-1 font-medium">Valor: {formatCurrency(pixDisplayData.valor)}</p>
+                      <p className="mt-1">Vencimento: {pixDisplayData.vencimento ? formatDateDisplay(pixDisplayData.vencimento) : "-"}</p>
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              );
+            })()}
 
             {/* Mensagem se PIX não configurado */}
             {(!pixConfig?.chave_pix || !pixConfig?.nome_beneficiario || !pixConfig?.cidade_beneficiario) && (
