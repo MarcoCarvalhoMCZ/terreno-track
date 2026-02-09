@@ -27,7 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { formatDateBR } from "@/lib/date";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/formatters";
-import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
+import { QRCodeSVG } from "qrcode.react";
 import type { TipoConta } from "@/types/conta-corrente.types";
 
 // Hooks
@@ -199,6 +199,7 @@ export default function ConsultaLote() {
       pixPayloadReforco,
       resumoAtrasoParcelamento,
       resumoAtrasoReforco,
+      buildPixPayloadForParcela,
     });
   };
 
@@ -664,27 +665,7 @@ export default function ConsultaLote() {
                 />
               </>
             )}
-            {/* Hidden canvases for PDF export - SEMPRE renderizados, independente de ter parcelas em atraso */}
-            <div style={{ position: 'absolute', left: '-9999px', visibility: 'hidden' }}>
-              {pixPayloadParcelamento && (
-                <QRCodeCanvas
-                  id="qr-code-pdf-canvas-parcelamento"
-                  value={pixPayloadParcelamento}
-                  size={300}
-                  level="M"
-                  includeMargin={true}
-                />
-              )}
-              {pixPayloadReforco && (
-                <QRCodeCanvas
-                  id="qr-code-pdf-canvas-reforco"
-                  value={pixPayloadReforco}
-                  size={300}
-                  level="M"
-                  includeMargin={true}
-                />
-              )}
-            </div>
+
 
             {/* QR Code PIX - Próxima Parcela: só exibe se NÃO houver parcelas em atraso com QR codes */}
             {pixDisplayData && pixDisplayData.qtdAPagar > 0 && pixPayload && (() => {

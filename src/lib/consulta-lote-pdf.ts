@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { formatDateBR } from "@/lib/date";
 import { formatNumber, formatCurrency } from "@/lib/formatters";
+import { generateQrDataUrl } from "@/lib/qr-utils";
 import type { ResumoFluxo, ResumoLote, TipoConta } from "@/types/conta-corrente.types";
 import type { ParcelaEmAtraso, ResumoParcelasEmAtraso } from "@/hooks/useParcelasEmAtraso";
 
@@ -48,6 +49,7 @@ interface PDFExportParams {
   pixPayloadReforco: string | null;
   resumoAtrasoParcelamento: ResumoParcelasEmAtraso;
   resumoAtrasoReforco: ResumoParcelasEmAtraso;
+  buildPixPayloadForParcela: (parcela: ParcelaEmAtraso) => string | null;
 }
 
 // Format date for PDF
@@ -85,7 +87,6 @@ const addHeader = (
   let yPos = 20;
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Badge PARCELAS EM ABERTO no canto superior direito
   if (isInadimplente) {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -111,7 +112,6 @@ const addHeader = (
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
 
-  // Vendedor da configuração
   const vendedorNome = vendedorConfig?.nome_razao || "Não informado";
   const vendedorCnpj = vendedorConfig?.cpf_cnpj ? ` (CNPJ ${vendedorConfig.cpf_cnpj})` : "";
   doc.text(`Vendedor: ${vendedorNome}${vendedorCnpj}`, 14, yPos);
@@ -183,7 +183,7 @@ const addExtratoTable = (
 };
 
 // Add resumo section to PDF (with optional QR code to the right)
-const addResumo = (
+const addResumo = async (
   doc: jsPDF,
   yStart: number, 
   titulo: string, 
@@ -191,10 +191,10 @@ const addResumo = (
   qtdContratadas: number, 
   qtdPagas: number, 
   qtdAPagar: number,
-  qrCanvasId?: string,
+  pixPayload?: string | null,
   proximoValor?: number,
   proximoVenc?: Date | null
-): number => {
+): Promise<number> => {
   let yPos = yStart;
 
   doc.setDrawColor(200, 200, 200);
@@ -232,11 +232,10 @@ const addResumo = (
   row("Qtde já pagas", `${qtdPagas || 0}`);
   row("Qtde a pagar", `${qtdAPagar || 0}`);
 
-  // QR code to the right of the resumo
-  if (qrCanvasId) {
-    const qrCanvas = document.getElementById(qrCanvasId) as HTMLCanvasElement;
-    if (qrCanvas) {
-      const qrDataUrl = qrCanvas.toDataURL("image/png");
+  // QR code to the right of the resumo - generated programmatically
+  if (pixPayload) {
+    try {
+      const qrDataUrl = await generateQrDataUrl(pixPayload, 300);
       const qrSize = 45;
       const qrX = 145;
       const qrY = resumoStartY - 2;
@@ -259,76 +258,12 @@ const addResumo = (
         doc.setFont("helvetica", "normal");
         doc.text(`Venc: ${formatDatePDF(proximoVenc)}`, labelCenterX, labelY, { align: "center" });
       }
+    } catch (err) {
+      console.error("Erro ao gerar QR code para resumo:", err);
     }
   }
 
   return yPos + 4;
-};
-
-// Add próximo título section
-const addProximoTitulo = (
-  doc: jsPDF,
-  yStart: number, 
-  titulo: string, 
-  valor: number, 
-  vencimento: Date | null
-): number => {
-  let yPos = yStart;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-
-  doc.setFillColor(245, 245, 245);
-  doc.rect(12, yPos - 4, 184, 16, "F");
-
-  doc.text(`Valor ${titulo}`, 14, yPos);
-  doc.text(formatNumber(valor || 0), 110, yPos, { align: "right" });
-  doc.text("Vencimento", 14, yPos + 6);
-  doc.text(vencimento ? formatDatePDF(vencimento) : "-", 110, yPos + 6, { align: "right" });
-
-  return yPos + 20;
-};
-
-// Add QR Code section
-const addQrSection = (
-  doc: jsPDF,
-  yStart: number, 
-  titulo: string, 
-  valor: number, 
-  vencimento: Date | null, 
-  qrCanvasId: string
-): number => {
-  let yPos = yStart;
-  if (yPos > 240) {
-    doc.addPage();
-    yPos = 20;
-  }
-
-  doc.setDrawColor(200, 200, 200);
-  doc.line(14, yPos - 5, 196, yPos - 5);
-
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text(`QR Code PIX - ${titulo}`, 14, yPos);
-  yPos += 10;
-
-  const qrCanvas = document.getElementById(qrCanvasId) as HTMLCanvasElement;
-  if (!qrCanvas) return yPos;
-
-  const qrDataUrl = qrCanvas.toDataURL("image/png");
-  const qrSize = 50;
-  doc.addImage(qrDataUrl, "PNG", 14, yPos, qrSize, qrSize);
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  const infoX = 14 + qrSize + 10;
-  doc.text(`Valor: ${formatCurrency(valor)}`, infoX, yPos + 10);
-  doc.text(`Vencimento: ${vencimento ? formatDatePDF(vencimento) : "-"}`, infoX, yPos + 18);
-  doc.setFontSize(8);
-  doc.text(`Escaneie o QR Code acima com o app`, infoX, yPos + 30);
-  doc.text(`do seu banco para pagar.`, infoX, yPos + 36);
-
-  return yPos + qrSize + 10;
 };
 
 // Add parcelas em atraso table to PDF
@@ -362,7 +297,6 @@ const addParcelasAtrasoTable = (
     formatNumber(p.totalParcela),
   ]);
 
-  // Add total row
   tableData.push([
     "", "", "", "", "", "TOTAL DEVIDO",
     formatNumber(resumoAtraso.totalDevido),
@@ -385,7 +319,6 @@ const addParcelasAtrasoTable = (
       6: { cellWidth: 28, halign: "right" },
     },
     didParseCell: (data) => {
-      // Make last row bold
       if (data.row.index === tableData.length - 1) {
         data.cell.styles.fontStyle = "bold";
       }
@@ -395,14 +328,14 @@ const addParcelasAtrasoTable = (
   return (doc as any).lastAutoTable.finalY + 10;
 };
 
-// Add QR codes for parcelas em atraso
-const addQrCodesAtraso = (
+// Add QR codes for parcelas em atraso - generated programmatically
+const addQrCodesAtraso = async (
   doc: jsPDF,
   yStart: number,
   tipoFluxo: TipoConta,
-  resumoAtraso: ResumoParcelasEmAtraso
-): number => {
-  // Apenas parcelas vencidas + primeira a vencer + que devem exibir QR code
+  resumoAtraso: ResumoParcelasEmAtraso,
+  buildPixPayloadForParcela: (parcela: ParcelaEmAtraso) => string | null
+): Promise<number> => {
   const parcelasComQr = resumoAtraso.parcelas.filter(p => (p.isVencida || p.isPrimeiraAVencer) && p.exibirQrCode);
   if (parcelasComQr.length === 0) return yStart;
 
@@ -420,12 +353,10 @@ const addQrCodesAtraso = (
   const qrSize = 40;
   const colWidth = 60;
   let xPos = 14;
-  const startY = yPos;
 
-  parcelasComQr.forEach((parcela, idx) => {
-    const canvasId = `qr-code-parcela-${tipoFluxo}-${parcela.numero}`;
-    const qrCanvas = document.getElementById(canvasId) as HTMLCanvasElement;
-    if (!qrCanvas) return;
+  for (const parcela of parcelasComQr) {
+    const pixPayload = buildPixPayloadForParcela(parcela);
+    if (!pixPayload) continue;
 
     // New row if needed
     if (xPos + colWidth > 200) {
@@ -437,23 +368,27 @@ const addQrCodesAtraso = (
       }
     }
 
-    const qrDataUrl = qrCanvas.toDataURL("image/png");
-    doc.addImage(qrDataUrl, "PNG", xPos, yPos, qrSize, qrSize);
-    
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    const label = `${parcela.numero}/${parcela.totalParcelas}${parcela.isPrimeiraAVencer && !parcela.isVencida ? " (A Vencer)" : ""}`;
-    doc.text(label, xPos + qrSize / 2, yPos + qrSize + 5, { align: "center" });
-    doc.text(formatCurrency(parcela.totalParcela), xPos + qrSize / 2, yPos + qrSize + 10, { align: "center" });
+    try {
+      const qrDataUrl = await generateQrDataUrl(pixPayload, 300);
+      doc.addImage(qrDataUrl, "PNG", xPos, yPos, qrSize, qrSize);
+      
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      const label = `${parcela.numero}/${parcela.totalParcelas}${parcela.isPrimeiraAVencer && !parcela.isVencida ? " (A Vencer)" : ""}`;
+      doc.text(label, xPos + qrSize / 2, yPos + qrSize + 5, { align: "center" });
+      doc.text(formatCurrency(parcela.totalParcela), xPos + qrSize / 2, yPos + qrSize + 10, { align: "center" });
 
-    xPos += colWidth;
-  });
+      xPos += colWidth;
+    } catch (err) {
+      console.error(`Erro ao gerar QR code para parcela ${parcela.numero}:`, err);
+    }
+  }
 
   return yPos + qrSize + 20;
 };
 
-// Main export function
-export function exportConsultaLoteToPDF(params: PDFExportParams): void {
+// Main export function - now async for programmatic QR generation
+export async function exportConsultaLoteToPDF(params: PDFExportParams): Promise<void> {
   const { 
     lote, 
     venda, 
@@ -465,11 +400,12 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
     pixPayloadReforco,
     resumoAtrasoParcelamento,
     resumoAtrasoReforco,
+    buildPixPayloadForParcela,
   } = params;
 
   const doc = new jsPDF();
 
-  const renderFluxoPage = (tipo: TipoConta) => {
+  const renderFluxoPage = async (tipo: TipoConta) => {
     const isParcelamento = tipo === "PARCELAMENTO";
 
     const tituloFluxo = isParcelamento ? "PARCELAMENTO" : "REFORÇOS";
@@ -483,11 +419,12 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
 
     const proximoValor = isParcelamento ? resumo?.valorProximaParcela : resumo?.valorProximoReforco;
     const proximoVenc = isParcelamento ? resumo?.vencimentoProximaParcela : resumo?.vencimentoProximoReforco;
+    const pixPayload = isParcelamento ? pixPayloadParcelamento : pixPayloadReforco;
 
     let yPos = addHeader(doc, lote, venda, vendedorConfig, tituloFluxo, resumoAtraso.isInadimplente);
     yPos = addExtratoTable(doc, yPos, `Últimos 12 movimentos (${tituloFluxo}):`, movimentos);
 
-    // Verificar se há QR codes individuais nas parcelas em atraso (somente se houver vencidas)
+    // Check for individual QR codes in overdue parcelas
     const temParcelasVencidasCheck = resumoAtraso.parcelas.some(p => p.isVencida);
     const parcelasComQrAtraso = temParcelasVencidasCheck 
       ? resumoAtraso.parcelas.filter(p => (p.isVencida || p.isPrimeiraAVencer) && p.exibirQrCode)
@@ -495,27 +432,27 @@ export function exportConsultaLoteToPDF(params: PDFExportParams): void {
     const temQrCodesIndividuais = parcelasComQrAtraso.length > 0;
 
     if (fluxoResumo) {
-      // Só mostrar QR code de próxima parcela no resumo se NÃO houver QR codes individuais
-      const qrCanvasId = temQrCodesIndividuais ? undefined : (isParcelamento ? "qr-code-pdf-canvas-parcelamento" : "qr-code-pdf-canvas-reforco");
-      yPos = addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0, qrCanvasId, proximoValor, proximoVenc);
+      // Only show next-installment QR in summary if there are NO individual QR codes
+      const resumoPixPayload = temQrCodesIndividuais ? null : pixPayload;
+      yPos = await addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0, resumoPixPayload, proximoValor, proximoVenc);
     }
 
-    // Exibir parcelas em atraso somente se houver parcelas REALMENTE vencidas
+    // Show overdue parcelas only if there are actually overdue ones
     const temParcelasVencidas = resumoAtraso.parcelas.some(p => p.isVencida);
     if (temParcelasVencidas && resumoAtraso.parcelas.length > 0) {
       yPos = addParcelasAtrasoTable(doc, yPos, tituloFluxo, resumoAtraso);
-      yPos = addQrCodesAtraso(doc, yPos, tipo, resumoAtraso);
+      yPos = await addQrCodesAtraso(doc, yPos, tipo, resumoAtraso, buildPixPayloadForParcela);
     }
   };
 
-  // Página 1: sempre PARCELAMENTO
-  renderFluxoPage("PARCELAMENTO");
+  // Page 1: always PARCELAMENTO
+  await renderFluxoPage("PARCELAMENTO");
 
-  // Página 2: REFORÇO (somente se existir)
+  // Page 2: REFORÇO (only if exists)
   const hasReforco = (resumo?.qtdReforcosContratados || 0) > 0 || movimentosReforco.length > 0;
   if (hasReforco) {
     doc.addPage();
-    renderFluxoPage("REFORCO");
+    await renderFluxoPage("REFORCO");
   }
 
   doc.save(`consulta_lote_${lote.quadra}_${lote.numero_lote}.pdf`);
