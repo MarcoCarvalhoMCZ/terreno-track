@@ -863,6 +863,50 @@ export type Database = {
         }
         Relationships: []
       }
+      venda_documentos: {
+        Row: {
+          arquivo_path: string
+          arquivo_url: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          nome: string
+          updated_at: string | null
+          updated_by: string | null
+          venda_id: string
+        }
+        Insert: {
+          arquivo_path: string
+          arquivo_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          nome: string
+          updated_at?: string | null
+          updated_by?: string | null
+          venda_id: string
+        }
+        Update: {
+          arquivo_path?: string
+          arquivo_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          venda_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venda_documentos_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendas: {
         Row: {
           comprador_cpf_1: string | null

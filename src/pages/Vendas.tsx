@@ -41,6 +41,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, ShoppingCart } from "lucide-react";
+import { VendaDocumentos } from "@/components/VendaDocumentos";
 import { toast } from "sonner";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
@@ -835,6 +836,11 @@ export default function Vendas() {
                     rows={3}
                   />
                 </div>
+
+                {/* Documentos - só aparece ao editar */}
+                {editingVenda && (
+                  <VendaDocumentos vendaId={editingVenda.id} canEdit={canEdit} />
+                )}
 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
