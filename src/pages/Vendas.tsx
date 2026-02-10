@@ -232,6 +232,18 @@ export default function Vendas() {
     },
   });
 
+  // Helper to build lote observacoes text from venda data
+  const buildLoteObservacoes = (dataVenda: string, compradorPessoaId: string, compradorNome2?: string | null): string => {
+    const comprador = pessoas?.find(p => p.id === compradorPessoaId);
+    const [y, m, d] = dataVenda.split("-");
+    const dataFormatada = `${d}/${m}/${y}`;
+    let obs = `Lote vendido em ${dataFormatada} para ${comprador?.nome_razao || "comprador"}`;
+    if (compradorNome2) {
+      obs += ` e ${compradorNome2}`;
+    }
+    return obs;
+  };
+
   const createMutation = useMutation({
     mutationFn: async (venda: VendaInsert) => {
       // Create the venda
@@ -242,10 +254,11 @@ export default function Vendas() {
         .single();
       if (error) throw error;
 
-      // Update lote status to VENDIDO
+      // Update lote status to VENDIDO and set observacoes
+      const loteObs = buildLoteObservacoes(venda.data_venda, venda.comprador_pessoa_id, venda.comprador_nome_2);
       const { error: loteError } = await supabase
         .from("lotes")
-        .update({ status: "VENDIDO", updated_at: new Date().toISOString() })
+        .update({ status: "VENDIDO", observacoes: loteObs, updated_at: new Date().toISOString() })
         .eq("id", venda.lote_id);
       if (loteError) throw loteError;
 
@@ -273,24 +286,37 @@ export default function Vendas() {
         .single();
       if (error) throw error;
 
+      // Build lote observacoes
+      const loteObs = buildLoteObservacoes(
+        updates.data_venda || "",
+        updates.comprador_pessoa_id || "",
+        updates.comprador_nome_2
+      );
+
       // If lote changed, update old lote to DISPONIVEL and new to VENDIDO
       if (oldLoteId && updates.lote_id && oldLoteId !== updates.lote_id) {
         await supabase
           .from("lotes")
-          .update({ status: "DISPONIVEL", updated_at: new Date().toISOString() })
+          .update({ status: "DISPONIVEL", observacoes: "", updated_at: new Date().toISOString() })
           .eq("id", oldLoteId);
         
         await supabase
           .from("lotes")
-          .update({ status: "VENDIDO", updated_at: new Date().toISOString() })
+          .update({ status: "VENDIDO", observacoes: loteObs, updated_at: new Date().toISOString() })
           .eq("id", updates.lote_id);
+      } else if (updates.status !== "CANCELADA") {
+        // Update observacoes on current lote
+        await supabase
+          .from("lotes")
+          .update({ observacoes: loteObs, updated_at: new Date().toISOString() })
+          .eq("id", updates.lote_id || oldLoteId);
       }
 
       // If status changed to CANCELADA, update lote to DISPONIVEL
       if (updates.status === "CANCELADA") {
         await supabase
           .from("lotes")
-          .update({ status: "DISPONIVEL", updated_at: new Date().toISOString() })
+          .update({ status: "DISPONIVEL", observacoes: "", updated_at: new Date().toISOString() })
           .eq("id", updates.lote_id);
       }
 
