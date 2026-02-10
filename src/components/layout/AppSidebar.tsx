@@ -95,7 +95,7 @@ export function AppSidebar() {
   const hasUsuarios = hasPermission("usuarios");
 
   return (
-    <Sidebar className="border-r-0">
+    <Sidebar collapsible="icon" className="border-r-0">
       <div className="p-4 border-b border-sidebar-border">
         <h1 className="text-xl font-bold text-sidebar-foreground">
           🏡 Loteamento
