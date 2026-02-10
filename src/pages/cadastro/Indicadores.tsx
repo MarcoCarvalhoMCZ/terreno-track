@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,6 +46,8 @@ import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, TrendingUp, Calendar, Save, ChevronLeft, ChevronRight } from "lucide-react";
 import { format, parse, startOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useTableSort } from "@/hooks/useTableSort";
+import { SortableTableHead } from "@/components/SortableTableHead";
 
 interface Indicador {
   id: string;
@@ -293,6 +295,20 @@ export default function Indicadores() {
     );
   });
 
+  const { sortConfig: indSortConfig, handleSort: handleIndSort, sortData: sortIndData } = useTableSort<Indicador>();
+  const sortedIndicadores = useMemo(() => {
+    if (!filteredIndicadores) return [];
+    return sortIndData(filteredIndicadores, (item, key) => {
+      switch (key) {
+        case "nome": return item.nome;
+        case "descricao": return item.descricao;
+        case "periodicidade": return item.periodicidade;
+        case "status": return item.ativo ? "Ativo" : "Inativo";
+        default: return null;
+      }
+    });
+  }, [filteredIndicadores, indSortConfig]);
+
   const getPeriodicidadeLabel = (value: string | null) => {
     return periodicidadeOptions.find((p) => p.value === value)?.label || value || "-";
   };
@@ -429,15 +445,15 @@ export default function Indicadores() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Periodicidade</TableHead>
-                        <TableHead>Status</TableHead>
+                        <SortableTableHead sortKey="nome" currentKey={indSortConfig.key} direction={indSortConfig.direction} onSort={handleIndSort}>Nome</SortableTableHead>
+                        <SortableTableHead sortKey="descricao" currentKey={indSortConfig.key} direction={indSortConfig.direction} onSort={handleIndSort}>Descrição</SortableTableHead>
+                        <SortableTableHead sortKey="periodicidade" currentKey={indSortConfig.key} direction={indSortConfig.direction} onSort={handleIndSort}>Periodicidade</SortableTableHead>
+                        <SortableTableHead sortKey="status" currentKey={indSortConfig.key} direction={indSortConfig.direction} onSort={handleIndSort}>Status</SortableTableHead>
                         {canEdit && <TableHead className="w-[100px]">Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredIndicadores?.map((indicador) => (
+                      {sortedIndicadores.map((indicador) => (
                         <TableRow key={indicador.id}>
                           <TableCell className="font-medium">{indicador.nome}</TableCell>
                           <TableCell className="max-w-[300px] truncate">

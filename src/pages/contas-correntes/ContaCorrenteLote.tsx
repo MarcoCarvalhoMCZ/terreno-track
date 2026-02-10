@@ -46,6 +46,8 @@ import { format } from "date-fns";
 import { formatDateBR, parseDateOnly } from "@/lib/date";
 import { formatCurrency, parseValorBR } from "@/lib/formatters";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { useTableSort } from "@/hooks/useTableSort";
+import { SortableTableHead } from "@/components/SortableTableHead";
 import type { ContaCorrenteComRelacionamentos, ContaCorrenteFormData, ResumoFluxoView } from "@/types/conta-corrente.types";
 import { emptyMovimento } from "@/types/conta-corrente.types";
 import {
@@ -537,6 +539,25 @@ export default function ContaCorrenteLote() {
     return withBalance.reverse();
   })();
 
+  const { sortConfig: movSortConfig, handleSort: handleMovSort, sortData: sortMovData } = useTableSort<typeof movimentacoesComSaldo[number]>();
+
+  const sortedMovimentacoes = useMemo(() => {
+    if (!movimentacoesComSaldo.length) return [];
+    if (!movSortConfig.key || !movSortConfig.direction) return movimentacoesComSaldo;
+    return sortMovData(movimentacoesComSaldo, (item, key) => {
+      switch (key) {
+        case "data_mov": return item.data_mov;
+        case "lote": return `${item.lote?.quadra || ""} ${item.lote?.numero_lote || ""}`;
+        case "tipo_mov": return item.tipo_mov;
+        case "descricao": return item.descricao;
+        case "referencia": return item.referencia;
+        case "debito": return item.debito || 0;
+        case "credito": return item.credito || 0;
+        default: return null;
+      }
+    });
+  }, [movimentacoesComSaldo, movSortConfig]);
+
   // Using formatCurrency from centralized formatters
   const formatDate = (date: string | null) => formatDateBR(date);
 
@@ -668,19 +689,19 @@ export default function ContaCorrenteLote() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>DATA</TableHead>
-                    <TableHead>LOTE</TableHead>
-                    <TableHead>TIPO</TableHead>
-                    <TableHead>DESCRIÇÃO</TableHead>
-                    <TableHead>REFERÊNCIA</TableHead>
-                    <TableHead className="text-right">DÉBITO</TableHead>
-                    <TableHead className="text-right">CRÉDITO</TableHead>
+                    <SortableTableHead sortKey="data_mov" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>DATA</SortableTableHead>
+                    <SortableTableHead sortKey="lote" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>LOTE</SortableTableHead>
+                    <SortableTableHead sortKey="tipo_mov" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>TIPO</SortableTableHead>
+                    <SortableTableHead sortKey="descricao" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>DESCRIÇÃO</SortableTableHead>
+                    <SortableTableHead sortKey="referencia" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>REFERÊNCIA</SortableTableHead>
+                    <SortableTableHead sortKey="debito" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-right">DÉBITO</SortableTableHead>
+                    <SortableTableHead sortKey="credito" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-right">CRÉDITO</SortableTableHead>
                     <TableHead className="text-right">SALDO</TableHead>
                     {canEdit && <TableHead className="text-right">AÇÕES</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {movimentacoesComSaldo.map((mov) => (
+                  {sortedMovimentacoes.map((mov) => (
                     <TableRow key={mov.id}>
                       <TableCell>{formatDate(mov.data_mov)}</TableCell>
                       <TableCell className="font-medium">

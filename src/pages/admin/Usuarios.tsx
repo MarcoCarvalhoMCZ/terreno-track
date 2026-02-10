@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +34,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Users, UserPlus, Settings, Trash2, Shield } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import { useTableSort } from "@/hooks/useTableSort";
+import { SortableTableHead } from "@/components/SortableTableHead";
 
 type AppRole = "ADMIN" | "OPERADOR" | "CONSULTA";
 
@@ -58,6 +60,8 @@ export default function Usuarios() {
   const [newUserRole, setNewUserRole] = useState<AppRole>("CONSULTA");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const { sortConfig: userSortConfig, handleSort: handleUserSort, sortData: sortUserData } = useTableSort<UserWithProfile>();
 
   // Redirecionar se não for admin
   if (!isAdmin) {
@@ -117,6 +121,18 @@ export default function Usuarios() {
       return Array.from(usersMap.values());
     },
   });
+
+  const sortedUsers = useMemo(() => {
+    if (!users) return [];
+    return sortUserData(users, (item, key) => {
+      switch (key) {
+        case "nome": return item.nome;
+        case "role": return item.role || "";
+        case "status": return item.is_approved ? "Aprovado" : "Pendente";
+        default: return null;
+      }
+    });
+  }, [users, userSortConfig]);
 
   // Criar novo usuário
   const createUserMutation = useMutation({
@@ -268,16 +284,16 @@ export default function Usuarios() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Papel</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableTableHead sortKey="nome" currentKey={userSortConfig.key} direction={userSortConfig.direction} onSort={handleUserSort}>Nome</SortableTableHead>
+                  <SortableTableHead sortKey="role" currentKey={userSortConfig.key} direction={userSortConfig.direction} onSort={handleUserSort}>Papel</SortableTableHead>
+                  <SortableTableHead sortKey="status" currentKey={userSortConfig.key} direction={userSortConfig.direction} onSort={handleUserSort}>Status</SortableTableHead>
                   <TableHead>Permissões</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users && users.length > 0 ? (
-                  users.map((user) => (
+                {sortedUsers && sortedUsers.length > 0 ? (
+                  sortedUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.nome}</TableCell>
                       <TableCell>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +45,8 @@ import { toast } from "sonner";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { vendaStatusColors, vendaStatusLabels } from "@/constants/status";
+import { useTableSort } from "@/hooks/useTableSort";
+import { SortableTableHead } from "@/components/SortableTableHead";
 
 type Venda = Tables<"vendas">;
 type VendaInsert = TablesInsert<"vendas">;
@@ -462,6 +464,24 @@ export default function Vendas() {
     const matchesStatus = filterStatus === "TODOS" || venda.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  const { sortConfig: vendaSortConfig, handleSort: handleVendaSort, sortData: sortVendaData } = useTableSort<VendaComRelacionamentos>();
+
+  const sortedVendas = useMemo(() => {
+    if (!filteredVendas) return [];
+    return sortVendaData(filteredVendas, (item, key) => {
+      switch (key) {
+        case "data_venda": return item.data_venda;
+        case "lote": return `${item.lote?.quadra || ""} ${item.lote?.numero_lote || ""}`;
+        case "comprador": return item.comprador?.nome_razao || "";
+        case "valor_venda": return item.valor_venda;
+        case "valor_arras": return item.valor_arras || 0;
+        case "qtd_parcelas": return item.qtd_parcelas || 0;
+        case "status": return item.status || "";
+        default: return null;
+      }
+    });
+  }, [filteredVendas, vendaSortConfig]);
 
   // Using centralized formatters from @/lib/formatters
 
@@ -884,18 +904,18 @@ export default function Vendas() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>DATA</TableHead>
-                    <TableHead>LOTE</TableHead>
-                    <TableHead>COMPRADOR</TableHead>
-                    <TableHead>VALOR VENDA</TableHead>
-                    <TableHead>ARRAS</TableHead>
-                    <TableHead>PARCELAS</TableHead>
-                    <TableHead>STATUS</TableHead>
+                    <SortableTableHead sortKey="data_venda" currentKey={vendaSortConfig.key} direction={vendaSortConfig.direction} onSort={handleVendaSort}>DATA</SortableTableHead>
+                    <SortableTableHead sortKey="lote" currentKey={vendaSortConfig.key} direction={vendaSortConfig.direction} onSort={handleVendaSort}>LOTE</SortableTableHead>
+                    <SortableTableHead sortKey="comprador" currentKey={vendaSortConfig.key} direction={vendaSortConfig.direction} onSort={handleVendaSort}>COMPRADOR</SortableTableHead>
+                    <SortableTableHead sortKey="valor_venda" currentKey={vendaSortConfig.key} direction={vendaSortConfig.direction} onSort={handleVendaSort}>VALOR VENDA</SortableTableHead>
+                    <SortableTableHead sortKey="valor_arras" currentKey={vendaSortConfig.key} direction={vendaSortConfig.direction} onSort={handleVendaSort}>ARRAS</SortableTableHead>
+                    <SortableTableHead sortKey="qtd_parcelas" currentKey={vendaSortConfig.key} direction={vendaSortConfig.direction} onSort={handleVendaSort}>PARCELAS</SortableTableHead>
+                    <SortableTableHead sortKey="status" currentKey={vendaSortConfig.key} direction={vendaSortConfig.direction} onSort={handleVendaSort}>STATUS</SortableTableHead>
                     {canEdit && <TableHead className="text-right">AÇÕES</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredVendas.map((venda) => (
+                  {sortedVendas.map((venda) => (
                     <TableRow key={venda.id}>
                       <TableCell>{formatDate(venda.data_venda)}</TableCell>
                       <TableCell className="font-medium">
