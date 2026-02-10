@@ -89,8 +89,8 @@ export function LoteamentoMap({ lotes, onLoteClick }: LoteamentoMapProps) {
                   {quadra}
                 </div>
                 
-                {/* Lotes da Quadra */}
-                <div className="flex gap-1 flex-wrap">
+                {/* Lotes da Quadra - 11 por linha */}
+                <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(11, 3.5rem)' }}>
                   {lotesQuadra.map((lote) => (
                     <button
                       key={lote.id}
