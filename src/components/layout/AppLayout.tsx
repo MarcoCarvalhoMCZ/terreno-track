@@ -12,7 +12,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <AppSidebar />
         <main className="flex-1 flex flex-col">
           <header className="h-14 border-b border-border flex items-center px-4 bg-card">
-            <SidebarTrigger className="mr-4" />
+            <SidebarTrigger className="mr-4 h-8 w-8" />
             <h2 className="text-lg font-medium text-foreground">
               Sistema de Controle de Loteamento
             </h2>
