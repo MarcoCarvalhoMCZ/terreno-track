@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, TrendingUp, TrendingDown, Wallet, BarChart3 } from "lucide-react";
 import { formatCurrency, formatCompetencia } from "@/lib/formatters";
 import type { Lote } from "@/types";
+import { useTableSort } from "@/hooks/useTableSort";
+import { SortableTableHead } from "@/components/SortableTableHead";
 
 interface ResumoConsolidadoLocal {
   competencia: string;
@@ -134,6 +136,35 @@ export default function ResumoOperacoes() {
     { creditos: 0, debitos: 0, saldo: 0 }
   );
 
+  const { sortConfig: consolSortConfig, handleSort: handleConsolSort, sortData: sortConsolData } = useTableSort<ResumoConsolidadoLocal>();
+  const sortedConsolidado = useMemo(() => {
+    if (!filteredConsolidado) return [];
+    return sortConsolData(filteredConsolidado, (item, key) => {
+      switch (key) {
+        case "competencia": return item.competencia;
+        case "total_debitos": return item.total_debitos;
+        case "total_creditos": return item.total_creditos;
+        case "saldo": return (item.total_debitos || 0) - (item.total_creditos || 0);
+        default: return null;
+      }
+    });
+  }, [filteredConsolidado, consolSortConfig]);
+
+  const { sortConfig: loteSortConfig, handleSort: handleLoteSort, sortData: sortLoteData } = useTableSort<ResumoPorLoteLocal>();
+  const sortedPorLote = useMemo(() => {
+    if (!filteredPorLote) return [];
+    return sortLoteData(filteredPorLote, (item, key) => {
+      switch (key) {
+        case "competencia": return item.competencia;
+        case "quadra": return item.quadra;
+        case "numero_lote": return item.numero_lote;
+        case "total_debitos": return item.total_debitos;
+        case "total_creditos": return item.total_creditos;
+        case "saldo": return (item.total_debitos || 0) - (item.total_creditos || 0);
+        default: return null;
+      }
+    });
+  }, [filteredPorLote, loteSortConfig]);
 
   return (
     <div className="space-y-6">
@@ -254,14 +285,14 @@ export default function ResumoOperacoes() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>COMPETÊNCIA</TableHead>
-                      <TableHead className="text-right">DÉBITOS</TableHead>
-                      <TableHead className="text-right">CRÉDITOS</TableHead>
-                      <TableHead className="text-right">SALDO</TableHead>
+                      <SortableTableHead sortKey="competencia" currentKey={consolSortConfig.key} direction={consolSortConfig.direction} onSort={handleConsolSort}>COMPETÊNCIA</SortableTableHead>
+                      <SortableTableHead sortKey="total_debitos" currentKey={consolSortConfig.key} direction={consolSortConfig.direction} onSort={handleConsolSort} className="text-right">DÉBITOS</SortableTableHead>
+                      <SortableTableHead sortKey="total_creditos" currentKey={consolSortConfig.key} direction={consolSortConfig.direction} onSort={handleConsolSort} className="text-right">CRÉDITOS</SortableTableHead>
+                      <SortableTableHead sortKey="saldo" currentKey={consolSortConfig.key} direction={consolSortConfig.direction} onSort={handleConsolSort} className="text-right">SALDO</SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredConsolidado.map((item, index) => (
+                    {sortedConsolidado.map((item, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-medium capitalize">
                           {formatCompetencia(item.competencia)}
@@ -348,16 +379,16 @@ export default function ResumoOperacoes() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>COMPETÊNCIA</TableHead>
-                      <TableHead>QUADRA</TableHead>
-                      <TableHead>LOTE</TableHead>
-                      <TableHead className="text-right">DÉBITOS</TableHead>
-                      <TableHead className="text-right">CRÉDITOS</TableHead>
-                      <TableHead className="text-right">SALDO</TableHead>
+                      <SortableTableHead sortKey="competencia" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>COMPETÊNCIA</SortableTableHead>
+                      <SortableTableHead sortKey="quadra" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>QUADRA</SortableTableHead>
+                      <SortableTableHead sortKey="numero_lote" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>LOTE</SortableTableHead>
+                      <SortableTableHead sortKey="total_debitos" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort} className="text-right">DÉBITOS</SortableTableHead>
+                      <SortableTableHead sortKey="total_creditos" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort} className="text-right">CRÉDITOS</SortableTableHead>
+                      <SortableTableHead sortKey="saldo" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort} className="text-right">SALDO</SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPorLote.map((item, index) => (
+                    {sortedPorLote.map((item, index) => (
                       <TableRow key={index}>
                         <TableCell className="capitalize">
                           {formatCompetencia(item.competencia)}

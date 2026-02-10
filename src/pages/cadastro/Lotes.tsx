@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,6 +46,8 @@ import { formatCurrency, formatArea } from "@/lib/formatters";
 import { loteStatusColors, loteStatusLabels } from "@/constants/status";
 import type { Lote, LoteInsert, LoteUpdate } from "@/types/lote.types";
 import { emptyLote } from "@/types/lote.types";
+import { useTableSort } from "@/hooks/useTableSort";
+import { SortableTableHead } from "@/components/SortableTableHead";
 
 export default function Lotes() {
   const { canEdit } = useAuth();
@@ -193,6 +195,24 @@ export default function Lotes() {
     const matchesStatus = filterStatus === "TODOS" || lote.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  const { sortConfig: loteSortConfig, handleSort: handleLoteSort, sortData: sortLoteData } = useTableSort<Lote>();
+
+  const sortedLotes = useMemo(() => {
+    if (!filteredLotes) return [];
+    return sortLoteData(filteredLotes, (item, key) => {
+      switch (key) {
+        case "quadra": return item.quadra;
+        case "numero_lote": return item.numero_lote;
+        case "matricula_ri": return item.matricula_ri;
+        case "area_m2": return item.area_m2;
+        case "custo_contabil": return item.custo_contabil;
+        case "etiqueta_patrimonial": return item.etiqueta_patrimonial;
+        case "status": return item.status;
+        default: return null;
+      }
+    });
+  }, [filteredLotes, loteSortConfig]);
 
 
   return (
@@ -397,18 +417,18 @@ export default function Lotes() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>QUADRA</TableHead>
-                  <TableHead>LOTE</TableHead>
-                  <TableHead>MATRÍCULA RI</TableHead>
-                  <TableHead>ÁREA</TableHead>
-                  <TableHead>CUSTO CONTÁBIL</TableHead>
-                  <TableHead>ETIQUETA</TableHead>
-                  <TableHead>STATUS</TableHead>
+                  <SortableTableHead sortKey="quadra" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>QUADRA</SortableTableHead>
+                  <SortableTableHead sortKey="numero_lote" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>LOTE</SortableTableHead>
+                  <SortableTableHead sortKey="matricula_ri" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>MATRÍCULA RI</SortableTableHead>
+                  <SortableTableHead sortKey="area_m2" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>ÁREA</SortableTableHead>
+                  <SortableTableHead sortKey="custo_contabil" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>CUSTO CONTÁBIL</SortableTableHead>
+                  <SortableTableHead sortKey="etiqueta_patrimonial" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>ETIQUETA</SortableTableHead>
+                  <SortableTableHead sortKey="status" currentKey={loteSortConfig.key} direction={loteSortConfig.direction} onSort={handleLoteSort}>STATUS</SortableTableHead>
                   {canEdit && <TableHead className="text-right">AÇÕES</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLotes.map((lote) => (
+                {sortedLotes.map((lote) => (
                   <TableRow key={lote.id}>
                     <TableCell className="font-medium">{lote.quadra}</TableCell>
                     <TableCell>{lote.numero_lote}</TableCell>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, Users, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { useTableSort } from "@/hooks/useTableSort";
+import { SortableTableHead } from "@/components/SortableTableHead";
 
 type Pessoa = Tables<"pessoas">;
 type PessoaInsert = TablesInsert<"pessoas">;
@@ -326,6 +328,22 @@ export default function Pessoas() {
     const matchesTipo = filterTipo === "TODOS" || pessoa.tipo === filterTipo;
     return matchesSearch && matchesTipo;
   });
+
+  const { sortConfig: pessoaSortConfig, handleSort: handlePessoaSort, sortData: sortPessoaData } = useTableSort<Pessoa>();
+
+  const sortedPessoas = useMemo(() => {
+    if (!filteredPessoas) return [];
+    return sortPessoaData(filteredPessoas, (item, key) => {
+      switch (key) {
+        case "tipo": return item.tipo;
+        case "nome_razao": return item.nome_razao;
+        case "cpf_cnpj": return item.cpf_cnpj;
+        case "telefone": return item.telefone;
+        case "email": return item.email;
+        default: return null;
+      }
+    });
+  }, [filteredPessoas, pessoaSortConfig]);
 
   const formatDocument = (tipo: string, doc: string | null) => {
     if (!doc) return "-";
@@ -667,16 +685,16 @@ export default function Pessoas() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>TIPO</TableHead>
-                  <TableHead>NOME / RAZÃO SOCIAL</TableHead>
-                  <TableHead>CPF / CNPJ</TableHead>
-                  <TableHead>TELEFONE</TableHead>
-                  <TableHead>E-MAIL</TableHead>
+                  <SortableTableHead sortKey="tipo" currentKey={pessoaSortConfig.key} direction={pessoaSortConfig.direction} onSort={handlePessoaSort}>TIPO</SortableTableHead>
+                  <SortableTableHead sortKey="nome_razao" currentKey={pessoaSortConfig.key} direction={pessoaSortConfig.direction} onSort={handlePessoaSort}>NOME / RAZÃO SOCIAL</SortableTableHead>
+                  <SortableTableHead sortKey="cpf_cnpj" currentKey={pessoaSortConfig.key} direction={pessoaSortConfig.direction} onSort={handlePessoaSort}>CPF / CNPJ</SortableTableHead>
+                  <SortableTableHead sortKey="telefone" currentKey={pessoaSortConfig.key} direction={pessoaSortConfig.direction} onSort={handlePessoaSort}>TELEFONE</SortableTableHead>
+                  <SortableTableHead sortKey="email" currentKey={pessoaSortConfig.key} direction={pessoaSortConfig.direction} onSort={handlePessoaSort}>E-MAIL</SortableTableHead>
                   <TableHead className="text-right">AÇÕES</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPessoas.map((pessoa) => (
+                {sortedPessoas.map((pessoa) => (
                   <TableRow key={pessoa.id}>
                     <TableCell>
                       <Badge
