@@ -14,17 +14,35 @@ export function useContaCorrenteMovimentacoes() {
   return useQuery({
     queryKey: ["conta-corrente-lote"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("conta_corrente_lote")
-        .select(`
-          *,
-          lote:lotes(id, quadra, numero_lote),
-          venda:vendas(id, data_venda)
-        `)
-        .order("data_mov", { ascending: false })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as ContaCorrenteComRelacionamentos[];
+      // Fetch all records using pagination to bypass the 1000-row limit
+      const pageSize = 1000;
+      let allData: ContaCorrenteComRelacionamentos[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("conta_corrente_lote")
+          .select(`
+            *,
+            lote:lotes(id, quadra, numero_lote),
+            venda:vendas(id, data_venda)
+          `)
+          .order("data_mov", { ascending: false })
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        
+        allData = allData.concat(data as ContaCorrenteComRelacionamentos[]);
+        
+        if (!data || data.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
+      }
+
+      return allData;
     },
   });
 }
