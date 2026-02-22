@@ -10,6 +10,7 @@ export const MENU_ITEMS = {
   indicadores: { label: "Indicadores de Atualização", path: "/cadastro/indicadores" },
   pessoas: { label: "Pessoas (PF/PJ)", path: "/cadastro/pessoas" },
   vendas: { label: "Vendas", path: "/vendas" },
+  recebimentoParcela: { label: "Recebimento de Parcela", path: "/recebimento-parcela" },
   contaCorrenteLote: { label: "Conta Corrente do Lote", path: "/contas-correntes/lote" },
   consultaLote: { label: "Consulta de Lote", path: "/contas-correntes/consulta" },
   relatorioInadimplencia: { label: "Relatório de Inadimplência", path: "/contas-correntes/inadimplencia" },
