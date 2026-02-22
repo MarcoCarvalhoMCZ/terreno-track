@@ -410,6 +410,9 @@ export default function ContaCorrenteLote() {
       venda_id: mov.venda_id,
       natureza_outros: getNaturezaMovimento(mov.tipo_mov) === "pergunta" ? natureza : undefined,
       tipo_fluxo_form: movTipoFluxo,
+      modo_pagamento: mov.modo_pagamento || null,
+      banco_origem: mov.banco_origem || null,
+      cpf_cnpj_pagador: mov.cpf_cnpj_pagador || null,
     });
     setDialogOpen(true);
   };
@@ -464,13 +467,19 @@ export default function ContaCorrenteLote() {
     // Preparar dados - remover campos que não existem no banco
     const { natureza_outros, tipo_fluxo_form, ...formDataSemExtras } = formData;
     
+    // Incluir campos de pagamento apenas para tipos PARCELA e REFORCO
+    const isPagamento = formData.tipo_mov === "PARCELA" || formData.tipo_mov === "REFORCO";
+    
     const dataToSave = {
       ...formDataSemExtras,
-      tipo_fluxo: tipo_fluxo_form || tipoConta, // Usar o tipo_fluxo do formulário
+      tipo_fluxo: tipo_fluxo_form || tipoConta,
       debito: naturezaFinal === "debito" ? valor : null,
       credito: naturezaFinal === "credito" ? valor : null,
       percentual_calculo: formData.percentual_calculo ? Number(formData.percentual_calculo) : null,
-      venda_id: null, // Removido campo venda_id
+      venda_id: null,
+      modo_pagamento: isPagamento ? (formData.modo_pagamento || null) : null,
+      banco_origem: isPagamento ? (formData.banco_origem || null) : null,
+      cpf_cnpj_pagador: isPagamento ? (formData.cpf_cnpj_pagador || null) : null,
     };
 
     if (editingMov) {
@@ -960,6 +969,55 @@ export default function ContaCorrenteLote() {
                     placeholder="Ex: 0.5"
                   />
                 </div>
+
+                {/* Campos de pagamento - apenas para Parcela Recebida e Reforço */}
+                {(formData.tipo_mov === "PARCELA" || formData.tipo_mov === "REFORCO") && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="modo_pagamento">Modo de Pagamento</Label>
+                        <Select
+                          value={formData.modo_pagamento || ""}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, modo_pagamento: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PIX">PIX</SelectItem>
+                            <SelectItem value="TED">TED</SelectItem>
+                            <SelectItem value="DEPOSITO">Depósito</SelectItem>
+                            <SelectItem value="OUTRO">Outro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="banco_origem">Banco de Origem</Label>
+                        <Input
+                          id="banco_origem"
+                          value={formData.banco_origem || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, banco_origem: e.target.value })
+                          }
+                          placeholder="Ex: Banco do Brasil"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cpf_cnpj_pagador">CPF/CNPJ do Pagador</Label>
+                      <Input
+                        id="cpf_cnpj_pagador"
+                        value={formData.cpf_cnpj_pagador || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, cpf_cnpj_pagador: e.target.value })
+                        }
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                      />
+                    </div>
+                  </>
+                )}
 
                 {/* Descrição */}
                 <div className="space-y-2">

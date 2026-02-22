@@ -26,6 +26,9 @@ export interface ContaCorrenteComRelacionamentos extends ContaCorrente {
 export interface ContaCorrenteFormData extends Partial<ContaCorrenteInsert> {
   natureza_outros?: "debito" | "credito";
   tipo_fluxo_form?: "PARCELAMENTO" | "REFORCO";
+  modo_pagamento?: string | null;
+  banco_origem?: string | null;
+  cpf_cnpj_pagador?: string | null;
 }
 
 /**
@@ -44,6 +47,9 @@ export const emptyMovimento: ContaCorrenteFormData = {
   venda_id: null,
   natureza_outros: undefined,
   tipo_fluxo_form: "PARCELAMENTO",
+  modo_pagamento: null,
+  banco_origem: null,
+  cpf_cnpj_pagador: null,
 };
 
 /**
