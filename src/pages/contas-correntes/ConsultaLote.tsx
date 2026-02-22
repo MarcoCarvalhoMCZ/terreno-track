@@ -179,7 +179,7 @@ export default function ConsultaLote() {
   );
 
   // PDF export handler
-  const handleExportPDF = () => {
+  const handleExportPDF = (includeQr: boolean) => {
     if (!selectedLote) return;
     
     // Map saldo_calculado to saldo for PDF (ensures accumulated balance is used)
@@ -187,6 +187,8 @@ export default function ConsultaLote() {
       ...m,
       saldo: m.saldo_calculado ?? m.saldo,
     }));
+
+    const chavePix = pixConfig?.chave_pix || null;
     
     exportConsultaLoteToPDF({
       lote: selectedLote,
@@ -200,6 +202,8 @@ export default function ConsultaLote() {
       resumoAtrasoParcelamento,
       resumoAtrasoReforco,
       buildPixPayloadForParcela,
+      includeQrCodes: includeQr,
+      chavePix,
     });
   };
 
@@ -238,10 +242,16 @@ export default function ConsultaLote() {
               </Select>
             </div>
             {selectedLoteId && (
-              <Button onClick={handleExportPDF} variant="outline">
-                <FileDown className="h-4 w-4 mr-2" />
-                Exportar PDF
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => handleExportPDF(true)} variant="outline">
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Exportar PDF com QR
+                </Button>
+                <Button onClick={() => handleExportPDF(false)} variant="outline">
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Exportar PDF sem QR
+                </Button>
+              </div>
             )}
           </div>
 
