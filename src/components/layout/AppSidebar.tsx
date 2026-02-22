@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Shield,
   AlertTriangle,
+  Receipt,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -90,6 +91,7 @@ export function AppSidebar() {
   const filteredContabilidadeItems = filterItems(contabilidadeItems);
 
   const hasVendas = hasPermission("vendas");
+  const hasRecebimentoParcela = hasPermission("recebimentoParcela");
   const hasImportacao = hasPermission("importacao");
   const hasSobre = hasPermission("sobre");
   const hasUsuarios = hasPermission("usuarios");
@@ -156,19 +158,31 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* Vendas */}
-        {hasVendas && (
+        {/* Vendas & Recebimento */}
+        {(hasVendas || hasRecebimentoParcela) && (
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={isActive("/vendas")}>
-                    <NavLink to="/vendas">
-                      <ShoppingCart className="h-4 w-4" />
-                      <span>Vendas</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {hasVendas && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={isActive("/vendas")}>
+                      <NavLink to="/vendas">
+                        <ShoppingCart className="h-4 w-4" />
+                        <span>Vendas</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {hasRecebimentoParcela && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={isActive("/recebimento-parcela")}>
+                      <NavLink to="/recebimento-parcela">
+                        <Receipt className="h-4 w-4" />
+                        <span>Recebimento de Parcela</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

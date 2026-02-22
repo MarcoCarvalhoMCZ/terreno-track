@@ -15,6 +15,7 @@ const Lotes = lazy(() => import("./pages/cadastro/Lotes"));
 const Pessoas = lazy(() => import("./pages/cadastro/Pessoas"));
 const Indicadores = lazy(() => import("./pages/cadastro/Indicadores"));
 const Vendas = lazy(() => import("./pages/Vendas"));
+const RecebimentoParcela = lazy(() => import("./pages/RecebimentoParcela"));
 const ContaCorrenteLote = lazy(() => import("./pages/contas-correntes/ContaCorrenteLote"));
 const ConsultaLote = lazy(() => import("./pages/contas-correntes/ConsultaLote"));
 const RelatorioInadimplencia = lazy(() => import("./pages/contas-correntes/RelatorioInadimplencia"));
@@ -70,6 +71,7 @@ function AppRoutes() {
         <Route path="/cadastro/pessoas" element={<ProtectedRoute><Pessoas /></ProtectedRoute>} />
         <Route path="/cadastro/indicadores" element={<ProtectedRoute><Indicadores /></ProtectedRoute>} />
         <Route path="/vendas" element={<ProtectedRoute><Vendas /></ProtectedRoute>} />
+        <Route path="/recebimento-parcela" element={<ProtectedRoute><RecebimentoParcela /></ProtectedRoute>} />
         <Route path="/contas-correntes/lote" element={<ProtectedRoute><ContaCorrenteLote /></ProtectedRoute>} />
         <Route path="/contas-correntes/consulta" element={<ProtectedRoute><ConsultaLote /></ProtectedRoute>} />
         <Route path="/contas-correntes/inadimplencia" element={<ProtectedRoute><RelatorioInadimplencia /></ProtectedRoute>} />

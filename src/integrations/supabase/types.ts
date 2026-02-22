@@ -120,6 +120,8 @@ export type Database = {
       }
       conta_corrente_lote: {
         Row: {
+          banco_origem: string | null
+          cpf_cnpj_pagador: string | null
           created_at: string | null
           created_by: string | null
           credito: number | null
@@ -128,6 +130,7 @@ export type Database = {
           descricao: string | null
           id: string
           lote_id: string
+          modo_pagamento: string | null
           percentual_calculo: number | null
           referencia: string | null
           saldo: number | null
@@ -139,6 +142,8 @@ export type Database = {
           venda_id: string | null
         }
         Insert: {
+          banco_origem?: string | null
+          cpf_cnpj_pagador?: string | null
           created_at?: string | null
           created_by?: string | null
           credito?: number | null
@@ -147,6 +152,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           lote_id: string
+          modo_pagamento?: string | null
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null
@@ -158,6 +164,8 @@ export type Database = {
           venda_id?: string | null
         }
         Update: {
+          banco_origem?: string | null
+          cpf_cnpj_pagador?: string | null
           created_at?: string | null
           created_by?: string | null
           credito?: number | null
@@ -166,6 +174,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           lote_id?: string
+          modo_pagamento?: string | null
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null
