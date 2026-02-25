@@ -96,9 +96,6 @@ export default function Dashboard() {
 
   // Calcular data de 12 meses atrás
   const dataInicio12Meses = format(subMonths(new Date(), 12), "yyyy-MM-dd");
-  const anoAtual = new Date().getFullYear();
-  const dataInicioAno = `${anoAtual}-01-01`;
-  const dataFimAno = `${anoAtual}-12-31`;
 
   // Stats de vendas (últimos 12 meses)
   const { data: vendasStats } = useQuery({
@@ -191,32 +188,38 @@ export default function Dashboard() {
     },
   });
 
-  // Vendas do Ano (agrupadas por mês)
-  const { data: vendasDoAno } = useQuery({
-    queryKey: ["vendas-do-ano", anoAtual],
+  // Vendas totais (todas, para agrupar por ano)
+  const { data: todasVendas } = useQuery({
+    queryKey: ["vendas-por-ano"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendas")
-        .select("valor_venda, data_venda, status")
-        .gte("data_venda", dataInicioAno)
-        .lte("data_venda", dataFimAno);
+        .select("valor_venda, data_venda");
       if (error) throw error;
       return data || [];
     },
   });
 
-  // Recebimentos do Ano (agrupados por mês)
-  const { data: recebimentosDoAno } = useQuery({
-    queryKey: ["recebimentos-do-ano", anoAtual],
+  // Recebimentos totais (todos, para agrupar por ano)
+  const { data: todosRecebimentos } = useQuery({
+    queryKey: ["recebimentos-por-ano"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("conta_corrente_lote")
-        .select("credito, data_mov")
-        .gt("credito", 0)
-        .gte("data_mov", dataInicioAno)
-        .lte("data_mov", dataFimAno);
-      if (error) throw error;
-      return data || [];
+      const pageSize = 1000;
+      let allData: { credito: number | null; data_mov: string }[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("conta_corrente_lote")
+          .select("credito, data_mov")
+          .gt("credito", 0)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < pageSize) hasMore = false;
+        else from += pageSize;
+      }
+      return allData;
     },
   });
 
@@ -240,49 +243,33 @@ export default function Dashboard() {
     },
   });
 
-  // Agrupar vendas por mês
-  const vendasPorMes = useMemo(() => {
-    const meses: Record<string, number> = {};
-    for (let m = 0; m < 12; m++) {
-      const key = `${anoAtual}-${String(m + 1).padStart(2, "0")}`;
-      meses[key] = 0;
-    }
-    (vendasDoAno || []).forEach((v) => {
+  // Agrupar vendas por ano
+  const vendasPorAno = useMemo(() => {
+    const anos: Record<string, number> = {};
+    (todasVendas || []).forEach((v) => {
       if (v.data_venda) {
-        const key = v.data_venda.substring(0, 7);
-        if (meses[key] !== undefined) meses[key] += Number(v.valor_venda || 0);
+        const ano = v.data_venda.substring(0, 4);
+        anos[ano] = (anos[ano] || 0) + Number(v.valor_venda || 0);
       }
     });
-    return Object.entries(meses).map(([comp, valor]) => {
-      const date = new Date(comp + "T00:00:00");
-      return {
-        mes: format(date, "MMM/yy", { locale: ptBR }),
-        valor,
-      };
-    });
-  }, [vendasDoAno, anoAtual]);
+    return Object.entries(anos)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([ano, valor]) => ({ ano, valor }));
+  }, [todasVendas]);
 
-  // Agrupar recebimentos por mês
-  const recebimentosPorMes = useMemo(() => {
-    const meses: Record<string, number> = {};
-    for (let m = 0; m < 12; m++) {
-      const key = `${anoAtual}-${String(m + 1).padStart(2, "0")}`;
-      meses[key] = 0;
-    }
-    (recebimentosDoAno || []).forEach((r) => {
+  // Agrupar recebimentos por ano
+  const recebimentosPorAno = useMemo(() => {
+    const anos: Record<string, number> = {};
+    (todosRecebimentos || []).forEach((r) => {
       if (r.data_mov) {
-        const key = r.data_mov.substring(0, 7);
-        if (meses[key] !== undefined) meses[key] += Number(r.credito || 0);
+        const ano = r.data_mov.substring(0, 4);
+        anos[ano] = (anos[ano] || 0) + Number(r.credito || 0);
       }
     });
-    return Object.entries(meses).map(([comp, valor]) => {
-      const date = new Date(comp + "T00:00:00");
-      return {
-        mes: format(date, "MMM/yy", { locale: ptBR }),
-        valor,
-      };
-    });
-  }, [recebimentosDoAno, anoAtual]);
+    return Object.entries(anos)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([ano, valor]) => ({ ano, valor }));
+  }, [todosRecebimentos]);
 
 
   const getStatusBadge = (status: string | null) => {
@@ -454,19 +441,19 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Vendas e Recebimentos do Ano */}
+      {/* Vendas e Recebimentos por Ano */}
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Vendas do Ano */}
+        {/* Vendas por Ano */}
         <Card className="border-t-4 border-t-primary bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Vendas do Ano ({anoAtual})</CardTitle>
+            <CardTitle className="text-base">Vendas por Ano</CardTitle>
           </CardHeader>
           <CardContent className="h-[280px]">
-            {vendasPorMes.some((v) => v.valor > 0) ? (
+            {vendasPorAno.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={vendasPorMes}>
+                <BarChart data={vendasPorAno}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+                  <XAxis dataKey="ano" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(value) => formatCompactCurrency(value)} />
                   <Tooltip formatter={(value: number) => formatCurrency(value)} />
                   <Bar dataKey="valor" name="Vendas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
@@ -474,23 +461,23 @@ export default function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                Nenhuma venda no ano
+                Nenhuma venda registrada
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Recebimentos do Ano */}
+        {/* Recebimentos por Ano */}
         <Card className="border-t-4 border-t-primary bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Recebimentos do Ano ({anoAtual})</CardTitle>
+            <CardTitle className="text-base">Recebimentos por Ano</CardTitle>
           </CardHeader>
           <CardContent className="h-[280px]">
-            {recebimentosPorMes.some((r) => r.valor > 0) ? (
+            {recebimentosPorAno.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={recebimentosPorMes}>
+                <BarChart data={recebimentosPorAno}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+                  <XAxis dataKey="ano" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(value) => formatCompactCurrency(value)} />
                   <Tooltip formatter={(value: number) => formatCurrency(value)} />
                   <Bar dataKey="valor" name="Recebido" fill="hsl(142, 70%, 45%)" radius={[4, 4, 0, 0]} />
@@ -498,7 +485,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                Nenhum recebimento no ano
+                Nenhum recebimento registrado
               </div>
             )}
           </CardContent>
