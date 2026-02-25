@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +28,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Legend,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { format, subMonths } from "date-fns";
@@ -96,6 +96,9 @@ export default function Dashboard() {
 
   // Calcular data de 12 meses atrás
   const dataInicio12Meses = format(subMonths(new Date(), 12), "yyyy-MM-dd");
+  const anoAtual = new Date().getFullYear();
+  const dataInicioAno = `${anoAtual}-01-01`;
+  const dataFimAno = `${anoAtual}-12-31`;
 
   // Stats de vendas (últimos 12 meses)
   const { data: vendasStats } = useQuery({
@@ -188,15 +191,30 @@ export default function Dashboard() {
     },
   });
 
-  // Recebimentos mensais (últimos 12 meses)
-  const { data: recebimentosMensais } = useQuery({
-    queryKey: ["recebimentos-mensais-12m"],
+  // Vendas do Ano (agrupadas por mês)
+  const { data: vendasDoAno } = useQuery({
+    queryKey: ["vendas-do-ano", anoAtual],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("vw_totalizacao_mensal_consolidada")
-        .select("*")
-        .gte("competencia", dataInicio12Meses)
-        .order("competencia", { ascending: true });
+        .from("vendas")
+        .select("valor_venda, data_venda, status")
+        .gte("data_venda", dataInicioAno)
+        .lte("data_venda", dataFimAno);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Recebimentos do Ano (agrupados por mês)
+  const { data: recebimentosDoAno } = useQuery({
+    queryKey: ["recebimentos-do-ano", anoAtual],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("conta_corrente_lote")
+        .select("credito, data_mov")
+        .gt("credito", 0)
+        .gte("data_mov", dataInicioAno)
+        .lte("data_mov", dataFimAno);
       if (error) throw error;
       return data || [];
     },
@@ -222,24 +240,49 @@ export default function Dashboard() {
     },
   });
 
-  const barChartData = (recebimentosMensais || []).map((item) => {
-    let mes = "";
-    if (item.competencia) {
-      try {
-        const date = new Date(item.competencia + "T00:00:00");
-        if (!isNaN(date.getTime())) {
-          mes = format(date, "MMM/yy", { locale: ptBR });
-        }
-      } catch {
-        mes = item.competencia || "";
-      }
+  // Agrupar vendas por mês
+  const vendasPorMes = useMemo(() => {
+    const meses: Record<string, number> = {};
+    for (let m = 0; m < 12; m++) {
+      const key = `${anoAtual}-${String(m + 1).padStart(2, "0")}`;
+      meses[key] = 0;
     }
-    return {
-      mes,
-      previsto: Number(item.total_debitos || 0),
-      recebido: Number(item.total_creditos || 0),
-    };
-  }).filter(item => item.mes !== "");
+    (vendasDoAno || []).forEach((v) => {
+      if (v.data_venda) {
+        const key = v.data_venda.substring(0, 7);
+        if (meses[key] !== undefined) meses[key] += Number(v.valor_venda || 0);
+      }
+    });
+    return Object.entries(meses).map(([comp, valor]) => {
+      const date = new Date(comp + "T00:00:00");
+      return {
+        mes: format(date, "MMM/yy", { locale: ptBR }),
+        valor,
+      };
+    });
+  }, [vendasDoAno, anoAtual]);
+
+  // Agrupar recebimentos por mês
+  const recebimentosPorMes = useMemo(() => {
+    const meses: Record<string, number> = {};
+    for (let m = 0; m < 12; m++) {
+      const key = `${anoAtual}-${String(m + 1).padStart(2, "0")}`;
+      meses[key] = 0;
+    }
+    (recebimentosDoAno || []).forEach((r) => {
+      if (r.data_mov) {
+        const key = r.data_mov.substring(0, 7);
+        if (meses[key] !== undefined) meses[key] += Number(r.credito || 0);
+      }
+    });
+    return Object.entries(meses).map(([comp, valor]) => {
+      const date = new Date(comp + "T00:00:00");
+      return {
+        mes: format(date, "MMM/yy", { locale: ptBR }),
+        valor,
+      };
+    });
+  }, [recebimentosDoAno, anoAtual]);
 
 
   const getStatusBadge = (status: string | null) => {
@@ -411,53 +454,56 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Recebimentos Mensais - Barras */}
-      <Card className="border-t-4 border-t-primary bg-white shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Recebimentos Mensais (Últimos 12 meses)</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[280px]">
-          {barChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barChartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="mes"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={(value) => formatCompactCurrency(value)}
-                />
-                <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                />
-                <Legend />
-                <Bar
-                  dataKey="previsto"
-                  name="Previsto"
-                  fill="hsl(0, 0%, 20%)"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  dataKey="recebido"
-                  name="Recebido"
-                  fill="hsl(142, 70%, 45%)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              Nenhum dado disponível
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Vendas e Recebimentos do Ano */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Vendas do Ano */}
+        <Card className="border-t-4 border-t-primary bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Vendas do Ano ({anoAtual})</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[280px]">
+            {vendasPorMes.some((v) => v.valor > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={vendasPorMes}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(value) => formatCompactCurrency(value)} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Bar dataKey="valor" name="Vendas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Nenhuma venda no ano
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recebimentos do Ano */}
+        <Card className="border-t-4 border-t-primary bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Recebimentos do Ano ({anoAtual})</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[280px]">
+            {recebimentosPorMes.some((r) => r.valor > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={recebimentosPorMes}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(value) => formatCompactCurrency(value)} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Bar dataKey="valor" name="Recebido" fill="hsl(142, 70%, 45%)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Nenhum recebimento no ano
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Contratos Recentes */}
       <Card className="border-t-4 border-t-primary bg-white shadow-sm">
