@@ -54,6 +54,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading, isAdmin } = useAuth();
+  
+  if (loading) {
+    return <PageLoader />;
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <AppLayout>{children}</AppLayout>;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
   
@@ -66,7 +84,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+        <Route path="/configuracoes" element={<AdminRoute><Configuracoes /></AdminRoute>} />
         <Route path="/cadastro/lotes" element={<ProtectedRoute><Lotes /></ProtectedRoute>} />
         <Route path="/cadastro/pessoas" element={<ProtectedRoute><Pessoas /></ProtectedRoute>} />
         <Route path="/cadastro/indicadores" element={<ProtectedRoute><Indicadores /></ProtectedRoute>} />
