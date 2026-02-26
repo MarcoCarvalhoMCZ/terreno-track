@@ -67,6 +67,8 @@ export default function Dashboard() {
       if (error) throw error;
       return data || [];
     },
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   // Stats de lotes
