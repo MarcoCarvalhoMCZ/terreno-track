@@ -20,20 +20,28 @@ export type Database = {
           banco: string | null
           chave_pix: string | null
           cidade_beneficiario: string | null
+          cidade_uf_proprietaria: string | null
+          cnpj_proprietaria: string | null
           conta_corrente: string | null
+          crc_rs_proprietaria: string | null
           created_at: string | null
           created_by: string | null
           criterio_juros_mora: string | null
           data_criacao_app: string | null
+          desenvolvedor_analista: string | null
+          email_proprietaria: string | null
           id: string
           juros_mora_percentual: number | null
+          logotipo_url: string | null
           multa_mora_percentual: number | null
           nome_beneficiario: string | null
           observacoes: string | null
           padrao_corretor_pessoa_id: string | null
           padrao_percentual_corretagem: number | null
+          razao_social_proprietaria: string | null
           representante_legal_2_pessoa_id: string | null
           representante_legal_pessoa_id: string | null
+          telefone_proprietaria: string | null
           tolerancia_dias_juros: number | null
           updated_at: string | null
           updated_by: string | null
@@ -44,20 +52,28 @@ export type Database = {
           banco?: string | null
           chave_pix?: string | null
           cidade_beneficiario?: string | null
+          cidade_uf_proprietaria?: string | null
+          cnpj_proprietaria?: string | null
           conta_corrente?: string | null
+          crc_rs_proprietaria?: string | null
           created_at?: string | null
           created_by?: string | null
           criterio_juros_mora?: string | null
           data_criacao_app?: string | null
+          desenvolvedor_analista?: string | null
+          email_proprietaria?: string | null
           id?: string
           juros_mora_percentual?: number | null
+          logotipo_url?: string | null
           multa_mora_percentual?: number | null
           nome_beneficiario?: string | null
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
+          razao_social_proprietaria?: string | null
           representante_legal_2_pessoa_id?: string | null
           representante_legal_pessoa_id?: string | null
+          telefone_proprietaria?: string | null
           tolerancia_dias_juros?: number | null
           updated_at?: string | null
           updated_by?: string | null
@@ -68,20 +84,28 @@ export type Database = {
           banco?: string | null
           chave_pix?: string | null
           cidade_beneficiario?: string | null
+          cidade_uf_proprietaria?: string | null
+          cnpj_proprietaria?: string | null
           conta_corrente?: string | null
+          crc_rs_proprietaria?: string | null
           created_at?: string | null
           created_by?: string | null
           criterio_juros_mora?: string | null
           data_criacao_app?: string | null
+          desenvolvedor_analista?: string | null
+          email_proprietaria?: string | null
           id?: string
           juros_mora_percentual?: number | null
+          logotipo_url?: string | null
           multa_mora_percentual?: number | null
           nome_beneficiario?: string | null
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
+          razao_social_proprietaria?: string | null
           representante_legal_2_pessoa_id?: string | null
           representante_legal_pessoa_id?: string | null
+          telefone_proprietaria?: string | null
           tolerancia_dias_juros?: number | null
           updated_at?: string | null
           updated_by?: string | null
