@@ -113,15 +113,12 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
-      <div className="p-4 border-b border-sidebar-border flex items-center gap-3">
+      <div className="p-4 border-b border-sidebar-border flex items-center justify-center">
         {logoUrl ? (
-          <img src={logoUrl} alt="Logo" className="h-8 w-8 object-contain rounded flex-shrink-0" />
+          <img src={logoUrl} alt="Logo" className="h-12 w-auto object-contain" />
         ) : (
-          <span className="text-xl flex-shrink-0">🏡</span>
+          <span className="text-3xl">🏡</span>
         )}
-        <h1 className="text-xl font-bold text-sidebar-foreground truncate">
-          EBL-Loteamentos
-        </h1>
       </div>
 
       <SidebarContent className="px-2">
