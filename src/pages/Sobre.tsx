@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { parseDateOnly } from "@/lib/date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Sobre() {
@@ -9,6 +12,7 @@ export default function Sobre() {
       const { data, error } = await supabase
         .from("configuracoes")
         .select(`
+          data_criacao_app,
           *,
           vendedor:pessoas!vendedor_pessoa_id(nome_razao, cpf_cnpj)
         `)
@@ -79,9 +83,11 @@ export default function Sobre() {
                 Desenvolvedor/Analista: {(config as any).desenvolvedor_analista}
               </p>
             )}
-            <p className="text-sm text-muted-foreground mt-1">
-              Data de criação: Janeiro 2025
-            </p>
+            {(config as any)?.data_criacao_app && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Data de criação: {format(parseDateOnly((config as any).data_criacao_app) || new Date(), "MMMM 'de' yyyy", { locale: ptBR })}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
