@@ -14,7 +14,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <header className="h-14 border-b border-border flex items-center px-4 bg-card">
             <SidebarTrigger className="mr-4 h-8 w-8" />
             <h2 className="text-lg font-medium text-foreground">
-              Sistema de Controle de Loteamento
+              EBL-Loteamentos
             </h2>
           </header>
           <div className="flex-1 p-6 overflow-auto">

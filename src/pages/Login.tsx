@@ -49,7 +49,7 @@ export default function Login() {
       <Card className="w-full max-w-md border-foreground/20">
         <CardHeader className="text-center">
           <div className="text-4xl mb-2">🏡</div>
-          <CardTitle className="text-2xl">Controle de Loteamento</CardTitle>
+          <CardTitle className="text-2xl">EBL-Loteamentos</CardTitle>
           <CardDescription>Sistema de vendas e gestão de terrenos</CardDescription>
         </CardHeader>
         <CardContent>
