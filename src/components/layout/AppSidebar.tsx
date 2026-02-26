@@ -100,11 +100,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <div className="p-4 border-b border-sidebar-border">
         <h1 className="text-xl font-bold text-sidebar-foreground">
-          🏡 Loteamento
+          🏡 EBL-Loteamentos
         </h1>
-        <p className="text-xs text-sidebar-foreground/70 mt-1">
-          Controle de Vendas
-        </p>
       </div>
 
       <SidebarContent className="px-2">
