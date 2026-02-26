@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard,
   Settings,
@@ -79,10 +81,23 @@ export function AppSidebar() {
   const [contaCorrenteOpen, setContaCorrenteOpen] = useState(true);
   const [contabilidadeOpen, setContabilidadeOpen] = useState(true);
 
+  // Fetch logo from configuracoes
+  const { data: logoUrl } = useQuery({
+    queryKey: ["configuracoes-logo"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("configuracoes")
+        .select("logotipo_url")
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return (data as any)?.logotipo_url || null;
+    },
+  });
+
   const isActive = (path: string) => location.pathname === path;
   const isInGroup = (items: MenuItem[]) => items.some(item => isActive(item.url));
 
-  // Filtrar itens baseado nas permissões
   const filterItems = (items: MenuItem[]) => items.filter(item => hasPermission(item.menuKey));
 
   const filteredMainItems = filterItems(mainItems);
@@ -98,9 +113,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
-      <div className="p-4 border-b border-sidebar-border">
-        <h1 className="text-xl font-bold text-sidebar-foreground">
-          🏡 EBL-Loteamentos
+      <div className="p-4 border-b border-sidebar-border flex items-center gap-3">
+        {logoUrl ? (
+          <img src={logoUrl} alt="Logo" className="h-8 w-8 object-contain rounded flex-shrink-0" />
+        ) : (
+          <span className="text-xl flex-shrink-0">🏡</span>
+        )}
+        <h1 className="text-xl font-bold text-sidebar-foreground truncate">
+          EBL-Loteamentos
         </h1>
       </div>
 
