@@ -33,6 +33,7 @@ export const tiposMovimento: TipoMovimento[] = [
   { value: "JUROS", label: "Juros", natureza: "debito" },
   { value: "MULTA", label: "Multa", natureza: "debito" },
   { value: "DESCONTO", label: "Desconto", natureza: "credito" },
+  { value: "AMORTIZACAO_ESPECIAL", label: "Amortização Especial", natureza: "credito" },
   { value: "ESTORNO", label: "Estorno", natureza: "pergunta" },
   { value: "OUTROS", label: "Outros", natureza: "pergunta" },
 ];
@@ -55,6 +56,7 @@ export const tiposParcelamento = [
   "JUROS",
   "MULTA",
   "DESCONTO",
+  "AMORTIZACAO_ESPECIAL",
   "ESTORNO",
   "OUTROS",
 ];
@@ -68,6 +70,7 @@ export const tiposReforco = [
   "JUROS",
   "MULTA",
   "DESCONTO",
+  "AMORTIZACAO_ESPECIAL",
   "ESTORNO",
   "OUTROS",
 ];
