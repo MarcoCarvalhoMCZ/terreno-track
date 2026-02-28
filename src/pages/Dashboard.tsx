@@ -196,7 +196,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendas")
-        .select("valor_venda, data_venda");
+        .select("valor_venda, data_venda, lote_id");
       if (error) throw error;
       return data || [];
     },
@@ -207,13 +207,13 @@ export default function Dashboard() {
     queryKey: ["recebimentos-por-ano"],
     queryFn: async () => {
       const pageSize = 1000;
-      let allData: { credito: number | null; data_mov: string }[] = [];
+      let allData: { credito: number | null; data_mov: string; lote_id: string }[] = [];
       let from = 0;
       let hasMore = true;
       while (hasMore) {
         const { data, error } = await supabase
           .from("conta_corrente_lote")
-          .select("credito, data_mov")
+          .select("credito, data_mov, lote_id")
           .gt("credito", 0)
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -247,30 +247,34 @@ export default function Dashboard() {
 
   // Agrupar vendas por ano
   const vendasPorAno = useMemo(() => {
-    const anos: Record<string, number> = {};
+    const anos: Record<string, { valor: number; lotes: Set<string> }> = {};
     (todasVendas || []).forEach((v) => {
       if (v.data_venda) {
         const ano = v.data_venda.substring(0, 4);
-        anos[ano] = (anos[ano] || 0) + Number(v.valor_venda || 0);
+        if (!anos[ano]) anos[ano] = { valor: 0, lotes: new Set() };
+        anos[ano].valor += Number(v.valor_venda || 0);
+        if (v.lote_id) anos[ano].lotes.add(v.lote_id);
       }
     });
     return Object.entries(anos)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([ano, valor]) => ({ ano, valor }));
+      .map(([ano, d]) => ({ ano, valor: d.valor, lotes: d.lotes.size }));
   }, [todasVendas]);
 
   // Agrupar recebimentos por ano
   const recebimentosPorAno = useMemo(() => {
-    const anos: Record<string, number> = {};
+    const anos: Record<string, { valor: number; lotes: Set<string> }> = {};
     (todosRecebimentos || []).forEach((r) => {
       if (r.data_mov) {
         const ano = r.data_mov.substring(0, 4);
-        anos[ano] = (anos[ano] || 0) + Number(r.credito || 0);
+        if (!anos[ano]) anos[ano] = { valor: 0, lotes: new Set() };
+        anos[ano].valor += Number(r.credito || 0);
+        if (r.lote_id) anos[ano].lotes.add(r.lote_id);
       }
     });
     return Object.entries(anos)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([ano, valor]) => ({ ano, valor }));
+      .map(([ano, d]) => ({ ano, valor: d.valor, lotes: d.lotes.size }));
   }, [todosRecebimentos]);
 
 
@@ -457,7 +461,17 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="ano" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(value) => formatCompactCurrency(value)} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Tooltip content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div className="rounded-lg border bg-background p-2 shadow-sm text-sm">
+                        <p className="font-medium">{d.ano}</p>
+                        <p className="text-foreground">{formatCurrency(d.valor)}</p>
+                        <p className="text-muted-foreground">{d.lotes} {d.lotes === 1 ? 'lote' : 'lotes'}</p>
+                      </div>
+                    );
+                  }} />
                   <Bar dataKey="valor" name="Vendas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -481,7 +495,17 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="ano" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(value) => formatCompactCurrency(value)} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Tooltip content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div className="rounded-lg border bg-background p-2 shadow-sm text-sm">
+                        <p className="font-medium">{d.ano}</p>
+                        <p className="text-foreground">{formatCurrency(d.valor)}</p>
+                        <p className="text-muted-foreground">{d.lotes} {d.lotes === 1 ? 'lote' : 'lotes'}</p>
+                      </div>
+                    );
+                  }} />
                   <Bar dataKey="valor" name="Recebido" fill="hsl(142, 70%, 45%)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
