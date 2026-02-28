@@ -278,25 +278,33 @@ export function useParcelasEmAtraso(
       todasParcelas[primeiraAVencerIdx].isPrimeiraAVencer = true;
     }
 
-    if (isParcelamento) {
-      // PARCELAMENTO: vencidas + primeira a vencer
-      resultado.parcelas = todasParcelas.filter(p => {
-        if (p.isVencida) return true;
-        if (p.isPrimeiraAVencer) return true;
+    // Limite: nunca exceder o mês da última atualização monetária
+    const limiteAtualiz = ultimaAtualizacao
+      ? startOfMonth(addMonths(ultimaAtualizacao, 1)) // primeiro dia do mês seguinte = limite exclusivo
+      : null;
+
+    // Filtrar parcelas: vencidas + primeira a vencer, respeitando o limite
+    const parcelasFiltradas = todasParcelas.filter(p => {
+      // Se há limite e o vencimento é no mês seguinte ou além, não exibir
+      if (limiteAtualiz && !isBefore(p.vencimento, limiteAtualiz) && !isSameMonth(p.vencimento, ultimaAtualizacao!)) {
         return false;
-      });
-      
-      // QR codes: todas as vencidas + primeira a vencer (se no mês da última atualização)
-      resultado.parcelas = resultado.parcelas.map(p => ({
+      }
+      if (p.isVencida) return true;
+      if (p.isPrimeiraAVencer) return true;
+      return false;
+    });
+
+    if (isParcelamento) {
+      // QR codes: vencidas sempre; primeira a vencer somente se no mês da última atualização
+      resultado.parcelas = parcelasFiltradas.map(p => ({
         ...p,
         exibirQrCode: p.isVencida 
           ? true 
           : (ultimaAtualizacao ? isSameMonth(p.vencimento, ultimaAtualizacao) : true),
       }));
     } else {
-      // REFORÇO: vencidas + primeira a vencer, todas com QR code
-      resultado.parcelas = todasParcelas.filter(p => p.isVencida || p.isPrimeiraAVencer);
-      resultado.parcelas = resultado.parcelas.map(p => ({
+      // REFORÇO: todas com QR code
+      resultado.parcelas = parcelasFiltradas.map(p => ({
         ...p,
         exibirQrCode: true,
       }));
