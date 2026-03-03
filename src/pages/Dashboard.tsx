@@ -55,17 +55,36 @@ export default function Dashboard() {
     },
   });
 
-  // Buscar todos os lotes para o mapa
+  // Buscar todos os lotes para o mapa (com nome do comprador)
   const { data: lotes } = useQuery({
     queryKey: ["lotes-mapa"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: lotesData, error } = await supabase
         .from("lotes")
         .select("id, quadra, numero_lote, status")
         .order("quadra")
         .order("numero_lote");
       if (error) throw error;
-      return data || [];
+
+      // Buscar vendas ativas com comprador
+      const { data: vendasData } = await supabase
+        .from("vendas")
+        .select("lote_id, comprador_nome_1")
+        .eq("status", "ATIVA");
+
+      // Buscar vendas quitadas também
+      const { data: vendasQuitadas } = await supabase
+        .from("vendas")
+        .select("lote_id, comprador_nome_1")
+        .eq("status", "QUITADA");
+
+      const allVendas = [...(vendasData || []), ...(vendasQuitadas || [])];
+      const vendaMap = new Map(allVendas.map(v => [v.lote_id, v.comprador_nome_1]));
+
+      return (lotesData || []).map(l => ({
+        ...l,
+        comprador_nome: vendaMap.get(l.id) || null,
+      }));
     },
     staleTime: 0,
     refetchOnMount: "always",

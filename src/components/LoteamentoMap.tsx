@@ -85,25 +85,35 @@ export function LoteamentoMap({ lotes, onLoteClick }: LoteamentoMapProps) {
             return (
               <div key={quadra} className="flex items-center gap-2">
                 {/* Label da Quadra */}
-                <div className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground font-bold rounded text-sm shrink-0">
+                <div className="w-12 h-14 flex items-center justify-center bg-primary text-primary-foreground font-bold rounded text-sm shrink-0">
                   {quadra}
                 </div>
                 
-                {/* Lotes da Quadra - 11 por linha */}
-                <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(11, 3.5rem)' }}>
-                  {lotesQuadra.map((lote) => (
-                    <button
-                      key={lote.id}
-                      onClick={() => handleLoteClick(lote)}
-                      className={cn(
-                        "w-14 h-10 flex flex-col items-center justify-center rounded text-xs font-medium transition-all hover:scale-110 hover:shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                        getStatusColor(lote.status)
-                      )}
-                      title={`Clique para ver Q${quadra}-L${lote.numero_lote}: ${getStatusLabel(lote.status)}`}
-                    >
-                      <span className="font-bold">{lote.numero_lote}</span>
-                    </button>
-                  ))}
+              {/* Lotes da Quadra - 11 por linha */}
+                <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(11, 5rem)' }}>
+                  {lotesQuadra.map((lote) => {
+                    const primeiroNome = lote.comprador_nome
+                      ? lote.comprador_nome.split(" ")[0]
+                      : null;
+                    return (
+                      <button
+                        key={lote.id}
+                        onClick={() => handleLoteClick(lote)}
+                        className={cn(
+                          "w-20 h-14 flex flex-col items-center justify-center rounded text-xs font-medium transition-all hover:scale-110 hover:shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                          getStatusColor(lote.status)
+                        )}
+                        title={`Clique para ver Q${quadra}-L${lote.numero_lote}: ${getStatusLabel(lote.status)}${lote.comprador_nome ? ` - ${lote.comprador_nome}` : ''}`}
+                      >
+                        <span className="font-bold leading-tight">{lote.numero_lote}</span>
+                        {primeiroNome && (
+                          <span className="text-[9px] leading-tight truncate w-full text-center opacity-90">
+                            {primeiroNome}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
