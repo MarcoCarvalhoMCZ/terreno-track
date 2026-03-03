@@ -206,7 +206,9 @@ export function useParcelasEmAtraso(
       return resultado;
     }
 
-    const dataAtual = new Date();
+    // Usar a data da última atualização monetária como referência para cálculos de mora
+    // Isso garante que juros/multa sejam calculados até o mês de referência, não até hoje
+    const dataAtual = ultimaAtualizacao ? ultimaAtualizacao : new Date();
     const isParcelamento = tipoFluxo === "PARCELAMENTO";
 
     // Configurações do fluxo
