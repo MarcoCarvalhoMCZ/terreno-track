@@ -34,7 +34,7 @@ import {
 import { AlertTriangle, CheckCircle2, Receipt } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import { useLotesConsulta, useVendaLote, useResumoLoteConsulta } from "@/hooks/useConsultaLote";
-import { useMoraConfig } from "@/hooks/useParcelasEmAtraso";
+import { useMoraConfig, useUltimaAtualizacaoLote } from "@/hooks/useParcelasEmAtraso";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ResumoLote } from "@/types/conta-corrente.types";
 
@@ -69,6 +69,7 @@ export default function RecebimentoParcela() {
   const { data: venda } = useVendaLote(loteId);
   const { data: resumo } = useResumoLoteConsulta(loteId, venda);
   const { data: moraConfig } = useMoraConfig();
+  const { data: ultimaAtualizacao } = useUltimaAtualizacaoLote(loteId || null);
 
   // Dialog de recebimento
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -94,7 +95,8 @@ export default function RecebimentoParcela() {
   // Calcular parcelas pendentes (vencidas + próxima a vencer) para PARCELAMENTO e REFORÇO
   const parcelasPendentes = useMemo(() => {
     if (!venda || !resumo || !moraConfig) return [];
-    const dataAtual = new Date();
+    // Usar a data da última atualização monetária como referência para cálculos de mora
+    const dataAtual = ultimaAtualizacao ? ultimaAtualizacao : new Date();
     const resultado: ParcelaCalculada[] = [];
 
     const calcular = (
@@ -183,7 +185,7 @@ export default function RecebimentoParcela() {
     );
 
     return resultado;
-  }, [venda, resumo, moraConfig]);
+  }, [venda, resumo, moraConfig, ultimaAtualizacao]);
 
   // Histórico de recebimentos recentes
   const { data: recebimentos } = useQuery({
