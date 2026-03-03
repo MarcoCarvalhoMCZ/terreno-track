@@ -29,4 +29,5 @@ export interface LoteMinimal {
   quadra: string;
   numero_lote: string;
   status: string | null;
+  comprador_nome?: string | null;
 }
