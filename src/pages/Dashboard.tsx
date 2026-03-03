@@ -66,20 +66,18 @@ export default function Dashboard() {
         .order("numero_lote");
       if (error) throw error;
 
-      // Buscar vendas ativas com comprador
+      // Buscar vendas ativas/quitadas com nome do comprador via pessoas
       const { data: vendasData } = await supabase
         .from("vendas")
-        .select("lote_id, comprador_nome_1")
-        .eq("status", "ATIVA");
+        .select("lote_id, comprador_pessoa:pessoas!comprador_pessoa_id(nome_razao)")
+        .in("status", ["ATIVA", "QUITADA"]);
 
-      // Buscar vendas quitadas também
-      const { data: vendasQuitadas } = await supabase
-        .from("vendas")
-        .select("lote_id, comprador_nome_1")
-        .eq("status", "QUITADA");
-
-      const allVendas = [...(vendasData || []), ...(vendasQuitadas || [])];
-      const vendaMap = new Map(allVendas.map(v => [v.lote_id, v.comprador_nome_1]));
+      const vendaMap = new Map(
+        (vendasData || []).map(v => [
+          v.lote_id,
+          (v.comprador_pessoa as any)?.nome_razao || null,
+        ])
+      );
 
       return (lotesData || []).map(l => ({
         ...l,
