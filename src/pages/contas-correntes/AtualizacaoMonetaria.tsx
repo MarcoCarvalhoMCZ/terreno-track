@@ -139,17 +139,36 @@ export default function AtualizacaoMonetaria() {
     },
   });
 
-  // Fetch movimentações de conta corrente
+  // Fetch movimentações de conta corrente (com paginação para evitar limite de 1000 linhas)
   const { data: movimentacoes } = useQuery({
     queryKey: ["conta-corrente-atualizacao"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("conta_corrente_lote")
-        .select("*")
-        .order("data_mov", { ascending: true })
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data as ContaCorrenteLote[];
+      const pageSize = 1000;
+      let from = 0;
+      let hasMore = true;
+      let allData: ContaCorrenteLote[] = [];
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("conta_corrente_lote")
+          .select("*")
+          .order("data_mov", { ascending: true })
+          .order("created_at", { ascending: true })
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        const page = (data || []) as ContaCorrenteLote[];
+        allData = allData.concat(page);
+
+        if (page.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
+      }
+
+      return allData;
     },
   });
 
@@ -203,7 +222,7 @@ export default function AtualizacaoMonetaria() {
     }, 0);
   };
 
-  // Verificar se já existe atualização na mesma competência
+  // Verificar se já existe atualização na mesma competência (cache local)
   const verificarDuplicidade = (loteId: string, tipoFluxo: TipoFluxo, referencia: string): boolean => {
     if (!movimentacoes) return false;
 
@@ -217,6 +236,32 @@ export default function AtualizacaoMonetaria() {
 
       return m.data_mov?.substring(0, 7) === referencia;
     });
+  };
+
+  // Verificação robusta de duplicidade diretamente no banco
+  const verificarDuplicidadeNoBanco = async (
+    loteId: string,
+    tipoFluxo: TipoFluxo,
+    referencia: string
+  ): Promise<boolean> => {
+    const inicioCompetencia = `${referencia}-01`;
+    const fimCompetencia = format(
+      addMonths(parse(inicioCompetencia, "yyyy-MM-dd", new Date()), 1),
+      "yyyy-MM-dd"
+    );
+
+    const { data, error } = await supabase
+      .from("conta_corrente_lote")
+      .select("id")
+      .eq("lote_id", loteId)
+      .eq("tipo_fluxo", tipoFluxo)
+      .eq("tipo_mov", "ATUALIZACAO")
+      .gte("data_mov", inicioCompetencia)
+      .lt("data_mov", fimCompetencia)
+      .limit(1);
+
+    if (error) throw error;
+    return (data?.length || 0) > 0;
   };
 
   // Executar cálculo para lotes selecionados
@@ -299,7 +344,7 @@ export default function AtualizacaoMonetaria() {
     }
   };
 
-  const handleCalcular = () => {
+  const handleCalcular = async () => {
     if (!vendasPorLote.length || !dataMovimento) {
       toast.error("Selecione uma data de movimento");
       return;
@@ -315,27 +360,37 @@ export default function AtualizacaoMonetaria() {
       return;
     }
 
-    // Verificar duplicidades antes de calcular
-    const duplicados: { quadra: string; numero_lote: string }[] = [];
-
-    for (const tipoFluxo of tiposFluxoSelecionados) {
-      for (const venda of vendasPorLote) {
-        if (!venda.lote || !lotesSelecionados.has(venda.lote_id)) continue;
-        if (verificarDuplicidade(venda.lote_id, tipoFluxo, referenciaMes)) {
-          duplicados.push({ quadra: venda.lote.quadra, numero_lote: venda.lote.numero_lote });
-        }
-      }
-    }
-
-    if (duplicados.length > 0) {
-      // Mostrar dialog perguntando se recalcula
-      const uniqueDups = duplicados.filter(
-        (d, i, arr) => arr.findIndex((x) => x.quadra === d.quadra && x.numero_lote === d.numero_lote) === i
+    try {
+      // Verificar duplicidades diretamente no banco antes de calcular
+      const checks = await Promise.all(
+        tiposFluxoSelecionados.flatMap((tipoFluxo) =>
+          vendasPorLote
+            .filter((venda) => venda.lote && lotesSelecionados.has(venda.lote_id))
+            .map(async (venda) => ({
+              tipoFluxo,
+              quadra: venda.lote!.quadra,
+              numero_lote: venda.lote!.numero_lote,
+              jaExiste: await verificarDuplicidadeNoBanco(venda.lote_id, tipoFluxo, referenciaMes),
+            }))
+        )
       );
-      setLotesComDuplicidade(uniqueDups as any);
-      setDuplicidadeDialogOpen(true);
-    } else {
+
+      const duplicados = checks
+        .filter((c) => c.jaExiste)
+        .map((c) => ({ quadra: c.quadra, numero_lote: c.numero_lote }));
+
+      if (duplicados.length > 0) {
+        const uniqueDups = duplicados.filter(
+          (d, i, arr) => arr.findIndex((x) => x.quadra === d.quadra && x.numero_lote === d.numero_lote) === i
+        );
+        setLotesComDuplicidade(uniqueDups as any);
+        setDuplicidadeDialogOpen(true);
+        return;
+      }
+
       executarCalculo(false);
+    } catch (error: any) {
+      toast.error("Erro ao verificar duplicidade: " + (error?.message || "Erro desconhecido"));
     }
   };
 

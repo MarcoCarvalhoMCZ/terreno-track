@@ -431,7 +431,32 @@ export default function ContaCorrenteLote() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const existeAtualizacaoNoMes = async (
+    loteId: string,
+    tipoFluxo: TipoConta,
+    dataMov: string
+  ): Promise<boolean> => {
+    const refMes = dataMov.substring(0, 7);
+    const inicioCompetencia = `${refMes}-01`;
+    const fimCompetenciaDate = new Date(`${inicioCompetencia}T00:00:00`);
+    fimCompetenciaDate.setMonth(fimCompetenciaDate.getMonth() + 1);
+    const fimCompetencia = format(fimCompetenciaDate, "yyyy-MM-dd");
+
+    const { data, error } = await supabase
+      .from("conta_corrente_lote")
+      .select("id")
+      .eq("lote_id", loteId)
+      .eq("tipo_fluxo", tipoFluxo)
+      .eq("tipo_mov", "ATUALIZACAO")
+      .gte("data_mov", inicioCompetencia)
+      .lt("data_mov", fimCompetencia)
+      .limit(1);
+
+    if (error) throw error;
+    return (data?.length || 0) > 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validação com mensagens específicas
@@ -485,21 +510,19 @@ export default function ContaCorrenteLote() {
       cpf_cnpj_pagador: isPagamento ? (formData.cpf_cnpj_pagador || null) : null,
     };
 
-    // Verificar duplicidade para ATUALIZACAO
+    // Verificar duplicidade para ATUALIZACAO (consulta robusta no banco)
     if (!editingMov && formData.tipo_mov === "ATUALIZACAO" && formData.lote_id && formData.data_mov) {
-      const refMes = formData.data_mov.substring(0, 7);
-      const refMesBR = `${refMes.substring(5, 7)}/${refMes.substring(0, 4)}`;
       const tipoFluxo = tipo_fluxo_form || tipoConta;
-      const jaExiste = movimentacoes?.some(
-        (m) =>
-          m.lote_id === formData.lote_id &&
-          (m as any).tipo_fluxo === tipoFluxo &&
-          m.tipo_mov === "ATUALIZACAO" &&
-          (m.referencia === refMes || m.referencia === refMesBR || m.data_mov?.substring(0, 7) === refMes)
-      );
-      if (jaExiste) {
-        setPendingSubmitData({ dataToSave: dataToSave as ContaCorrenteInsert, isEdit: false });
-        setDuplicateAtualizacaoDialogOpen(true);
+
+      try {
+        const jaExiste = await existeAtualizacaoNoMes(formData.lote_id, tipoFluxo, formData.data_mov);
+        if (jaExiste) {
+          setPendingSubmitData({ dataToSave: dataToSave as ContaCorrenteInsert, isEdit: false });
+          setDuplicateAtualizacaoDialogOpen(true);
+          return;
+        }
+      } catch (error: any) {
+        toast.error("Erro ao verificar duplicidade: " + (error?.message || "Erro desconhecido"));
         return;
       }
     }
