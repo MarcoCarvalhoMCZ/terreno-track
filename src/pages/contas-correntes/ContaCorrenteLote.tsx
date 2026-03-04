@@ -488,13 +488,14 @@ export default function ContaCorrenteLote() {
     // Verificar duplicidade para ATUALIZACAO
     if (!editingMov && formData.tipo_mov === "ATUALIZACAO" && formData.lote_id && formData.data_mov) {
       const refMes = formData.data_mov.substring(0, 7);
+      const refMesBR = `${refMes.substring(5, 7)}/${refMes.substring(0, 4)}`;
       const tipoFluxo = tipo_fluxo_form || tipoConta;
       const jaExiste = movimentacoes?.some(
         (m) =>
           m.lote_id === formData.lote_id &&
           (m as any).tipo_fluxo === tipoFluxo &&
           m.tipo_mov === "ATUALIZACAO" &&
-          m.referencia === refMes
+          (m.referencia === refMes || m.referencia === refMesBR || m.data_mov?.substring(0, 7) === refMes)
       );
       if (jaExiste) {
         setPendingSubmitData({ dataToSave: dataToSave as ContaCorrenteInsert, isEdit: false });
@@ -519,17 +520,23 @@ export default function ContaCorrenteLote() {
       setPendingSubmitData(null);
       return;
     }
-    // Deletar a atualização existente e inserir a nova
+    // Deletar a atualização existente no mesmo mês/competência e inserir a nova
     const refMes = formData.data_mov?.substring(0, 7);
     const tipoFluxo = (formData as any).tipo_fluxo_form || tipoConta;
     if (formData.lote_id && refMes) {
+      const inicioCompetencia = `${refMes}-01`;
+      const fimCompetenciaDate = new Date(`${inicioCompetencia}T00:00:00`);
+      fimCompetenciaDate.setMonth(fimCompetenciaDate.getMonth() + 1);
+      const fimCompetencia = format(fimCompetenciaDate, "yyyy-MM-dd");
+
       await supabase
         .from("conta_corrente_lote")
         .delete()
         .eq("lote_id", formData.lote_id)
         .eq("tipo_fluxo", tipoFluxo)
         .eq("tipo_mov", "ATUALIZACAO")
-        .eq("referencia", refMes);
+        .gte("data_mov", inicioCompetencia)
+        .lt("data_mov", fimCompetencia);
     }
     createMutation.mutate(pendingSubmitData.dataToSave as ContaCorrenteInsert);
     setPendingSubmitData(null);
