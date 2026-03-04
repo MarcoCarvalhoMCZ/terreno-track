@@ -291,6 +291,7 @@ export default function RecebimentoParcela() {
       queryClient.invalidateQueries({ queryKey: ["venda-lote", loteId] });
       toast.success("Recebimento registrado com sucesso!");
       setDialogOpen(false);
+      setLoteId("");
     },
     onError: (error: any) => {
       toast.error("Erro ao registrar: " + error.message);
@@ -585,9 +586,9 @@ export default function RecebimentoParcela() {
             </Button>
             <Button
               onClick={() => registrarMutation.mutate()}
-              disabled={registrarMutation.isPending}
+              disabled={registrarMutation.isPending || registrarMutation.isSuccess}
             >
-              {registrarMutation.isPending ? "Registrando..." : "Cadastrar"}
+              {registrarMutation.isPending ? "Registrando..." : registrarMutation.isSuccess ? "Registrado ✓" : "Cadastrar"}
             </Button>
           </DialogFooter>
         </DialogContent>
