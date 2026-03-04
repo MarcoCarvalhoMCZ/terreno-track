@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,8 @@ export default function ContaCorrenteLote() {
   const [movToDelete, setMovToDelete] = useState<ContaCorrenteComRelacionamentos | null>(null);
   const [editingMov, setEditingMov] = useState<ContaCorrenteComRelacionamentos | null>(null);
   const [formData, setFormData] = useState<ContaCorrenteFormData>(emptyMovimento);
+  const [duplicateAtualizacaoDialogOpen, setDuplicateAtualizacaoDialogOpen] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<{ dataToSave: any; isEdit: boolean; editId?: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLote, setFilterLote] = useState<string>("TODOS");
   const [filterTipo, setFilterTipo] = useState<string>("TODOS");
@@ -482,6 +485,24 @@ export default function ContaCorrenteLote() {
       cpf_cnpj_pagador: isPagamento ? (formData.cpf_cnpj_pagador || null) : null,
     };
 
+    // Verificar duplicidade para ATUALIZACAO
+    if (!editingMov && formData.tipo_mov === "ATUALIZACAO" && formData.lote_id && formData.data_mov) {
+      const refMes = formData.data_mov.substring(0, 7);
+      const tipoFluxo = tipo_fluxo_form || tipoConta;
+      const jaExiste = movimentacoes?.some(
+        (m) =>
+          m.lote_id === formData.lote_id &&
+          (m as any).tipo_fluxo === tipoFluxo &&
+          m.tipo_mov === "ATUALIZACAO" &&
+          m.referencia === refMes
+      );
+      if (jaExiste) {
+        setPendingSubmitData({ dataToSave: dataToSave as ContaCorrenteInsert, isEdit: false });
+        setDuplicateAtualizacaoDialogOpen(true);
+        return;
+      }
+    }
+
     if (editingMov) {
       updateMutation.mutate({
         id: editingMov.id,
@@ -490,6 +511,28 @@ export default function ContaCorrenteLote() {
     } else {
       createMutation.mutate(dataToSave as ContaCorrenteInsert);
     }
+  };
+
+  const handleDuplicateAtualizacaoConfirm = async (recalcular: boolean) => {
+    setDuplicateAtualizacaoDialogOpen(false);
+    if (!recalcular || !pendingSubmitData) {
+      setPendingSubmitData(null);
+      return;
+    }
+    // Deletar a atualização existente e inserir a nova
+    const refMes = formData.data_mov?.substring(0, 7);
+    const tipoFluxo = (formData as any).tipo_fluxo_form || tipoConta;
+    if (formData.lote_id && refMes) {
+      await supabase
+        .from("conta_corrente_lote")
+        .delete()
+        .eq("lote_id", formData.lote_id)
+        .eq("tipo_fluxo", tipoFluxo)
+        .eq("tipo_mov", "ATUALIZACAO")
+        .eq("referencia", refMes);
+    }
+    createMutation.mutate(pendingSubmitData.dataToSave as ContaCorrenteInsert);
+    setPendingSubmitData(null);
   };
 
   // Filtrar movimentos por tipo de conta (Parcelamento vs Reforço) - usando tipo_fluxo
@@ -1083,6 +1126,27 @@ export default function ContaCorrenteLote() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Duplicate ATUALIZACAO Confirmation */}
+      <AlertDialog open={duplicateAtualizacaoDialogOpen} onOpenChange={setDuplicateAtualizacaoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Atualização já existente</AlertDialogTitle>
+            <AlertDialogDescription>
+              Já existe uma atualização monetária para este lote na referência <strong>{formData.data_mov?.substring(0, 7)}</strong>.
+              Deseja substituir a atualização existente pela nova?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleDuplicateAtualizacaoConfirm(false)}>
+              Não, cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleDuplicateAtualizacaoConfirm(true)}>
+              Sim, recalcular
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
