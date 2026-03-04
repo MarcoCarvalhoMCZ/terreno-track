@@ -16,6 +16,16 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Calculator, TrendingUp, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
@@ -56,6 +66,12 @@ export default function AtualizacaoMonetaria() {
   const [tiposFluxoSelecionados, setTiposFluxoSelecionados] = useState<TipoFluxo[]>(["PARCELAMENTO"]);
   const [lotesCalculo, setLotesCalculo] = useState<LoteCalculo[]>([]);
   const [calculoRealizado, setCalculoRealizado] = useState(false);
+  // IDs de vendas selecionadas na lista pré-cálculo
+  const [vendasSelecionadas, setVendasSelecionadas] = useState<Set<string>>(new Set());
+  // Dialog para duplicidade
+  const [duplicidadeDialogOpen, setDuplicidadeDialogOpen] = useState(false);
+  const [lotesComDuplicidade, setLotesComDuplicidade] = useState<LoteCalculo[]>([]);
+  const [resultadosPendentes, setResultadosPendentes] = useState<LoteCalculo[]>([]);
 
   // Referência do mês para verificar duplicidade (YYYY-MM)
   const referenciaMes = dataMovimento ? dataMovimento.substring(0, 7) : "";
@@ -76,6 +92,27 @@ export default function AtualizacaoMonetaria() {
       return data as (Venda & { lote: Lote })[];
     },
   });
+
+  // Vendas ordenadas por quadra + lote
+  const vendasOrdenadas = useMemo(() => {
+    if (!vendasAtivas) return [];
+    return [...vendasAtivas]
+      .filter(v => v.lote)
+      .sort((a, b) => {
+        const qa = a.lote?.quadra || "";
+        const qb = b.lote?.quadra || "";
+        const cmp = qa.localeCompare(qb, "pt-BR", { numeric: true });
+        if (cmp !== 0) return cmp;
+        return (a.lote?.numero_lote || "").localeCompare(b.lote?.numero_lote || "", "pt-BR", { numeric: true });
+      });
+  }, [vendasAtivas]);
+
+  // Inicializar seleção quando vendas carregam
+  useMemo(() => {
+    if (vendasOrdenadas.length > 0 && vendasSelecionadas.size === 0) {
+      setVendasSelecionadas(new Set(vendasOrdenadas.map(v => v.id)));
+    }
+  }, [vendasOrdenadas]);
 
   // Fetch indicadores e seus valores
   const { data: indicadores } = useQuery({
@@ -150,8 +187,8 @@ export default function AtualizacaoMonetaria() {
     );
   };
 
-  // Executar cálculo para todos os lotes
-  const handleCalcular = () => {
+  // Executar cálculo para lotes selecionados
+  const executarCalculo = (incluirDuplicados: boolean) => {
     if (!vendasAtivas || !dataMovimento) {
       toast.error("Selecione uma data de movimento");
       return;
@@ -168,6 +205,8 @@ export default function AtualizacaoMonetaria() {
     for (const tipoFluxo of tiposFluxoSelecionados) {
       for (const venda of vendasAtivas) {
         if (!venda.lote) continue;
+        // Filtrar apenas vendas selecionadas
+        if (!vendasSelecionadas.has(venda.id)) continue;
         
         // Calcular competência do índice (data_mov - defasagem meses)
         const defasagem = venda.defasagem_indice || 1;
@@ -191,6 +230,9 @@ export default function AtualizacaoMonetaria() {
 
         // Só adiciona se houver saldo positivo
         if (saldoAnterior > 0) {
+          // Se já atualizado e não incluir duplicados, pular
+          if (jaAtualizado && !incluirDuplicados) continue;
+
           resultados.push({
             lote_id: venda.lote_id,
             quadra: venda.lote.quadra,
@@ -210,9 +252,9 @@ export default function AtualizacaoMonetaria() {
 
     // Ordenar por quadra e lote
     resultados.sort((a, b) => {
-      const quadraCompare = a.quadra.localeCompare(b.quadra);
+      const quadraCompare = a.quadra.localeCompare(b.quadra, "pt-BR", { numeric: true });
       if (quadraCompare !== 0) return quadraCompare;
-      return a.numero_lote.localeCompare(b.numero_lote);
+      return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
     });
 
     setLotesCalculo(resultados);
@@ -223,7 +265,80 @@ export default function AtualizacaoMonetaria() {
     }
   };
 
-  // Toggle seleção de um lote
+  const handleCalcular = () => {
+    if (!vendasAtivas || !dataMovimento) {
+      toast.error("Selecione uma data de movimento");
+      return;
+    }
+
+    if (tiposFluxoSelecionados.length === 0) {
+      toast.error("Selecione pelo menos um tipo de conta");
+      return;
+    }
+
+    if (vendasSelecionadas.size === 0) {
+      toast.error("Selecione pelo menos um lote");
+      return;
+    }
+
+    // Verificar duplicidades antes de calcular
+    const dataMov = parse(dataMovimento, "yyyy-MM-dd", new Date());
+    const duplicados: { quadra: string; numero_lote: string }[] = [];
+
+    for (const tipoFluxo of tiposFluxoSelecionados) {
+      for (const venda of vendasAtivas) {
+        if (!venda.lote || !vendasSelecionadas.has(venda.id)) continue;
+        if (verificarDuplicidade(venda.lote_id, tipoFluxo, referenciaMes)) {
+          duplicados.push({ quadra: venda.lote.quadra, numero_lote: venda.lote.numero_lote });
+        }
+      }
+    }
+
+    if (duplicados.length > 0) {
+      // Mostrar dialog perguntando se recalcula
+      const uniqueDups = duplicados.filter((d, i, arr) => 
+        arr.findIndex(x => x.quadra === d.quadra && x.numero_lote === d.numero_lote) === i
+      );
+      setLotesComDuplicidade(uniqueDups as any);
+      setDuplicidadeDialogOpen(true);
+    } else {
+      executarCalculo(false);
+    }
+  };
+
+  const handleDuplicidadeConfirm = (recalcular: boolean) => {
+    setDuplicidadeDialogOpen(false);
+    if (recalcular) {
+      executarCalculo(true);
+    } else {
+      // Calcular sem os duplicados
+      executarCalculo(false);
+    }
+  };
+
+  // Toggle seleção de um lote (pré-cálculo)
+  const toggleVendaSelecionada = (vendaId: string) => {
+    setVendasSelecionadas(prev => {
+      const next = new Set(prev);
+      if (next.has(vendaId)) next.delete(vendaId);
+      else next.add(vendaId);
+      return next;
+    });
+    setCalculoRealizado(false);
+    setLotesCalculo([]);
+  };
+
+  const toggleTodasVendas = (selecionar: boolean) => {
+    if (selecionar) {
+      setVendasSelecionadas(new Set(vendasOrdenadas.map(v => v.id)));
+    } else {
+      setVendasSelecionadas(new Set());
+    }
+    setCalculoRealizado(false);
+    setLotesCalculo([]);
+  };
+
+  // Toggle seleção de um lote (pós-cálculo)
   const toggleSelecao = (loteId: string) => {
     setLotesCalculo((prev) =>
       prev.map((lote) =>
@@ -234,7 +349,7 @@ export default function AtualizacaoMonetaria() {
     );
   };
 
-  // Selecionar/Desselecionar todos
+  // Selecionar/Desselecionar todos (pós-cálculo)
   const toggleTodos = (selecionar: boolean) => {
     setLotesCalculo((prev) =>
       prev.map((lote) =>
@@ -248,10 +363,26 @@ export default function AtualizacaoMonetaria() {
   // Mutation para executar atualização
   const executarMutation = useMutation({
     mutationFn: async () => {
-      const lotesSelecionados = lotesCalculo.filter((l) => l.selecionado && !l.ja_atualizado);
+      const lotesSelecionados = lotesCalculo.filter((l) => l.selecionado);
       
       if (lotesSelecionados.length === 0) {
         throw new Error("Nenhum lote selecionado");
+      }
+
+      // Deletar duplicados que foram marcados para recalcular
+      const lotesParaRecalcular = lotesSelecionados.filter(l => l.ja_atualizado);
+      if (lotesParaRecalcular.length > 0) {
+        for (const tipoFluxo of tiposFluxoSelecionados) {
+          for (const lote of lotesParaRecalcular) {
+            await supabase
+              .from("conta_corrente_lote")
+              .delete()
+              .eq("lote_id", lote.lote_id)
+              .eq("tipo_fluxo", tipoFluxo)
+              .eq("tipo_mov", "ATUALIZACAO")
+              .eq("referencia", referenciaMes);
+          }
+        }
       }
 
       const lancamentos = [];
@@ -302,8 +433,8 @@ export default function AtualizacaoMonetaria() {
       queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
       toast.success(`${count} lançamento(s) de atualização monetária gerado(s) com sucesso!`);
       
-      // Recalcular para atualizar status de duplicidade
-      handleCalcular();
+      // Recalcular para atualizar status
+      setTimeout(() => executarCalculo(false), 500);
     },
     onError: (error) => {
       toast.error("Erro ao executar atualização: " + error.message);
@@ -311,7 +442,7 @@ export default function AtualizacaoMonetaria() {
   });
 
   const handleExecutar = () => {
-    const selecionados = lotesCalculo.filter((l) => l.selecionado && !l.ja_atualizado);
+    const selecionados = lotesCalculo.filter((l) => l.selecionado);
     if (selecionados.length === 0) {
       toast.warning("Selecione pelo menos um lote para atualizar");
       return;
@@ -329,9 +460,11 @@ export default function AtualizacaoMonetaria() {
     return `${value.toFixed(2)}%`;
   };
 
-  const lotesParaAtualizar = lotesCalculo.filter((l) => l.selecionado && !l.ja_atualizado);
+  const lotesParaAtualizar = lotesCalculo.filter((l) => l.selecionado);
   const totalSelecionados = lotesParaAtualizar.length;
   const totalValor = lotesParaAtualizar.reduce((acc, l) => acc + l.valor_calculado, 0);
+
+  const todasSelecionadas = vendasOrdenadas.length > 0 && vendasSelecionadas.size === vendasOrdenadas.length;
 
   return (
     <div className="space-y-6">
@@ -481,15 +614,15 @@ export default function AtualizacaoMonetaria() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {lotesCalculo.map((lote) => (
+                      {lotesCalculo.map((lote, idx) => (
                         <TableRow
-                          key={lote.lote_id}
-                          className={lote.ja_atualizado ? "opacity-50" : ""}
+                          key={`${lote.lote_id}-${idx}`}
+                          className={lote.ja_atualizado && !lote.selecionado ? "opacity-50" : ""}
                         >
                           <TableCell>
                             <Checkbox
                               checked={lote.selecionado}
-                              disabled={lote.ja_atualizado || lote.valor_calculado === 0}
+                              disabled={lote.valor_calculado === 0}
                               onCheckedChange={() => toggleSelecao(lote.lote_id)}
                             />
                           </TableCell>
@@ -581,31 +714,53 @@ export default function AtualizacaoMonetaria() {
         </Card>
       )}
 
-      {/* Info sobre vendas ativas */}
+      {/* Info sobre vendas ativas - com checkboxes e ordenação */}
       {!calculoRealizado && (
         <Card>
           <CardHeader>
-            <CardTitle>Vendas Ativas ({vendasAtivas?.length || 0})</CardTitle>
-            <CardDescription>
-              Lotes com vendas ativas que podem receber atualização monetária
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Vendas Ativas ({vendasOrdenadas.length})</CardTitle>
+                <CardDescription>
+                  Selecione os lotes que deseja incluir no cálculo de atualização monetária
+                </CardDescription>
+              </div>
+              {vendasOrdenadas.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleTodasVendas(!todasSelecionadas)}
+                  >
+                    {todasSelecionadas ? "Desmarcar Todos" : "Selecionar Todos"}
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {loadingVendas ? (
               <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-            ) : vendasAtivas && vendasAtivas.length > 0 ? (
+            ) : vendasOrdenadas.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12"></TableHead>
                       <TableHead>LOTE</TableHead>
                       <TableHead>TIPO ATUALIZAÇÃO</TableHead>
                       <TableHead className="text-center">DEFASAGEM</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {vendasAtivas.map((venda) => (
+                    {vendasOrdenadas.map((venda) => (
                       <TableRow key={venda.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={vendasSelecionadas.has(venda.id)}
+                            onCheckedChange={() => toggleVendaSelecionada(venda.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">
                           {venda.lote
                             ? `Quadra ${venda.lote.quadra} - Lote ${venda.lote.numero_lote}`
@@ -630,6 +785,32 @@ export default function AtualizacaoMonetaria() {
           </CardContent>
         </Card>
       )}
+
+      {/* Dialog de duplicidade */}
+      <AlertDialog open={duplicidadeDialogOpen} onOpenChange={setDuplicidadeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Atualização já calculada
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Alguns lotes selecionados já possuem atualização monetária calculada para a referência <strong>{referenciaMes}</strong>.
+              </p>
+              <p>Deseja recalcular esses lotes (substituindo os valores anteriores)?</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleDuplicidadeConfirm(false)}>
+              Não, ignorar duplicados
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleDuplicidadeConfirm(true)}>
+              Sim, recalcular
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
