@@ -236,7 +236,7 @@ export default function RecebimentoParcela() {
           data_mov: dataPagamento,
           tipo_mov: parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "PARCELA" : "REFORCO",
           tipo_fluxo: parcelaSelecionada.tipoFluxo,
-          descricao: descricao || `${tipoLabel} Recebida ${parcelaSelecionada.numero} de ${parcelaSelecionada.totalParcelas}`,
+          descricao: descricao || `${tipoLabel} Recebida`,
           credito: parcelaSelecionada.valorParcela,
           debito: 0,
           referencia,
