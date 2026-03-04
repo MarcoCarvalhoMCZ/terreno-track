@@ -144,12 +144,15 @@ export default function AtualizacaoMonetaria() {
     },
   });
 
-  // Buscar índice para um indicador e competência
-  const buscarIndice = (tipoAtualizacao: string, competenciaIndice: string): number | null => {
+  // Indicadores principais para cálculo da média
+  const indicadoresPrincipais = ["IGPM", "INCC", "INPC", "IPCA"];
+
+  // Buscar fator de um indicador específico para uma competência
+  const buscarFatorIndicador = (nomeIndicador: string, competenciaIndice: string): number | null => {
     if (!indicadores) return null;
     
     const indicador = indicadores.find(
-      (ind) => ind.nome.toUpperCase() === tipoAtualizacao.toUpperCase()
+      (ind) => ind.nome.toUpperCase() === nomeIndicador.toUpperCase()
     );
     
     if (!indicador || !indicador.valores) return null;
@@ -159,6 +162,23 @@ export default function AtualizacaoMonetaria() {
     );
     
     return valor ? Number(valor.fator) : null;
+  };
+
+  // Buscar índice para um tipo de atualização e competência (trata MEDIA)
+  const buscarIndice = (tipoAtualizacao: string, competenciaIndice: string): number | null => {
+    if (!indicadores) return null;
+    
+    if (tipoAtualizacao.toUpperCase() === "MEDIA") {
+      // Calcular média dos indicadores principais (IGPM, INCC, INPC, IPCA)
+      const fatores = indicadoresPrincipais
+        .map(nome => buscarFatorIndicador(nome, competenciaIndice))
+        .filter((f): f is number => f !== null);
+      
+      if (fatores.length === 0) return null;
+      return fatores.reduce((a, b) => a + b, 0) / fatores.length;
+    }
+    
+    return buscarFatorIndicador(tipoAtualizacao, competenciaIndice);
   };
 
   // Calcular saldo anterior por lote e tipo_fluxo
