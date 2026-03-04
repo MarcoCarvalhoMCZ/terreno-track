@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -114,12 +114,14 @@ export default function AtualizacaoMonetaria() {
     });
   }, [vendasAtivas]);
 
-  // Inicializar seleção quando lotes carregam
+  // Inicializar seleção quando lotes carregam (apenas na primeira vez)
+  const inicializouSelecao = useRef(false);
   useEffect(() => {
-    if (vendasPorLote.length > 0 && lotesSelecionados.size === 0) {
+    if (vendasPorLote.length > 0 && !inicializouSelecao.current) {
       setLotesSelecionados(new Set(vendasPorLote.map((v) => v.lote_id)));
+      inicializouSelecao.current = true;
     }
-  }, [vendasPorLote, lotesSelecionados.size]);
+  }, [vendasPorLote]);
 
   // Fetch indicadores e seus valores
   const { data: indicadores } = useQuery({
