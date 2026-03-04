@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,8 +29,7 @@ import {
 import { Calculator, TrendingUp, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { format, subMonths, parse, startOfMonth } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { format, subMonths, parse, startOfMonth, addMonths } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Lote = Tables<"lotes">;
@@ -41,6 +40,7 @@ type TipoFluxo = "PARCELAMENTO" | "REFORCO";
 
 interface LoteCalculo {
   lote_id: string;
+  tipo_fluxo: TipoFluxo;
   quadra: string;
   numero_lote: string;
   tipo_atualizacao: string;
@@ -66,8 +66,8 @@ export default function AtualizacaoMonetaria() {
   const [tiposFluxoSelecionados, setTiposFluxoSelecionados] = useState<TipoFluxo[]>(["PARCELAMENTO"]);
   const [lotesCalculo, setLotesCalculo] = useState<LoteCalculo[]>([]);
   const [calculoRealizado, setCalculoRealizado] = useState(false);
-  // IDs de vendas selecionadas na lista pré-cálculo
-  const [vendasSelecionadas, setVendasSelecionadas] = useState<Set<string>>(new Set());
+  // IDs de lotes selecionados na lista pré-cálculo
+  const [lotesSelecionados, setLotesSelecionados] = useState<Set<string>>(new Set());
   // Dialog para duplicidade
   const [duplicidadeDialogOpen, setDuplicidadeDialogOpen] = useState(false);
   const [lotesComDuplicidade, setLotesComDuplicidade] = useState<LoteCalculo[]>([]);
@@ -93,26 +93,33 @@ export default function AtualizacaoMonetaria() {
     },
   });
 
-  // Vendas ordenadas por quadra + lote
-  const vendasOrdenadas = useMemo(() => {
-    if (!vendasAtivas) return [];
-    return [...vendasAtivas]
-      .filter(v => v.lote)
-      .sort((a, b) => {
-        const qa = a.lote?.quadra || "";
-        const qb = b.lote?.quadra || "";
-        const cmp = qa.localeCompare(qb, "pt-BR", { numeric: true });
-        if (cmp !== 0) return cmp;
-        return (a.lote?.numero_lote || "").localeCompare(b.lote?.numero_lote || "", "pt-BR", { numeric: true });
-      });
+  // Uma venda por lote (evita cálculos em duplicidade para o mesmo lote)
+  const vendasPorLote = useMemo(() => {
+    if (!vendasAtivas) return [] as (Venda & { lote: Lote })[];
+
+    const mapa = new Map<string, Venda & { lote: Lote }>();
+    for (const venda of vendasAtivas) {
+      if (!venda.lote) continue;
+      if (!mapa.has(venda.lote_id)) {
+        mapa.set(venda.lote_id, venda);
+      }
+    }
+
+    return Array.from(mapa.values()).sort((a, b) => {
+      const qa = a.lote?.quadra || "";
+      const qb = b.lote?.quadra || "";
+      const cmp = qa.localeCompare(qb, "pt-BR", { numeric: true });
+      if (cmp !== 0) return cmp;
+      return (a.lote?.numero_lote || "").localeCompare(b.lote?.numero_lote || "", "pt-BR", { numeric: true });
+    });
   }, [vendasAtivas]);
 
-  // Inicializar seleção quando vendas carregam
-  useMemo(() => {
-    if (vendasOrdenadas.length > 0 && vendasSelecionadas.size === 0) {
-      setVendasSelecionadas(new Set(vendasOrdenadas.map(v => v.id)));
+  // Inicializar seleção quando lotes carregam
+  useEffect(() => {
+    if (vendasPorLote.length > 0 && lotesSelecionados.size === 0) {
+      setLotesSelecionados(new Set(vendasPorLote.map((v) => v.lote_id)));
     }
-  }, [vendasOrdenadas]);
+  }, [vendasPorLote, lotesSelecionados.size]);
 
   // Fetch indicadores e seus valores
   const { data: indicadores } = useQuery({
@@ -194,22 +201,25 @@ export default function AtualizacaoMonetaria() {
     }, 0);
   };
 
-  // Verificar se já existe atualização no mês
+  // Verificar se já existe atualização na mesma competência
   const verificarDuplicidade = (loteId: string, tipoFluxo: TipoFluxo, referencia: string): boolean => {
     if (!movimentacoes) return false;
-    
-    return movimentacoes.some(
-      (m) => 
-        m.lote_id === loteId && 
-        m.tipo_fluxo === tipoFluxo && 
-        m.tipo_mov === "ATUALIZACAO" &&
-        m.referencia === referencia
-    );
+
+    const referenciaBR = `${referencia.substring(5, 7)}/${referencia.substring(0, 4)}`;
+
+    return movimentacoes.some((m) => {
+      if (m.lote_id !== loteId || m.tipo_fluxo !== tipoFluxo || m.tipo_mov !== "ATUALIZACAO") return false;
+
+      const refMov = m.referencia || "";
+      if (refMov === referencia || refMov === referenciaBR) return true;
+
+      return m.data_mov?.substring(0, 7) === referencia;
+    });
   };
 
   // Executar cálculo para lotes selecionados
   const executarCalculo = (incluirDuplicados: boolean) => {
-    if (!vendasAtivas || !dataMovimento) {
+    if (!vendasPorLote.length || !dataMovimento) {
       toast.error("Selecione uma data de movimento");
       return;
     }
@@ -223,30 +233,31 @@ export default function AtualizacaoMonetaria() {
     const resultados: LoteCalculo[] = [];
 
     for (const tipoFluxo of tiposFluxoSelecionados) {
-      for (const venda of vendasAtivas) {
+      for (const venda of vendasPorLote) {
         if (!venda.lote) continue;
-        // Filtrar apenas vendas selecionadas
-        if (!vendasSelecionadas.has(venda.id)) continue;
-        
+        // Filtrar apenas lotes selecionados
+        if (!lotesSelecionados.has(venda.lote_id)) continue;
+
         // Calcular competência do índice (data_mov - defasagem meses)
         const defasagem = venda.defasagem_indice || 1;
         const competenciaDate = subMonths(dataMov, defasagem);
         const competenciaIndice = format(competenciaDate, "yyyy-MM");
-        
+
         // Buscar índice
         const tipoAtualizacao = venda.tipo_atualizacao || "IGPM";
         const indice = buscarIndice(tipoAtualizacao, competenciaIndice);
-        
+
         // Calcular saldo anterior
         const saldoAnterior = calcularSaldoAnterior(venda.lote_id, tipoFluxo, dataMovimento);
-        
+
         // Verificar duplicidade
         const jaAtualizado = verificarDuplicidade(venda.lote_id, tipoFluxo, referenciaMes);
-        
+
         // Calcular valor da atualização
-        const valorCalculado = indice !== null && saldoAnterior > 0
-          ? Math.round(saldoAnterior * (indice / 100) * 100) / 100
-          : 0;
+        const valorCalculado =
+          indice !== null && saldoAnterior > 0
+            ? Math.round(saldoAnterior * (indice / 100) * 100) / 100
+            : 0;
 
         // Só adiciona se houver saldo positivo
         if (saldoAnterior > 0) {
@@ -255,6 +266,7 @@ export default function AtualizacaoMonetaria() {
 
           resultados.push({
             lote_id: venda.lote_id,
+            tipo_fluxo: tipoFluxo,
             quadra: venda.lote.quadra,
             numero_lote: venda.lote.numero_lote,
             tipo_atualizacao: tipoAtualizacao,
@@ -264,7 +276,7 @@ export default function AtualizacaoMonetaria() {
             saldo_anterior: saldoAnterior,
             valor_calculado: valorCalculado,
             ja_atualizado: jaAtualizado,
-            selecionado: !jaAtualizado && valorCalculado !== 0,
+            selecionado: valorCalculado !== 0,
           });
         }
       }
@@ -286,7 +298,7 @@ export default function AtualizacaoMonetaria() {
   };
 
   const handleCalcular = () => {
-    if (!vendasAtivas || !dataMovimento) {
+    if (!vendasPorLote.length || !dataMovimento) {
       toast.error("Selecione uma data de movimento");
       return;
     }
@@ -296,18 +308,17 @@ export default function AtualizacaoMonetaria() {
       return;
     }
 
-    if (vendasSelecionadas.size === 0) {
+    if (lotesSelecionados.size === 0) {
       toast.error("Selecione pelo menos um lote");
       return;
     }
 
     // Verificar duplicidades antes de calcular
-    const dataMov = parse(dataMovimento, "yyyy-MM-dd", new Date());
     const duplicados: { quadra: string; numero_lote: string }[] = [];
 
     for (const tipoFluxo of tiposFluxoSelecionados) {
-      for (const venda of vendasAtivas) {
-        if (!venda.lote || !vendasSelecionadas.has(venda.id)) continue;
+      for (const venda of vendasPorLote) {
+        if (!venda.lote || !lotesSelecionados.has(venda.lote_id)) continue;
         if (verificarDuplicidade(venda.lote_id, tipoFluxo, referenciaMes)) {
           duplicados.push({ quadra: venda.lote.quadra, numero_lote: venda.lote.numero_lote });
         }
@@ -316,8 +327,8 @@ export default function AtualizacaoMonetaria() {
 
     if (duplicados.length > 0) {
       // Mostrar dialog perguntando se recalcula
-      const uniqueDups = duplicados.filter((d, i, arr) => 
-        arr.findIndex(x => x.quadra === d.quadra && x.numero_lote === d.numero_lote) === i
+      const uniqueDups = duplicados.filter(
+        (d, i, arr) => arr.findIndex((x) => x.quadra === d.quadra && x.numero_lote === d.numero_lote) === i
       );
       setLotesComDuplicidade(uniqueDups as any);
       setDuplicidadeDialogOpen(true);
@@ -337,32 +348,32 @@ export default function AtualizacaoMonetaria() {
   };
 
   // Toggle seleção de um lote (pré-cálculo)
-  const toggleVendaSelecionada = (vendaId: string) => {
-    setVendasSelecionadas(prev => {
+  const toggleLoteSelecionado = (loteId: string) => {
+    setLotesSelecionados((prev) => {
       const next = new Set(prev);
-      if (next.has(vendaId)) next.delete(vendaId);
-      else next.add(vendaId);
+      if (next.has(loteId)) next.delete(loteId);
+      else next.add(loteId);
       return next;
     });
     setCalculoRealizado(false);
     setLotesCalculo([]);
   };
 
-  const toggleTodasVendas = (selecionar: boolean) => {
+  const toggleTodosLotes = (selecionar: boolean) => {
     if (selecionar) {
-      setVendasSelecionadas(new Set(vendasOrdenadas.map(v => v.id)));
+      setLotesSelecionados(new Set(vendasPorLote.map((v) => v.lote_id)));
     } else {
-      setVendasSelecionadas(new Set());
+      setLotesSelecionados(new Set());
     }
     setCalculoRealizado(false);
     setLotesCalculo([]);
   };
 
   // Toggle seleção de um lote (pós-cálculo)
-  const toggleSelecao = (loteId: string) => {
+  const toggleSelecao = (loteId: string, tipoFluxo: TipoFluxo) => {
     setLotesCalculo((prev) =>
       prev.map((lote) =>
-        lote.lote_id === loteId && !lote.ja_atualizado
+        lote.lote_id === loteId && lote.tipo_fluxo === tipoFluxo
           ? { ...lote, selecionado: !lote.selecionado }
           : lote
       )
@@ -373,7 +384,7 @@ export default function AtualizacaoMonetaria() {
   const toggleTodos = (selecionar: boolean) => {
     setLotesCalculo((prev) =>
       prev.map((lote) =>
-        !lote.ja_atualizado && lote.valor_calculado !== 0
+        lote.valor_calculado !== 0
           ? { ...lote, selecionado: selecionar }
           : lote
       )
@@ -383,60 +394,61 @@ export default function AtualizacaoMonetaria() {
   // Mutation para executar atualização
   const executarMutation = useMutation({
     mutationFn: async () => {
-      const lotesSelecionados = lotesCalculo.filter((l) => l.selecionado);
-      
-      if (lotesSelecionados.length === 0) {
+      const lotesSelecionadosExecucao = lotesCalculo.filter((l) => l.selecionado);
+
+      if (lotesSelecionadosExecucao.length === 0) {
         throw new Error("Nenhum lote selecionado");
       }
 
-      // Deletar duplicados que foram marcados para recalcular
-      const lotesParaRecalcular = lotesSelecionados.filter(l => l.ja_atualizado);
-      if (lotesParaRecalcular.length > 0) {
-        for (const tipoFluxo of tiposFluxoSelecionados) {
-          for (const lote of lotesParaRecalcular) {
-            await supabase
-              .from("conta_corrente_lote")
-              .delete()
-              .eq("lote_id", lote.lote_id)
-              .eq("tipo_fluxo", tipoFluxo)
-              .eq("tipo_mov", "ATUALIZACAO")
-              .eq("referencia", referenciaMes);
-          }
-        }
+      // Deletar atualização existente somente dos lotes/fluxos selecionados e já atualizados
+      const inicioCompetencia = `${referenciaMes}-01`;
+      const fimCompetencia = format(addMonths(parse(inicioCompetencia, "yyyy-MM-dd", new Date()), 1), "yyyy-MM-dd");
+
+      const lotesParaRecalcular = lotesSelecionadosExecucao.filter((l) => l.ja_atualizado);
+      for (const lote of lotesParaRecalcular) {
+        const { error: deleteError } = await supabase
+          .from("conta_corrente_lote")
+          .delete()
+          .eq("lote_id", lote.lote_id)
+          .eq("tipo_fluxo", lote.tipo_fluxo)
+          .eq("tipo_mov", "ATUALIZACAO")
+          .gte("data_mov", inicioCompetencia)
+          .lt("data_mov", fimCompetencia);
+
+        if (deleteError) throw deleteError;
       }
 
       const lancamentos = [];
-      
-      for (const tipoFluxo of tiposFluxoSelecionados) {
-        for (const lote of lotesSelecionados) {
-          // Recalcular saldo para ter o valor mais atualizado
-          const saldoAnterior = calcularSaldoAnterior(lote.lote_id, tipoFluxo, dataMovimento);
-          const valorAtual = lote.indice_encontrado !== null && saldoAnterior > 0
+
+      for (const lote of lotesSelecionadosExecucao) {
+        // Recalcular saldo para ter o valor mais atualizado
+        const saldoAnterior = calcularSaldoAnterior(lote.lote_id, lote.tipo_fluxo, dataMovimento);
+        const valorAtual =
+          lote.indice_encontrado !== null && saldoAnterior > 0
             ? Math.round(saldoAnterior * (lote.indice_encontrado / 100) * 100) / 100
             : 0;
-          
-          if (valorAtual === 0) continue;
 
-          // Determinar natureza (débito ou crédito)
-          const isNegativo = lote.indice_encontrado !== null && lote.indice_encontrado < 0;
-          const valorAbs = Math.abs(valorAtual);
-          
-          // Novo saldo após atualização
-          const novoSaldo = saldoAnterior + valorAtual;
+        if (valorAtual === 0) continue;
 
-          lancamentos.push({
-            lote_id: lote.lote_id,
-            tipo_fluxo: tipoFluxo,
-            tipo_mov: "ATUALIZACAO",
-            data_mov: dataMovimento,
-            descricao: `Atualização Monetária Q${lote.quadra} Lt${lote.numero_lote}`,
-            percentual_calculo: lote.indice_encontrado,
-            debito: isNegativo ? 0 : valorAbs,
-            credito: isNegativo ? valorAbs : 0,
-            saldo: novoSaldo,
-            referencia: referenciaMes,
-          });
-        }
+        // Determinar natureza (débito ou crédito)
+        const isNegativo = lote.indice_encontrado !== null && lote.indice_encontrado < 0;
+        const valorAbs = Math.abs(valorAtual);
+
+        // Novo saldo após atualização
+        const novoSaldo = saldoAnterior + valorAtual;
+
+        lancamentos.push({
+          lote_id: lote.lote_id,
+          tipo_fluxo: lote.tipo_fluxo,
+          tipo_mov: "ATUALIZACAO",
+          data_mov: dataMovimento,
+          descricao: `Atualização Monetária Q${lote.quadra} Lt${lote.numero_lote}`,
+          percentual_calculo: lote.indice_encontrado,
+          debito: isNegativo ? 0 : valorAbs,
+          credito: isNegativo ? valorAbs : 0,
+          saldo: novoSaldo,
+          referencia: referenciaMes,
+        });
       }
 
       if (lancamentos.length === 0) {
@@ -484,7 +496,7 @@ export default function AtualizacaoMonetaria() {
   const totalSelecionados = lotesParaAtualizar.length;
   const totalValor = lotesParaAtualizar.reduce((acc, l) => acc + l.valor_calculado, 0);
 
-  const todasSelecionadas = vendasOrdenadas.length > 0 && vendasSelecionadas.size === vendasOrdenadas.length;
+  const todasSelecionadas = vendasPorLote.length > 0 && lotesSelecionados.size === vendasPorLote.length;
 
   return (
     <div className="space-y-6">
@@ -636,14 +648,14 @@ export default function AtualizacaoMonetaria() {
                     <TableBody>
                       {lotesCalculo.map((lote, idx) => (
                         <TableRow
-                          key={`${lote.lote_id}-${idx}`}
+                          key={`${lote.lote_id}-${lote.tipo_fluxo}-${idx}`}
                           className={lote.ja_atualizado && !lote.selecionado ? "opacity-50" : ""}
                         >
                           <TableCell>
                             <Checkbox
                               checked={lote.selecionado}
                               disabled={lote.valor_calculado === 0}
-                              onCheckedChange={() => toggleSelecao(lote.lote_id)}
+                              onCheckedChange={() => toggleSelecao(lote.lote_id, lote.tipo_fluxo)}
                             />
                           </TableCell>
                           <TableCell className="font-medium">
@@ -740,17 +752,17 @@ export default function AtualizacaoMonetaria() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Vendas Ativas ({vendasOrdenadas.length})</CardTitle>
+                <CardTitle>Vendas Ativas ({vendasPorLote.length})</CardTitle>
                 <CardDescription>
                   Selecione os lotes que deseja incluir no cálculo de atualização monetária
                 </CardDescription>
               </div>
-              {vendasOrdenadas.length > 0 && (
+              {vendasPorLote.length > 0 && (
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => toggleTodasVendas(!todasSelecionadas)}
+                    onClick={() => toggleTodosLotes(!todasSelecionadas)}
                   >
                     {todasSelecionadas ? "Desmarcar Todos" : "Selecionar Todos"}
                   </Button>
@@ -761,7 +773,7 @@ export default function AtualizacaoMonetaria() {
           <CardContent>
             {loadingVendas ? (
               <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-            ) : vendasOrdenadas.length > 0 ? (
+            ) : vendasPorLote.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -773,12 +785,12 @@ export default function AtualizacaoMonetaria() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {vendasOrdenadas.map((venda) => (
+                    {vendasPorLote.map((venda) => (
                       <TableRow key={venda.id}>
                         <TableCell>
                           <Checkbox
-                            checked={vendasSelecionadas.has(venda.id)}
-                            onCheckedChange={() => toggleVendaSelecionada(venda.id)}
+                            checked={lotesSelecionados.has(venda.lote_id)}
+                            onCheckedChange={() => toggleLoteSelecionado(venda.lote_id)}
                           />
                         </TableCell>
                         <TableCell className="font-medium">
@@ -811,7 +823,7 @@ export default function AtualizacaoMonetaria() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="h-5 w-5 text-muted-foreground" />
               Atualização já calculada
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
