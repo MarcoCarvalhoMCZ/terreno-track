@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, differenceInMonths, startOfMonth, isAfter } from "date-fns";
+import { addMonths, differenceInMonths, startOfMonth, isAfter, isBefore } from "date-fns";
 import type { MoraConfig } from "./useParcelasEmAtraso";
 
 /**
@@ -109,7 +109,7 @@ function calcularMesesAtraso(
 ): number {
   const dataInicioJuros = calcularDataInicioJuros(vencimento, criterio, toleranciaDias);
 
-  if (!isAfter(dataAtual, dataInicioJuros)) {
+  if (isBefore(dataAtual, dataInicioJuros)) {
     return 0;
   }
 
