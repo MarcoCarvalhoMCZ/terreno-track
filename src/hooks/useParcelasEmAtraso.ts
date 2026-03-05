@@ -124,7 +124,7 @@ function calcularMesesAtraso(
   const dataInicioJuros = calcularDataInicioJuros(vencimento, criterio, toleranciaDias);
 
   // Se ainda não passou da data de início de juros, não há atraso para juros
-  if (!isAfter(dataAtual, dataInicioJuros)) {
+  if (isBefore(dataAtual, dataInicioJuros)) {
     return 0;
   }
 

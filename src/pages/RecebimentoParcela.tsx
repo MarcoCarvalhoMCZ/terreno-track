@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addMonths, isAfter, startOfMonth, differenceInMonths } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,8 @@ import {
 import { AlertTriangle, CheckCircle2, Receipt } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import { useLotesConsulta, useVendaLote, useResumoLoteConsulta } from "@/hooks/useConsultaLote";
-import { useMoraConfig, useUltimaAtualizacaoLote } from "@/hooks/useParcelasEmAtraso";
+import { useMoraConfig, useUltimaAtualizacaoLote, useParcelasEmAtraso } from "@/hooks/useParcelasEmAtraso";
+import type { ParcelaEmAtraso } from "@/hooks/useParcelasEmAtraso";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ResumoLote } from "@/types/conta-corrente.types";
 
@@ -92,100 +93,37 @@ export default function RecebimentoParcela() {
     [lotes, loteId]
   );
 
-  // Calcular parcelas pendentes (vencidas + próxima a vencer) para PARCELAMENTO e REFORÇO
+  // Usar useParcelasEmAtraso para PARCELAMENTO e REFORÇO (mesma lógica da Consulta do Lote)
+  const resumoAtrasoParcelamento = useParcelasEmAtraso(
+    "PARCELAMENTO",
+    venda,
+    resumo,
+    moraConfig,
+    ultimaAtualizacao
+  );
+
+  const resumoAtrasoReforco = useParcelasEmAtraso(
+    "REFORCO",
+    venda,
+    resumo,
+    moraConfig,
+    ultimaAtualizacao
+  );
+
+  // Combinar parcelas de ambos os fluxos em ParcelaCalculada[]
   const parcelasPendentes = useMemo(() => {
-    if (!venda || !resumo || !moraConfig) return [];
-    // Usar a data da última atualização monetária como referência para cálculos de mora
-    const dataAtual = ultimaAtualizacao ? ultimaAtualizacao : new Date();
     const resultado: ParcelaCalculada[] = [];
 
-    const calcular = (
-      tipoFluxo: "PARCELAMENTO" | "REFORCO",
-      qtdPagas: number,
-      qtdAPagar: number,
-      qtdTotal: number,
-      valorParcela: number,
-      primeiroVencimento: Date | null,
-      frequenciaMeses: number
-    ) => {
-      if (qtdAPagar <= 0 || valorParcela <= 0 || !primeiroVencimento) return;
+    for (const p of resumoAtrasoParcelamento.parcelas) {
+      resultado.push({ ...p, tipoFluxo: "PARCELAMENTO" });
+    }
 
-      const { juros_mora_percentual, multa_mora_percentual, criterio_juros_mora, tolerancia_dias_juros } = moraConfig;
-      let primeiraAVencerAdded = false;
-
-      for (let i = 0; i < qtdAPagar; i++) {
-        const numeroParcela = qtdPagas + i + 1;
-        const vencimento = addMonths(primeiroVencimento, (qtdPagas + i) * frequenciaMeses);
-
-        let vencida = false;
-        if (criterio_juros_mora === "TOLERANCIA" && tolerancia_dias_juros > 0) {
-          const dataLimite = new Date(vencimento);
-          dataLimite.setDate(dataLimite.getDate() + tolerancia_dias_juros);
-          vencida = isAfter(dataAtual, dataLimite);
-        } else {
-          vencida = isAfter(dataAtual, vencimento);
-        }
-
-        let mesesAtraso = 0;
-        if (vencida) {
-          const dataInicioJuros = criterio_juros_mora === "MES_SUBSEQUENTE"
-            ? startOfMonth(addMonths(vencimento, 1))
-            : (() => { const d = new Date(vencimento); d.setDate(d.getDate() + tolerancia_dias_juros); return d; })();
-          if (isAfter(dataAtual, dataInicioJuros)) {
-            mesesAtraso = differenceInMonths(dataAtual, dataInicioJuros) + 1;
-          }
-        }
-
-        const jurosPercentual = mesesAtraso * juros_mora_percentual;
-        const valorJuros = valorParcela * (jurosPercentual / 100);
-        const valorMulta = mesesAtraso > 0 ? valorParcela * (multa_mora_percentual / 100) : 0;
-        const totalParcela = valorParcela + valorJuros + valorMulta;
-
-        if (vencida || !primeiraAVencerAdded) {
-          resultado.push({
-            numero: numeroParcela,
-            totalParcelas: qtdTotal,
-            vencimento,
-            valorParcela,
-            mesesAtraso,
-            jurosPercentual,
-            valorJuros,
-            valorMulta,
-            totalParcela,
-            isVencida: vencida,
-            tipoFluxo,
-          });
-          if (!vencida) primeiraAVencerAdded = true;
-        }
-
-        if (!vencida && primeiraAVencerAdded) break;
-      }
-    };
-
-    // Parcelamento
-    calcular(
-      "PARCELAMENTO",
-      resumo.qtdParcelasPagas,
-      resumo.qtdParcelasAPagar,
-      resumo.qtdParcelasContratadas,
-      resumo.valorProximaParcela,
-      resumo.primeiroVencimentoParcela,
-      venda.frequencia_parcelas_meses || 1
-    );
-
-    // Reforço
-    calcular(
-      "REFORCO",
-      resumo.qtdReforcosPagos,
-      resumo.qtdReforcosAPagar,
-      resumo.qtdReforcosContratados,
-      resumo.valorProximoReforco,
-      resumo.primeiroVencimentoReforco,
-      venda.frequencia_reforcos_meses || 12
-    );
+    for (const p of resumoAtrasoReforco.parcelas) {
+      resultado.push({ ...p, tipoFluxo: "REFORCO" });
+    }
 
     return resultado;
-  }, [venda, resumo, moraConfig, ultimaAtualizacao]);
+  }, [resumoAtrasoParcelamento, resumoAtrasoReforco]);
 
   // Histórico de recebimentos recentes
   const { data: recebimentos } = useQuery({
