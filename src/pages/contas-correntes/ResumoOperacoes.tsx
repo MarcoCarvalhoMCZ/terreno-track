@@ -24,6 +24,7 @@ import { formatCurrency, formatCompetencia } from "@/lib/formatters";
 import type { Lote } from "@/types";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
+import { LoteSearchSelect } from "@/components/LoteSearchSelect";
 
 interface ResumoConsolidadoLocal {
   competencia: string;
@@ -346,19 +347,15 @@ export default function ResumoOperacoes() {
                     className="pl-10"
                   />
                 </div>
-                <Select value={filterLote} onValueChange={setFilterLote}>
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Filtrar por lote" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TODOS">Todos os lotes</SelectItem>
-                    {lotes?.map((lote) => (
-                      <SelectItem key={lote.id} value={lote.id}>
-                        Quadra {lote.quadra} - Lote {lote.numero_lote}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LoteSearchSelect
+                  lotes={lotes}
+                  value={filterLote}
+                  onValueChange={setFilterLote}
+                  placeholder="Filtrar por lote"
+                  allOptionValue="TODOS"
+                  allOptionLabel="Todos os lotes"
+                  className="w-64"
+                />
               </div>
             </CardContent>
           </Card>

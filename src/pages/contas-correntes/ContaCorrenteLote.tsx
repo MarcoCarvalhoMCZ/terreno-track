@@ -50,6 +50,7 @@ import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
 import type { ContaCorrenteComRelacionamentos, ContaCorrenteFormData, ResumoFluxoView } from "@/types/conta-corrente.types";
+import { LoteSearchSelect } from "@/components/LoteSearchSelect";
 import { emptyMovimento } from "@/types/conta-corrente.types";
 import {
   tiposMovimento,
@@ -723,19 +724,15 @@ export default function ContaCorrenteLote() {
                 className="pl-10"
               />
             </div>
-            <Select value={filterLote} onValueChange={setFilterLote}>
-              <SelectTrigger className="w-56">
-                <SelectValue placeholder="Filtrar por lote" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TODOS">Todos os lotes</SelectItem>
-                {lotes?.map((lote) => (
-                  <SelectItem key={lote.id} value={lote.id}>
-                    Q{lote.quadra} L{lote.numero_lote}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <LoteSearchSelect
+              lotes={lotes}
+              value={filterLote}
+              onValueChange={setFilterLote}
+              placeholder="Filtrar por lote"
+              allOptionValue="TODOS"
+              allOptionLabel="Todos os lotes"
+              className="w-56"
+            />
             <Select value={filterTipo} onValueChange={setFilterTipo}>
               <SelectTrigger className="w-56">
                 <SelectValue placeholder="Filtrar por tipo" />
@@ -902,24 +899,15 @@ export default function ContaCorrenteLote() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="lote_id">Lote <span className="text-destructive">*</span></Label>
-                    <Select
+                    <LoteSearchSelect
+                      lotes={lotes}
                       value={formData.lote_id || ""}
                       onValueChange={(value) => {
                         setFormData({ ...formData, lote_id: value });
                         setValorMovimento("");
                       }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o lote" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {lotes?.map((lote) => (
-                          <SelectItem key={lote.id} value={lote.id}>
-                            Quadra {lote.quadra} - Lote {lote.numero_lote}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Selecione o lote"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="data_mov">Data Movimento <span className="text-destructive">*</span></Label>

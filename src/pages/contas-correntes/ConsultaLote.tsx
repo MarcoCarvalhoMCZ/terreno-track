@@ -54,6 +54,7 @@ import { ParcelasControleDialog } from "@/components/ParcelasControleDialog";
 // PDF export
 import { exportConsultaLoteToPDF } from "@/lib/consulta-lote-pdf";
 import { generatePixPayload, generateTxId, TipoFluxoTxId } from "@/lib/pix";
+import { LoteSearchSelect } from "@/components/LoteSearchSelect";
 
 // Format date for display
 const formatDateDisplay = (date: string | Date | null): string => {
@@ -228,18 +229,13 @@ export default function ConsultaLote() {
           <div className="flex items-end gap-4">
             <div className="flex-1 max-w-md space-y-2">
               <Label>Lote</Label>
-              <Select value={selectedLoteId} onValueChange={setSelectedLoteId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um lote" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lotes?.map((lote) => (
-                    <SelectItem key={lote.id} value={lote.id}>
-                      Quadra {lote.quadra} - Lote {lote.numero_lote} ({lote.status})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <LoteSearchSelect
+                lotes={lotes}
+                value={selectedLoteId}
+                onValueChange={setSelectedLoteId}
+                placeholder="Selecione um lote"
+                showStatus
+              />
             </div>
             {selectedLoteId && (
               <div className="flex gap-2">

@@ -34,6 +34,7 @@ import {
 import { AlertTriangle, CheckCircle2, Receipt } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import { useLotesConsulta, useVendaLote, useResumoLoteConsulta } from "@/hooks/useConsultaLote";
+import { LoteSearchSelect } from "@/components/LoteSearchSelect";
 import { useMoraConfig, useUltimaAtualizacaoLote, useParcelasEmAtraso } from "@/hooks/useParcelasEmAtraso";
 import type { ParcelaEmAtraso } from "@/hooks/useParcelasEmAtraso";
 import { useAuth } from "@/contexts/AuthContext";
@@ -255,18 +256,12 @@ export default function RecebimentoParcela() {
         <CardContent>
           <div className="max-w-sm">
             <Label>Lote *</Label>
-            <Select value={loteId} onValueChange={setLoteId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o lote" />
-              </SelectTrigger>
-              <SelectContent>
-                {lotesVendidos.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    Quadra {l.quadra} - Lote {l.numero_lote}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <LoteSearchSelect
+              lotes={lotesVendidos}
+              value={loteId}
+              onValueChange={setLoteId}
+              placeholder="Selecione o lote"
+            />
           </div>
           {loteId && venda && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
