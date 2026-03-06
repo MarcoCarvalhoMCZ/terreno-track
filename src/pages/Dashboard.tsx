@@ -430,7 +430,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Inadimplência */}
-        <Card className="border-t-4 border-t-yellow-500 bg-white shadow-sm">
+        <Card className="border-t-4 border-t-warning bg-white shadow-sm">
           <CardContent className="pt-4">
             <div className="flex items-start justify-between">
               <div>
