@@ -592,7 +592,11 @@ export default function Dashboard() {
                     <TableCell>
                       {formatCurrency(Number(contrato.valor_venda))}
                     </TableCell>
-                    <TableCell>{getStatusBadge(contrato.status)}</TableCell>
+                    <TableCell>
+                      <Badge className={vendaStatusColors[contrato.status || "ATIVA"]}>
+                        {vendaStatusLabels[contrato.status || "ATIVA"]}
+                      </Badge>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
