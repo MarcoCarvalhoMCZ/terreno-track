@@ -1,58 +1,116 @@
-## Refatoração Arquitetural - EBL-Loteamentos
+## Arquitetura Final - EBL-Loteamentos
 
-### Concluído
+### Princípios
 
-#### 1. Motor Financeiro Central (`src/lib/calculo-financeiro.ts`)
-- **Single Source of Truth** para cálculos de saldo, parcelas e reforços
-- Funções exportadas: `calcularResumoLote`, `calcularTotaisFluxo`, `contarPagamentos`, `calcularValorProximo`
-- Eliminou ~150 linhas duplicadas de `useConsultaLote.ts`
-- Regra de Bases Correntes: `saldo ÷ parcelas restantes`
+- **Sistema de Bases Correntes**: `Nova parcela = saldo atualizado ÷ parcelas restantes`
+- **Single Source of Truth**: Cada regra de cálculo existe em apenas um módulo
+- **DRY**: Tipos, constantes e lógica nunca são duplicados entre telas
 
-#### 2. Lógica de Mora Centralizada (`src/lib/calculo-mora.ts`)
+### Módulos Centrais
+
+#### 1. Motor Financeiro (`src/lib/calculo-financeiro.ts`)
+- **Ponto único** para cálculos de saldo, parcelas e reforços
+- Funções: `calcularResumoLote`, `calcularTotaisFluxo`, `contarPagamentos`, `calcularValorProximo`
+- Consumido via `useResumoLoteConsulta` em todas as telas
+
+#### 2. Motor de Mora (`src/lib/calculo-mora.ts`)
+- **Ponto único** para juros e multa de mora
 - Funções: `calcularEncargosParcela`, `calcularMesesAtraso`, `isParcelaVencida`, `calcularDataInicioJuros`
-- Eliminou triplicação entre `useParcelasEmAtraso` e `useRelatorioInadimplencia`
-- Re-exports em `useParcelasEmAtraso` para retrocompatibilidade
+- Consumido por `useParcelasEmAtraso` e `useRelatorioInadimplencia`
 
-#### 3. Dashboard - Correção de Fonte de Dados
-- **Antes**: Inadimplência consultava tabela legada `parcelas` (dados desatualizados)
-- **Depois**: Calcula dinamicamente a partir de `vendas` + `conta_corrente_lote`
-- Agora consistente com o restante do sistema
+#### 3. Constantes (`src/constants/`)
+- `movimento.ts`: Tipos de movimento, natureza (débito/crédito), tipos de atualização
+- `status.ts`: Status de lotes e vendas com labels e cores (design tokens)
 
-#### 4. Vendas.tsx - Remoção de Tipos Redundantes
-- Removido `VendaExtended` (duplicava campos já na tabela)
-- Removido `tiposAtualizacao` local (agora importa de `@/constants/movimento`)
-- Removido `TipoAtualizacao` local
+#### 4. Tipos (`src/types/`)
+- `lote.types.ts`: Lote, LoteInsert, LoteUpdate, LoteMinimal
+- `venda.types.ts`: Venda, VendaComRelacionamentos, VendaFormData, emptyVenda
+- `conta-corrente.types.ts`: ContaCorrente, ResumoFluxo, ResumoLote, ContaCorrenteComSaldo
 
-#### 5. useConsultaLote - Simplificação
-- `useResumoLoteConsulta` agora delega 100% ao motor central
-- Query otimizada: seleciona apenas colunas necessárias em vez de `*`
-- Removida importação de `addMonths` (movida ao motor)
+### Hooks de Domínio
 
-### Arquitetura Resultante
+| Hook | Responsabilidade |
+|------|-----------------|
+| `useConsultaLote` | Consulta completa + PIX + atualização auto (usa motor central) |
+| `useParcelasEmAtraso` | Parcelas vencidas com encargos (usa calculo-mora) |
+| `useRelatorioInadimplencia` | Relatório consolidado por comprador (usa calculo-mora) |
+| `useContaCorrente` | CRUD da conta corrente |
+| `useParcelasControle` | Baseline de parcelas pagas |
+| `usePermissions` | Permissões de menu por usuário |
+| `useTableSort` | Ordenação genérica de tabelas |
+
+### Utilitários
+
+| Módulo | Responsabilidade |
+|--------|-----------------|
+| `lib/formatters.ts` | Formatação de moeda, datas, documentos, parsing BR |
+| `lib/pix.ts` | Geração de payloads PIX |
+| `lib/date.ts` | Parsing de datas |
+| `lib/qr-utils.ts` | Utilitários de QR Code |
+| `lib/consulta-lote-pdf.ts` | Exportação PDF da consulta |
+
+### Estrutura do Projeto
 
 ```
 src/
-├── lib/
-│   ├── calculo-financeiro.ts   ← Motor financeiro central (Bases Correntes)
-│   ├── calculo-mora.ts         ← Cálculos de juros e multa centralizados
-│   ├── formatters.ts           ← Formatação de dados
-│   ├── pix.ts                  ← Geração de payloads PIX
-│   └── consulta-lote-pdf.ts    ← Exportação PDF
-├── hooks/
-│   ├── useConsultaLote.ts      ← Consulta + PIX + atualização auto (usa motor central)
-│   ├── useParcelasEmAtraso.ts  ← Parcelas em atraso (usa calculo-mora)
-│   ├── useRelatorioInadimplencia.ts  ← Relatório (usa calculo-mora)
-│   └── useContaCorrente.ts     ← CRUD conta corrente
+├── lib/                          ← Regras de negócio (sem dependência de React)
+│   ├── calculo-financeiro.ts     ← Motor financeiro (Bases Correntes)
+│   ├── calculo-mora.ts           ← Motor de juros/multa
+│   ├── formatters.ts             ← Formatação unificada
+│   ├── pix.ts                    ← PIX payload
+│   ├── date.ts                   ← Parsing de datas
+│   ├── qr-utils.ts               ← QR Code
+│   └── consulta-lote-pdf.ts      ← PDF export
 ├── constants/
-│   ├── movimento.ts            ← Tipos de movimento, atualização, fluxos
-│   └── status.ts               ← Status de lotes e vendas
-└── types/
-    ├── conta-corrente.types.ts ← Tipos financeiros
-    ├── venda.types.ts          ← Tipos de venda
-    └── lote.types.ts           ← Tipos de lote
+│   ├── movimento.ts              ← Tipos de movimento e atualização
+│   └── status.ts                 ← Status com labels e cores
+├── types/
+│   ├── lote.types.ts
+│   ├── venda.types.ts
+│   └── conta-corrente.types.ts
+├── hooks/
+│   ├── useConsultaLote.ts        ← Consulta + PIX + auto-atualização
+│   ├── useParcelasEmAtraso.ts    ← Parcelas em atraso
+│   ├── useRelatorioInadimplencia.ts
+│   ├── useContaCorrente.ts       ← CRUD conta corrente
+│   ├── useParcelasControle.ts    ← Baseline parcelas
+│   ├── usePermissions.tsx        ← Menus permitidos
+│   └── useTableSort.ts           ← Ordenação genérica
+├── pages/
+│   ├── Dashboard.tsx             ← KPIs + mapa + gráficos
+│   ├── Vendas.tsx                ← CRUD vendas (usa tipos centrais)
+│   ├── RecebimentoParcela.tsx    ← Liquidação de títulos
+│   ├── Configuracoes.tsx
+│   ├── Importacao.tsx
+│   ├── Login.tsx
+│   ├── cadastro/                 ← Lotes, Pessoas, Indicadores
+│   ├── contas-correntes/         ← ContaCorrente, Consulta, Inadimplência, etc.
+│   └── contabilidade/            ← Eventos e Contas Contábeis
+├── components/
+│   ├── layout/                   ← AppLayout, AppSidebar
+│   ├── ui/                       ← shadcn components
+│   ├── LoteSearchSelect.tsx      ← Seletor de lote reutilizável
+│   ├── SortableTableHead.tsx     ← Cabeçalho ordenável
+│   └── ParcelasEmAtrasoTable.tsx ← Tabela de parcelas em atraso
+└── contexts/
+    └── AuthContext.tsx            ← Autenticação + roles
 ```
 
+### Refatorações Realizadas
+
+| Ação | Resultado |
+|------|-----------|
+| Criação do motor financeiro central | Eliminou ~150 linhas duplicadas |
+| Unificação da lógica de mora | Eliminou triplicação entre hooks |
+| Dashboard usando `conta_corrente_lote` | Corrigiu inconsistência com tabela legada `parcelas` |
+| Vendas.tsx usando tipos centrais | Eliminou ~75 linhas de tipos/constantes locais |
+| Dashboard usando `vendaStatusColors` | Eliminou `getStatusBadge` local duplicado |
+| Dashboard usando design tokens | Substituiu cores hardcoded por tokens semânticos |
+
 ### Pontos para Revisão Futura
-- `Vendas.tsx` (974 linhas) ainda é um "God Component" - separar query hooks
+
+- `Vendas.tsx` (~900 linhas) pode extrair formulário para componente separado
+- `AtualizacaoMonetaria.tsx` (~900 linhas) pode extrair lógica de cálculo para hook dedicado
 - `ContaCorrenteLote.tsx` pode extrair lógica de sugestões para hook dedicado
-- Tabela `parcelas` + `planos_pagamento` parecem legadas e podem ser descontinuadas
+- Tabelas `parcelas` + `planos_pagamento` são legadas e podem ser descontinuadas
+- `useAtualizacaoMonetariaAutomatica` em `useConsultaLote.ts` poderia ser hook separado
