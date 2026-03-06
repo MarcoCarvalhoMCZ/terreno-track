@@ -338,34 +338,7 @@ export default function Dashboard() {
   }, [todosRecebimentos]);
 
 
-  const getStatusBadge = (status: string | null) => {
-    switch (status) {
-      case "ATIVA":
-        return (
-          <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-            Ativo
-          </Badge>
-        );
-      case "QUITADA":
-        return (
-          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-            Quitada
-          </Badge>
-        );
-      case "CANCELADA":
-        return (
-          <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100">
-            Cancelada
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
-            {status || "N/A"}
-          </Badge>
-        );
-    }
-  };
+
 
   const competenciaAtual = format(new Date(), "MMMM 'de' yyyy", {
     locale: ptBR,
