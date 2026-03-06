@@ -43,22 +43,18 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, ShoppingCart } from "lucide-react";
 import { VendaDocumentos } from "@/components/VendaDocumentos";
 import { toast } from "sonner";
-import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { vendaStatusColors, vendaStatusLabels } from "@/constants/status";
+import { tiposAtualizacao, type TipoAtualizacao } from "@/constants/movimento";
+import type { VendaComRelacionamentos, VendaFormData, Pessoa, Indicador } from "@/types/venda.types";
+import type { Lote } from "@/types/lote.types";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
 import { LoteSearchSelect } from "@/components/LoteSearchSelect";
 
-type Venda = Tables<"vendas">;
 type VendaInsert = TablesInsert<"vendas">;
 type VendaUpdate = TablesUpdate<"vendas">;
-type Lote = Tables<"lotes">;
-type Pessoa = Tables<"pessoas">;
-type Indicador = Tables<"indicadores_atualizacao">;
-
-// Use centralized constants
-import { tiposAtualizacao, type TipoAtualizacao } from "@/constants/movimento";
 
 interface VendaComRelacionamentos {
   id: string;
