@@ -34,6 +34,7 @@ import { format, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { parseDateOnly } from "@/lib/date";
 import { formatCurrency, formatCompactCurrency } from "@/lib/formatters";
+import { vendaStatusColors, vendaStatusLabels } from "@/constants/status";
 import { LoteamentoMap } from "@/components/LoteamentoMap";
 
 export default function Dashboard() {
@@ -337,34 +338,7 @@ export default function Dashboard() {
   }, [todosRecebimentos]);
 
 
-  const getStatusBadge = (status: string | null) => {
-    switch (status) {
-      case "ATIVA":
-        return (
-          <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-            Ativo
-          </Badge>
-        );
-      case "QUITADA":
-        return (
-          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-            Quitada
-          </Badge>
-        );
-      case "CANCELADA":
-        return (
-          <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100">
-            Cancelada
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
-            {status || "N/A"}
-          </Badge>
-        );
-    }
-  };
+
 
   const competenciaAtual = format(new Date(), "MMMM 'de' yyyy", {
     locale: ptBR,
@@ -456,7 +430,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Inadimplência */}
-        <Card className="border-t-4 border-t-yellow-500 bg-white shadow-sm">
+        <Card className="border-t-4 border-t-warning bg-white shadow-sm">
           <CardContent className="pt-4">
             <div className="flex items-start justify-between">
               <div>
@@ -468,8 +442,8 @@ export default function Dashboard() {
                   {inadimplencia?.contratos || 0} contratos (12m)
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-warning" />
               </div>
             </div>
           </CardContent>
@@ -618,7 +592,11 @@ export default function Dashboard() {
                     <TableCell>
                       {formatCurrency(Number(contrato.valor_venda))}
                     </TableCell>
-                    <TableCell>{getStatusBadge(contrato.status)}</TableCell>
+                    <TableCell>
+                      <Badge className={vendaStatusColors[contrato.status || "ATIVA"]}>
+                        {vendaStatusLabels[contrato.status || "ATIVA"]}
+                      </Badge>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (

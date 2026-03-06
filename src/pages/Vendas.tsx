@@ -43,96 +43,20 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, ShoppingCart } from "lucide-react";
 import { VendaDocumentos } from "@/components/VendaDocumentos";
 import { toast } from "sonner";
-import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { vendaStatusColors, vendaStatusLabels } from "@/constants/status";
+import { tiposAtualizacao, type TipoAtualizacao } from "@/constants/movimento";
+import type { VendaComRelacionamentos, VendaFormData, Pessoa, Indicador } from "@/types/venda.types";
+import type { Lote } from "@/types/lote.types";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
 import { LoteSearchSelect } from "@/components/LoteSearchSelect";
 
-type Venda = Tables<"vendas">;
 type VendaInsert = TablesInsert<"vendas">;
 type VendaUpdate = TablesUpdate<"vendas">;
-type Lote = Tables<"lotes">;
-type Pessoa = Tables<"pessoas">;
-type Indicador = Tables<"indicadores_atualizacao">;
 
-// Use centralized constants
-import { tiposAtualizacao, type TipoAtualizacao } from "@/constants/movimento";
-
-interface VendaComRelacionamentos {
-  id: string;
-  lote_id: string;
-  data_venda: string;
-  comprador_pessoa_id: string;
-  vendedor_pessoa_id?: string | null;
-  valor_venda: number;
-  valor_arras?: number | null;
-  indicador_atualizacao_id?: string | null;
-  status?: string | null;
-  observacoes?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  created_by?: string | null;
-  updated_by?: string | null;
-  lote?: { id: string; quadra: string; numero_lote: string };
-  comprador?: { id: string; nome_razao: string };
-  vendedor?: { id: string; nome_razao: string };
-  indicador?: { id: string; nome: string };
-  tipo_atualizacao?: string | null;
-  defasagem_indice?: number | null;
-  comprador_nome_1?: string | null;
-  comprador_cpf_1?: string | null;
-  comprador_nome_2?: string | null;
-  comprador_cpf_2?: string | null;
-  valor_parcelamento?: number | null;
-  qtd_parcelas?: number | null;
-  frequencia_parcelas_meses?: number | null;
-  valor_reforco?: number | null;
-  qtd_reforcos?: number | null;
-  frequencia_reforcos_meses?: number | null;
-  primeiro_vencimento_parcela?: string | null;
-  primeiro_vencimento_reforco?: string | null;
-  conta_recebimento_vendedor_id?: string | null;
-  corretor_pessoa_id?: string | null;
-  percentual_corretagem?: number | null;
-}
-
-interface VendaFormData extends Partial<VendaInsert> {
-  tipo_atualizacao?: TipoAtualizacao;
-  defasagem_indice?: number;
-  comprador_solidario_2_id?: string;
-  valor_parcelamento?: number;
-  qtd_parcelas?: number;
-  frequencia_parcelas_meses?: number;
-  primeiro_vencimento_parcela?: string;
-  valor_reforco?: number;
-  qtd_reforcos?: number;
-  frequencia_reforcos_meses?: number;
-  primeiro_vencimento_reforco?: string;
-}
-
-const emptyVenda: VendaFormData = {
-  lote_id: "",
-  data_venda: new Date().toISOString().split("T")[0],
-  comprador_pessoa_id: "",
-  valor_venda: 0,
-  valor_arras: null,
-  indicador_atualizacao_id: "",
-  status: "ATIVA",
-  observacoes: "",
-  tipo_atualizacao: "IGPM",
-  defasagem_indice: 1,
-  comprador_solidario_2_id: "",
-  valor_parcelamento: undefined,
-  qtd_parcelas: 1,
-  frequencia_parcelas_meses: 1,
-  primeiro_vencimento_parcela: "",
-  valor_reforco: undefined,
-  qtd_reforcos: undefined,
-  frequencia_reforcos_meses: undefined,
-  primeiro_vencimento_reforco: "",
-};
+import { emptyVenda } from "@/types/venda.types";
 
 export default function Vendas() {
   const { canEdit } = useAuth();
