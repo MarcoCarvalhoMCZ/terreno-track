@@ -1,18 +1,14 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, differenceInMonths, startOfMonth, isBefore, isAfter, isSameMonth, parseISO } from "date-fns";
+import { addMonths, startOfMonth, isBefore, isSameMonth, parseISO } from "date-fns";
+import { calcularEncargosParcela } from "@/lib/calculo-mora";
+import type { MoraConfig, CriterioJurosMora } from "@/lib/calculo-mora";
 import type { TipoConta } from "@/types/conta-corrente.types";
 
-/**
- * Configurações de mora carregadas do banco
- */
-export interface MoraConfig {
-  juros_mora_percentual: number;
-  multa_mora_percentual: number;
-  criterio_juros_mora: "MES_SUBSEQUENTE" | "TOLERANCIA";
-  tolerancia_dias_juros: number;
-}
+// Re-export types from the shared lib so existing consumers don't break
+export type { MoraConfig, CriterioJurosMora } from "@/lib/calculo-mora";
+export { calcularEncargosParcela, calcularMesesAtraso, isParcelaVencida } from "@/lib/calculo-mora";
 
 /**
  * Uma parcela com cálculo de atraso
@@ -59,7 +55,7 @@ export function useMoraConfig() {
       return {
         juros_mora_percentual: data?.juros_mora_percentual ?? 1.0,
         multa_mora_percentual: data?.multa_mora_percentual ?? 2.0,
-        criterio_juros_mora: (data?.criterio_juros_mora as "MES_SUBSEQUENTE" | "TOLERANCIA") || "MES_SUBSEQUENTE",
+        criterio_juros_mora: (data?.criterio_juros_mora as CriterioJurosMora) || "MES_SUBSEQUENTE",
         tolerancia_dias_juros: data?.tolerancia_dias_juros ?? 0,
       };
     },
@@ -74,7 +70,7 @@ export function useUltimaAtualizacaoLote(loteId: string | null) {
     queryKey: ["ultima-atualizacao-lote", loteId],
     queryFn: async (): Promise<Date | null> => {
       if (!loteId) return null;
-      
+
       const { data, error } = await supabase
         .from("conta_corrente_lote")
         .select("data_mov")
@@ -86,73 +82,11 @@ export function useUltimaAtualizacaoLote(loteId: string | null) {
 
       if (error) throw error;
       if (!data?.data_mov) return null;
-      
+
       return parseISO(data.data_mov);
     },
     enabled: !!loteId,
   });
-}
-
-/**
- * Calcula a data a partir da qual os juros começam a incidir
- */
-function calcularDataInicioJuros(
-  vencimento: Date,
-  criterio: "MES_SUBSEQUENTE" | "TOLERANCIA",
-  toleranciaDias: number
-): Date {
-  if (criterio === "MES_SUBSEQUENTE") {
-    // Primeiro dia do mês subsequente ao vencimento
-    return startOfMonth(addMonths(vencimento, 1));
-  } else {
-    // Vencimento + tolerância em dias
-    const dataComTolerancia = new Date(vencimento);
-    dataComTolerancia.setDate(dataComTolerancia.getDate() + toleranciaDias);
-    return dataComTolerancia;
-  }
-}
-
-/**
- * Calcula os meses de atraso para incidência de juros
- */
-function calcularMesesAtraso(
-  vencimento: Date,
-  dataAtual: Date,
-  criterio: "MES_SUBSEQUENTE" | "TOLERANCIA",
-  toleranciaDias: number
-): number {
-  const dataInicioJuros = calcularDataInicioJuros(vencimento, criterio, toleranciaDias);
-
-  // Se ainda não passou da data de início de juros, não há atraso para juros
-  if (isBefore(dataAtual, dataInicioJuros)) {
-    return 0;
-  }
-
-  // Calcular meses completos de atraso
-  if (criterio === "MES_SUBSEQUENTE") {
-    // Conta meses desde o primeiro dia do mês subsequente
-    return differenceInMonths(dataAtual, dataInicioJuros) + 1;
-  } else {
-    // Para tolerância em dias, conta meses desde a data com tolerância
-    return Math.max(0, differenceInMonths(dataAtual, dataInicioJuros) + 1);
-  }
-}
-
-/**
- * Verifica se uma parcela está vencida (considerando tolerância)
- */
-function isParcelaVencida(
-  vencimento: Date,
-  dataAtual: Date,
-  criterio: "MES_SUBSEQUENTE" | "TOLERANCIA",
-  toleranciaDias: number
-): boolean {
-  if (criterio === "TOLERANCIA" && toleranciaDias > 0) {
-    const dataLimite = new Date(vencimento);
-    dataLimite.setDate(dataLimite.getDate() + toleranciaDias);
-    return isAfter(dataAtual, dataLimite);
-  }
-  return isAfter(dataAtual, vencimento);
 }
 
 interface VendaData {
@@ -175,25 +109,16 @@ interface ResumoLoteData {
   primeiroVencimentoReforco: Date | null;
 }
 
-interface UseParcelasParams {
-  tipoFluxo: TipoConta;
-  venda: VendaData | null | undefined;
-  resumo: ResumoLoteData | null | undefined;
-  moraConfig: MoraConfig | null | undefined;
-  ultimaAtualizacao: Date | null | undefined;
-}
-
 /**
- * Hook para calcular parcelas em atraso com juros e multa
- * PARCELAMENTO: QR codes para todas as parcelas que vencem no mês da última atualização monetária
- * REFORÇO: QR codes para parcelas vencidas + primeira a vencer
+ * Hook para calcular parcelas em atraso com juros e multa.
+ * Usa a biblioteca centralizada `calculo-mora.ts` para todos os cálculos.
  */
 export function useParcelasEmAtraso(
   tipoFluxo: TipoConta,
   venda: VendaData | null | undefined,
   resumo: ResumoLoteData | null | undefined,
   moraConfig: MoraConfig | null | undefined,
-  ultimaAtualizacao?: Date | null
+  ultimaAtualizacao?: Date | null,
 ): ResumoParcelasEmAtraso {
   return useMemo(() => {
     const resultado: ResumoParcelasEmAtraso = {
@@ -206,52 +131,34 @@ export function useParcelasEmAtraso(
       return resultado;
     }
 
-    // Usar a data da última atualização monetária como referência para cálculos de mora
-    // Isso garante que juros/multa sejam calculados até o mês de referência, não até hoje
     const dataAtual = ultimaAtualizacao ? ultimaAtualizacao : new Date();
     const isParcelamento = tipoFluxo === "PARCELAMENTO";
 
-    // Configurações do fluxo
     const qtdPagas = isParcelamento ? resumo.qtdParcelasPagas : resumo.qtdReforcosPagos;
     const qtdAPagar = isParcelamento ? resumo.qtdParcelasAPagar : resumo.qtdReforcosAPagar;
     const qtdTotal = isParcelamento ? (venda.qtd_parcelas || 0) : (venda.qtd_reforcos || 0);
     const valorParcela = isParcelamento ? resumo.valorProximaParcela : resumo.valorProximoReforco;
     const primeiroVencimento = isParcelamento ? resumo.primeiroVencimentoParcela : resumo.primeiroVencimentoReforco;
-    const frequenciaMeses = isParcelamento 
-      ? (venda.frequencia_parcelas_meses || 1) 
+    const frequenciaMeses = isParcelamento
+      ? (venda.frequencia_parcelas_meses || 1)
       : (venda.frequencia_reforcos_meses || 12);
 
     if (qtdAPagar <= 0 || valorParcela <= 0 || !primeiroVencimento) {
       return resultado;
     }
 
-    const { juros_mora_percentual, multa_mora_percentual, criterio_juros_mora, tolerancia_dias_juros } = moraConfig;
-
-    // Primeiro, gerar todas as parcelas a pagar
+    // Gerar todas as parcelas a pagar
     const todasParcelas: ParcelaEmAtraso[] = [];
     let primeiraAVencerIdx = -1;
 
     for (let i = 0; i < qtdAPagar; i++) {
       const numeroParcela = qtdPagas + i + 1;
       const vencimento = addMonths(primeiroVencimento, (qtdPagas + i) * frequenciaMeses);
-      
-      const vencida = isParcelaVencida(vencimento, dataAtual, criterio_juros_mora, tolerancia_dias_juros);
-      const mesesAtraso = vencida 
-        ? calcularMesesAtraso(vencimento, dataAtual, criterio_juros_mora, tolerancia_dias_juros)
-        : 0;
-      
-      // Juros incide sobre o valor da parcela, proporcional aos meses
-      const jurosPercentual = mesesAtraso * juros_mora_percentual;
-      const valorJuros = valorParcela * (jurosPercentual / 100);
-      
-      // Multa incide apenas uma vez sobre o valor da parcela, MAS SOMENTE quando há juros (mesesAtraso > 0)
-      // Multa e juros sempre vêm acompanhados
-      const valorMulta = mesesAtraso > 0 ? valorParcela * (multa_mora_percentual / 100) : 0;
-      
-      const totalParcela = valorParcela + valorJuros + valorMulta;
 
-      // Identificar primeira parcela a vencer (não vencida)
-      if (!vencida && primeiraAVencerIdx === -1) {
+      // Usar a biblioteca centralizada para calcular encargos
+      const encargos = calcularEncargosParcela(valorParcela, vencimento, dataAtual, moraConfig);
+
+      if (!encargos.isVencida && primeiraAVencerIdx === -1) {
         primeiraAVencerIdx = i;
       }
 
@@ -260,17 +167,17 @@ export function useParcelasEmAtraso(
         totalParcelas: qtdTotal,
         vencimento,
         valorParcela,
-        mesesAtraso,
-        jurosPercentual,
-        valorJuros,
-        valorMulta,
-        totalParcela,
-        isVencida: vencida,
-        isPrimeiraAVencer: false, // será definido depois
-        exibirQrCode: false, // será definido depois
+        mesesAtraso: encargos.mesesAtraso,
+        jurosPercentual: encargos.jurosPercentual,
+        valorJuros: encargos.valorJuros,
+        valorMulta: encargos.valorMulta,
+        totalParcela: encargos.totalParcela,
+        isVencida: encargos.isVencida,
+        isPrimeiraAVencer: false,
+        exibirQrCode: false,
       });
 
-      if (vencida) {
+      if (encargos.isVencida) {
         resultado.isInadimplente = true;
       }
     }
@@ -282,12 +189,11 @@ export function useParcelasEmAtraso(
 
     // Limite: nunca exceder o mês da última atualização monetária
     const limiteAtualiz = ultimaAtualizacao
-      ? startOfMonth(addMonths(ultimaAtualizacao, 1)) // primeiro dia do mês seguinte = limite exclusivo
+      ? startOfMonth(addMonths(ultimaAtualizacao, 1))
       : null;
 
     // Filtrar parcelas: vencidas + primeira a vencer, respeitando o limite
-    const parcelasFiltradas = todasParcelas.filter(p => {
-      // Se há limite e o vencimento é no mês seguinte ou além, não exibir
+    const parcelasFiltradas = todasParcelas.filter((p) => {
       if (limiteAtualiz && !isBefore(p.vencimento, limiteAtualiz) && !isSameMonth(p.vencimento, ultimaAtualizacao!)) {
         return false;
       }
@@ -297,21 +203,19 @@ export function useParcelasEmAtraso(
     });
 
     if (isParcelamento) {
-      // QR codes: vencidas sempre; primeira a vencer somente se no mês da última atualização
-      resultado.parcelas = parcelasFiltradas.map(p => ({
+      resultado.parcelas = parcelasFiltradas.map((p) => ({
         ...p,
-        exibirQrCode: p.isVencida 
-          ? true 
+        exibirQrCode: p.isVencida
+          ? true
           : (ultimaAtualizacao ? isSameMonth(p.vencimento, ultimaAtualizacao) : true),
       }));
     } else {
-      // REFORÇO: todas com QR code
-      resultado.parcelas = parcelasFiltradas.map(p => ({
+      resultado.parcelas = parcelasFiltradas.map((p) => ({
         ...p,
         exibirQrCode: true,
       }));
     }
-    
+
     resultado.totalDevido = resultado.parcelas.reduce((acc, p) => acc + p.totalParcela, 0);
 
     return resultado;
