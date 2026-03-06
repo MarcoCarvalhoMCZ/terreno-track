@@ -442,8 +442,8 @@ export default function Dashboard() {
                   {inadimplencia?.contratos || 0} contratos (12m)
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-warning" />
               </div>
             </div>
           </CardContent>
