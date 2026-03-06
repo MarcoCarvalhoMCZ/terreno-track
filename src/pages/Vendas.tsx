@@ -48,6 +48,7 @@ import { formatCurrency, formatDate } from "@/lib/formatters";
 import { vendaStatusColors, vendaStatusLabels } from "@/constants/status";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
+import { LoteSearchSelect } from "@/components/LoteSearchSelect";
 
 type Venda = Tables<"vendas">;
 type VendaInsert = TablesInsert<"vendas">;
@@ -517,23 +518,14 @@ export default function Vendas() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="lote_id">Lote *</Label>
-                    <Select
+                    <LoteSearchSelect
+                      lotes={availableLotes}
                       value={formData.lote_id || ""}
                       onValueChange={(value) =>
                         setFormData({ ...formData, lote_id: value })
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o lote" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableLotes?.map((lote) => (
-                          <SelectItem key={lote.id} value={lote.id}>
-                            Quadra {lote.quadra} - Lote {lote.numero_lote}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Selecione o lote"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="data_venda">Data da Venda *</Label>

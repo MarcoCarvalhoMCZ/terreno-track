@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LoteSearchSelect } from "@/components/LoteSearchSelect";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -220,18 +221,12 @@ export default function Reorganizacao() {
               <div className="flex flex-wrap items-end gap-4">
                 <div className="space-y-2 flex-1 min-w-[200px]">
                   <Label htmlFor="lote">Lote</Label>
-                  <Select value={selectedLoteId} onValueChange={setSelectedLoteId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um lote" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {lotes?.map((lote) => (
-                        <SelectItem key={lote.id} value={lote.id}>
-                          Q{lote.quadra} L{lote.numero_lote}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <LoteSearchSelect
+                    lotes={lotes}
+                    value={selectedLoteId}
+                    onValueChange={setSelectedLoteId}
+                    placeholder="Selecione um lote"
+                  />
                 </div>
 
                 {canEdit && (
@@ -287,18 +282,12 @@ export default function Reorganizacao() {
               <div className="flex flex-wrap items-end gap-4">
                 <div className="space-y-2 flex-1 min-w-[200px]">
                   <Label htmlFor="lote">Lote</Label>
-                  <Select value={selectedLoteId} onValueChange={setSelectedLoteId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um lote" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {lotes?.map((lote) => (
-                        <SelectItem key={lote.id} value={lote.id}>
-                          Q{lote.quadra} L{lote.numero_lote}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <LoteSearchSelect
+                    lotes={lotes}
+                    value={selectedLoteId}
+                    onValueChange={setSelectedLoteId}
+                    placeholder="Selecione um lote"
+                  />
                 </div>
 
                 {canEdit && (
