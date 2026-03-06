@@ -34,6 +34,7 @@ import { format, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { parseDateOnly } from "@/lib/date";
 import { formatCurrency, formatCompactCurrency } from "@/lib/formatters";
+import { vendaStatusColors, vendaStatusLabels } from "@/constants/status";
 import { LoteamentoMap } from "@/components/LoteamentoMap";
 
 export default function Dashboard() {
