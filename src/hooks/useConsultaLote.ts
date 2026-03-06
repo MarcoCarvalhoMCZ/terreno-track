@@ -203,13 +203,19 @@ export function useResumoLoteConsulta(loteId: string, venda: any) {
       const qtdParcelasAPagar = Math.max(0, qtdParcelasContratadas - qtdParcelasPagas);
       const qtdReforcosAPagar = Math.max(0, qtdReforcosContratados - qtdReforcosPagos);
 
-      const valorProximaParcela = qtdParcelasAPagar > 0 
-        ? parcelamentoTotais.saldoReceber / qtdParcelasAPagar 
-        : 0;
+      let valorProximaParcela = 0;
+      if (qtdParcelasAPagar > 0) {
+        valorProximaParcela = parcelamentoTotais.saldoReceber > 0
+          ? parcelamentoTotais.saldoReceber / qtdParcelasAPagar
+          : (venda?.valor_parcelamento || 0) / qtdParcelasContratadas;
+      }
       
-      const valorProximoReforco = qtdReforcosAPagar > 0 
-        ? reforcoTotais.saldoReceber / qtdReforcosAPagar
-        : 0;
+      let valorProximoReforco = 0;
+      if (qtdReforcosAPagar > 0) {
+        valorProximoReforco = reforcoTotais.saldoReceber > 0
+          ? reforcoTotais.saldoReceber / qtdReforcosAPagar
+          : (venda?.valor_reforco || 0) / qtdReforcosContratados;
+      }
 
       let primeiroVencimentoParcela: Date | null = null;
       let primeiroVencimentoReforco: Date | null = null;
