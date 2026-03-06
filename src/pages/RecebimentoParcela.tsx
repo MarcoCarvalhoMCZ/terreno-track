@@ -148,7 +148,7 @@ export default function RecebimentoParcela() {
     registrarMutation.reset();
     setParcelaSelecionada(parcela);
     setValorRecebido(parcela.totalParcela.toFixed(2));
-    setDataPagamento(format(new Date(), "yyyy-MM-dd"));
+    setDataPagamento(format(parcela.vencimento, "yyyy-MM-dd"));
     setModoPagamento("");
     setBancoOrigem("");
     setCpfCnpjPagador("");
