@@ -175,7 +175,7 @@ export default function RecebimentoParcela() {
           tipo_mov: parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "PARCELA" : "REFORCO",
           tipo_fluxo: parcelaSelecionada.tipoFluxo,
           descricao: descricao || `${tipoLabel} Recebida`,
-          credito: parcelaSelecionada.valorParcela,
+          credito: valor,
           debito: 0,
           referencia,
           vencimento: format(parcelaSelecionada.vencimento, "yyyy-MM-dd"),
