@@ -145,6 +145,7 @@ export default function RecebimentoParcela() {
   });
 
   const abrirDialog = (parcela: ParcelaCalculada) => {
+    registrarMutation.reset();
     setParcelaSelecionada(parcela);
     setValorRecebido(parcela.totalParcela.toFixed(2));
     setDataPagamento(format(new Date(), "yyyy-MM-dd"));
