@@ -171,38 +171,80 @@ export default function Dashboard() {
     },
   });
 
-  // Inadimplência - parcelas vencidas e não pagas (últimos 12 meses)
+  // Inadimplência - vendas ativas com parcelas vencidas (via conta_corrente_lote)
   const { data: inadimplencia } = useQuery({
-    queryKey: ["inadimplencia-stats-12m"],
+    queryKey: ["inadimplencia-stats"],
     queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
-      const { data: vencidas, error } = await supabase
-        .from("parcelas")
-        .select("*, plano:planos_pagamento(venda_id)")
-        .eq("status", "ABERTA")
-        .lt("vencimento", today)
-        .gte("vencimento", dataInicio12Meses);
-      if (error) throw error;
+      // Buscar vendas ativas com dados necessários
+      const { data: vendasAtivas, error: errVendas } = await supabase
+        .from("vendas")
+        .select("id, lote_id, qtd_parcelas, qtd_reforcos, primeiro_vencimento_parcela, primeiro_vencimento_reforco, frequencia_parcelas_meses, frequencia_reforcos_meses")
+        .eq("status", "ATIVA");
+      if (errVendas) throw errVendas;
 
-      const { data: totalParcelas } = await supabase
-        .from("parcelas")
-        .select("id")
-        .gte("vencimento", dataInicio12Meses);
+      // Buscar contagem de pagamentos por lote
+      const { data: pagamentos, error: errPag } = await supabase
+        .from("conta_corrente_lote")
+        .select("lote_id, tipo_fluxo")
+        .in("tipo_mov", ["PARCELA", "REFORCO"])
+        .gt("credito", 0);
+      if (errPag) throw errPag;
 
-      const percentual =
-        totalParcelas && totalParcelas.length > 0
-          ? ((vencidas.length / totalParcelas.length) * 100).toFixed(1)
-          : 0;
+      const pagMap: Record<string, { parc: number; ref: number }> = {};
+      (pagamentos || []).forEach(p => {
+        if (!pagMap[p.lote_id]) pagMap[p.lote_id] = { parc: 0, ref: 0 };
+        if (p.tipo_fluxo === "PARCELAMENTO") pagMap[p.lote_id].parc++;
+        else if (p.tipo_fluxo === "REFORCO") pagMap[p.lote_id].ref++;
+      });
 
-      // Contar contratos únicos com inadimplência
-      const contratosUnicos = new Set(
-        vencidas.map((v) => v.plano?.venda_id).filter(Boolean)
-      );
+      const hoje = new Date();
+      let parcelasVencidas = 0;
+      let totalParcelas = 0;
+      const contratosInadimplentes = new Set<string>();
+
+      for (const v of (vendasAtivas || [])) {
+        // Verificar PARCELAMENTO
+        if (v.primeiro_vencimento_parcela && v.qtd_parcelas) {
+          const pagas = pagMap[v.lote_id]?.parc || 0;
+          const aPagar = Math.max(0, v.qtd_parcelas - pagas);
+          totalParcelas += v.qtd_parcelas;
+          const freq = v.frequencia_parcelas_meses || 1;
+          const pv = new Date(v.primeiro_vencimento_parcela);
+          for (let i = 0; i < aPagar; i++) {
+            const venc = new Date(pv);
+            venc.setMonth(venc.getMonth() + (pagas + i) * freq);
+            if (venc < hoje) {
+              parcelasVencidas++;
+              contratosInadimplentes.add(v.id);
+            }
+          }
+        }
+        // Verificar REFORÇO
+        if (v.primeiro_vencimento_reforco && v.qtd_reforcos) {
+          const pagas = pagMap[v.lote_id]?.ref || 0;
+          const aPagar = Math.max(0, v.qtd_reforcos - pagas);
+          totalParcelas += v.qtd_reforcos;
+          const freq = v.frequencia_reforcos_meses || 12;
+          const pv = new Date(v.primeiro_vencimento_reforco);
+          for (let i = 0; i < aPagar; i++) {
+            const venc = new Date(pv);
+            venc.setMonth(venc.getMonth() + (pagas + i) * freq);
+            if (venc < hoje) {
+              parcelasVencidas++;
+              contratosInadimplentes.add(v.id);
+            }
+          }
+        }
+      }
+
+      const percentual = totalParcelas > 0
+        ? ((parcelasVencidas / totalParcelas) * 100).toFixed(1)
+        : 0;
 
       return {
-        quantidade: vencidas.length,
+        quantidade: parcelasVencidas,
         percentual,
-        contratos: contratosUnicos.size,
+        contratos: contratosInadimplentes.size,
       };
     },
   });

@@ -57,21 +57,8 @@ type Lote = Tables<"lotes">;
 type Pessoa = Tables<"pessoas">;
 type Indicador = Tables<"indicadores_atualizacao">;
 
-// Extend Venda type with new fields and relationships
-type VendaExtended = Venda & {
-  tipo_atualizacao?: string | null;
-  defasagem_indice?: number | null;
-  comprador_nome_1?: string | null;
-  comprador_cpf_1?: string | null;
-  comprador_nome_2?: string | null;
-  comprador_cpf_2?: string | null;
-  valor_parcelamento?: number | null;
-  qtd_parcelas?: number | null;
-  frequencia_parcelas_meses?: number | null;
-  valor_reforco?: number | null;
-  qtd_reforcos?: number | null;
-  frequencia_reforcos_meses?: number | null;
-};
+// Use centralized constants
+import { tiposAtualizacao, type TipoAtualizacao } from "@/constants/movimento";
 
 interface VendaComRelacionamentos {
   id: string;
@@ -104,15 +91,12 @@ interface VendaComRelacionamentos {
   valor_reforco?: number | null;
   qtd_reforcos?: number | null;
   frequencia_reforcos_meses?: number | null;
+  primeiro_vencimento_parcela?: string | null;
+  primeiro_vencimento_reforco?: string | null;
+  conta_recebimento_vendedor_id?: string | null;
+  corretor_pessoa_id?: string | null;
+  percentual_corretagem?: number | null;
 }
-
-// Tipos de atualização monetária
-const tiposAtualizacao = [
-  { value: "IGPM", label: "IGP-M" },
-  { value: "MEDIA", label: "Média" },
-] as const;
-
-type TipoAtualizacao = "IGPM" | "MEDIA";
 
 interface VendaFormData extends Partial<VendaInsert> {
   tipo_atualizacao?: TipoAtualizacao;

@@ -1,9 +1,10 @@
 import { useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, format, subMonths, startOfMonth, parseISO } from "date-fns";
+import { format, subMonths, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { generatePixPayload, generateTxId, TipoFluxoTxId } from "@/lib/pix";
+import { calcularResumoLote } from "@/lib/calculo-financeiro";
 import type { ResumoFluxo, ResumoLote, TipoConta } from "@/types/conta-corrente.types";
 
 // Fetch lotes for selection
@@ -104,172 +105,41 @@ export function useMovimentosFiltrados(
   }, [movimentosComSaldo, filtroAtivo, dataInicialISO, dataFinalISO]);
 }
 
-// Fetch resumo for the selected lote
+// Fetch resumo for the selected lote (delegates to central financial engine)
 export function useResumoLoteConsulta(loteId: string, venda: any) {
   return useQuery({
     queryKey: ["resumo-lote-consulta", loteId, venda?.id],
     queryFn: async (): Promise<ResumoLote | null> => {
       if (!loteId) return null;
       
-      // Buscar movimentos e baseline de parcelas em paralelo
       const [movResult, controleResult] = await Promise.all([
         supabase
           .from("conta_corrente_lote")
-          .select("*")
+          .select("tipo_mov, tipo_fluxo, debito, credito, data_mov, vencimento, referencia")
           .eq("lote_id", loteId)
           .order("data_mov", { ascending: true })
           .order("created_at", { ascending: true }),
         supabase
           .from("parcelas_controle")
-          .select("*")
-          .eq("lote_id", loteId)
+          .select("tipo_fluxo, data_base, qtd_pagas_base")
+          .eq("lote_id", loteId),
       ]);
       if (movResult.error) throw movResult.error;
-      const allMovimentos = movResult.data;
-      const parcelasControle = controleResult.data || [];
-      
-      const movParcelamento = allMovimentos.filter(m => m.tipo_fluxo === "PARCELAMENTO");
-      const movReforco = allMovimentos.filter(m => m.tipo_fluxo === "REFORCO");
 
-      const isArrasSinal = (referencia: string | null) => {
-        if (!referencia) return false;
-        const lower = referencia.toLowerCase();
-        return lower.includes("arras") || lower.includes("sinal");
-      };
-
-      const calcularTotaisFluxo = (movimentos: typeof allMovimentos): ResumoFluxo => {
-        const totalVenda = movimentos
-          .filter(m => ["VENDA", "ENTRADA_PARCELA", "SINAL", "REFORCO", "PARCELA"].includes(m.tipo_mov))
-          .reduce((acc, m) => acc + (m.debito || 0), 0);
-        
-        const totalAtualizacoes = movimentos
-          .filter(m => m.tipo_mov === "ATUALIZACAO")
-          .reduce((acc, m) => acc + (m.debito || 0), 0);
-
-        const totalJurosMora = movimentos
-          .filter(m => m.tipo_mov === "JUROS_MORA")
-          .reduce((acc, m) => acc + (m.debito || 0), 0);
-
-        const totalMultasMora = movimentos
-          .filter(m => m.tipo_mov === "MULTA_MORA")
-          .reduce((acc, m) => acc + (m.debito || 0), 0);
-
-        const totalRecebido = movimentos.reduce((acc, m) => acc + (m.credito || 0), 0);
-
-        // Calcular saldo acumulado (débitos - créditos) em vez de usar o campo saldo do último registro
-        const saldoReceber = movimentos.reduce((acc, m) => acc + (m.debito || 0) - (m.credito || 0), 0);
-
-        return {
-          totalVenda,
-          totalAtualizacoes,
-          totalJurosMora,
-          totalMultasMora,
-          totalRecebido,
-          saldoReceber
-        };
-      };
-
-      const parcelamentoTotais = calcularTotaisFluxo(movParcelamento);
-      const reforcoTotais = calcularTotaisFluxo(movReforco);
-
-      // Usar baseline da tabela parcelas_controle se existir
-      const parcelamentoBaseline = parcelasControle?.find(c => c.tipo_fluxo === 'PARCELAMENTO');
-      const reforcoBaseline = parcelasControle?.find(c => c.tipo_fluxo === 'REFORCO');
-
-      // Contar pagamentos APÓS a data base (novos pagamentos rastreados pelo sistema)
-      const contarPagamentosAposBase = (movimentos: typeof allMovimentos, baseline: typeof parcelamentoBaseline) => {
-        if (!baseline) {
-          // Sem baseline: contar todos os créditos (comportamento legado)
-          return movimentos.filter(m => 
-            (m.credito || 0) > 0 && !isArrasSinal(m.referencia) &&
-            ["PARCELA", "REFORCO"].includes(m.tipo_mov)
-          ).length;
-        }
-        // Com baseline: contar apenas movimentos com crédito após data_base
-        return movimentos.filter(m => 
-          (m.credito || 0) > 0 &&
-          !isArrasSinal(m.referencia) &&
-          m.data_mov > baseline.data_base &&
-          ["PARCELA", "REFORCO"].includes(m.tipo_mov)
-        ).length;
-      };
-
-      const qtdParcelasPagas = (parcelamentoBaseline?.qtd_pagas_base || 0) + contarPagamentosAposBase(movParcelamento, parcelamentoBaseline);
-      const qtdReforcosPagos = (reforcoBaseline?.qtd_pagas_base || 0) + contarPagamentosAposBase(movReforco, reforcoBaseline);
-
-      const qtdParcelasContratadas = venda?.qtd_parcelas || 0;
-      const qtdReforcosContratados = venda?.qtd_reforcos || 0;
-      
-      const qtdParcelasAPagar = Math.max(0, qtdParcelasContratadas - qtdParcelasPagas);
-      const qtdReforcosAPagar = Math.max(0, qtdReforcosContratados - qtdReforcosPagos);
-
-      let valorProximaParcela = 0;
-      if (qtdParcelasAPagar > 0) {
-        valorProximaParcela = parcelamentoTotais.saldoReceber > 0
-          ? parcelamentoTotais.saldoReceber / qtdParcelasAPagar
-          : (venda?.valor_parcelamento || 0) / qtdParcelasContratadas;
-      }
-      
-      let valorProximoReforco = 0;
-      if (qtdReforcosAPagar > 0) {
-        valorProximoReforco = reforcoTotais.saldoReceber > 0
-          ? reforcoTotais.saldoReceber / qtdReforcosAPagar
-          : (venda?.valor_reforco || 0) / qtdReforcosContratados;
-      }
-
-      let primeiroVencimentoParcela: Date | null = null;
-      let primeiroVencimentoReforco: Date | null = null;
-      
-      if ((venda as any)?.primeiro_vencimento_parcela) {
-        primeiroVencimentoParcela = new Date((venda as any).primeiro_vencimento_parcela);
-      } else {
-        const primeiraParcelaVenc = movParcelamento.find(m => 
-          m.tipo_mov === "PARCELA" && m.vencimento && !isArrasSinal(m.referencia)
-        );
-        primeiroVencimentoParcela = primeiraParcelaVenc?.vencimento 
-          ? new Date(primeiraParcelaVenc.vencimento) 
-          : null;
-      }
-      
-      if ((venda as any)?.primeiro_vencimento_reforco) {
-        primeiroVencimentoReforco = new Date((venda as any).primeiro_vencimento_reforco);
-      } else {
-        const primeiroReforcoVenc = movReforco.find(m => 
-          m.tipo_mov === "REFORCO" && m.vencimento
-        );
-        primeiroVencimentoReforco = primeiroReforcoVenc?.vencimento 
-          ? new Date(primeiroReforcoVenc.vencimento) 
-          : null;
-      }
-
-      let vencimentoProximaParcela: Date | null = null;
-      if (primeiroVencimentoParcela && qtdParcelasAPagar > 0) {
-        const freqParcelas = venda?.frequencia_parcelas_meses || 1;
-        vencimentoProximaParcela = addMonths(primeiroVencimentoParcela, qtdParcelasPagas * freqParcelas);
-      }
-
-      let vencimentoProximoReforco: Date | null = null;
-      if (primeiroVencimentoReforco && qtdReforcosAPagar > 0) {
-        const freqReforcos = venda?.frequencia_reforcos_meses || 12;
-        vencimentoProximoReforco = addMonths(primeiroVencimentoReforco, qtdReforcosPagos * freqReforcos);
-      }
-
-      return { 
-        parcelamento: parcelamentoTotais,
-        reforco: reforcoTotais,
-        qtdParcelasContratadas,
-        qtdParcelasPagas,
-        qtdParcelasAPagar,
-        qtdReforcosContratados,
-        qtdReforcosPagos,
-        qtdReforcosAPagar,
-        valorProximaParcela,
-        vencimentoProximaParcela,
-        valorProximoReforco,
-        vencimentoProximoReforco,
-        primeiroVencimentoParcela,
-        primeiroVencimentoReforco
-      };
+      return calcularResumoLote(
+        movResult.data || [],
+        controleResult.data || [],
+        {
+          qtd_parcelas: venda?.qtd_parcelas ?? null,
+          qtd_reforcos: venda?.qtd_reforcos ?? null,
+          frequencia_parcelas_meses: venda?.frequencia_parcelas_meses ?? null,
+          frequencia_reforcos_meses: venda?.frequencia_reforcos_meses ?? null,
+          primeiro_vencimento_parcela: venda?.primeiro_vencimento_parcela ?? null,
+          primeiro_vencimento_reforco: venda?.primeiro_vencimento_reforco ?? null,
+          valor_parcelamento: venda?.valor_parcelamento ?? null,
+          valor_reforco: venda?.valor_reforco ?? null,
+        },
+      );
     },
     enabled: !!loteId && venda !== undefined,
   });
