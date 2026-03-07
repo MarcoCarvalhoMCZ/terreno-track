@@ -544,8 +544,10 @@ export async function exportConsultaLoteToPDF(params: PDFExportParams): Promise<
       yPos = await addQrCodesAtraso(doc, yPos, tipo, resumoAtraso, buildPixPayloadForParcela, includeQrCodes, chavePix);
     }
 
-    // Always add the institutional payment imputation notice
-    addAvisoImportante(doc, yPos);
+    // Only add the institutional payment imputation notice if this flow has overdue parcelas
+    if (temParcelasVencidas) {
+      addAvisoImportante(doc, yPos);
+    }
   };
 
   // Page 1: always PARCELAMENTO
