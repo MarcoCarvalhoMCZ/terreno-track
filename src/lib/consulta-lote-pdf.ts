@@ -543,6 +543,9 @@ export async function exportConsultaLoteToPDF(params: PDFExportParams): Promise<
       yPos = addParcelasAtrasoTable(doc, yPos, tituloFluxo, resumoAtraso);
       yPos = await addQrCodesAtraso(doc, yPos, tipo, resumoAtraso, buildPixPayloadForParcela, includeQrCodes, chavePix);
     }
+
+    // Always add the institutional payment imputation notice
+    addAvisoImportante(doc, yPos);
   };
 
   // Page 1: always PARCELAMENTO
