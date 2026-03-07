@@ -422,6 +422,69 @@ const addQrCodesAtraso = async (
   return yPos;
 };
 
+// Aviso Importante block - institutional payment imputation notice
+const AVISO_TITULO = "AVISO IMPORTANTE";
+const AVISO_TEXTO =
+  "Informamos que, conforme disposições contratuais e comunicações já encaminhadas, " +
+  "os pagamentos realizados serão apropriados sempre da parcela ou reforço há mais tempo " +
+  "vencido para o mais recente. Assim, existindo parcelas e/ou reforços em atraso, eventual " +
+  "pagamento não será necessariamente imputado à obrigação atualmente vincenda, mas sim às " +
+  "pendências mais antigas. Eventual diferença não quitada integralmente permanecerá compondo " +
+  "o saldo devedor, com reflexo nas parcelas vincendas e demais obrigações remanescentes.";
+
+const addAvisoImportante = (doc: jsPDF, yStart: number): number => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginLeft = 14;
+  const marginRight = 14;
+  const boxWidth = pageWidth - marginLeft - marginRight;
+  const padding = 6;
+  const textMaxWidth = boxWidth - padding * 2;
+
+  // Pre-calculate text height
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  const splitText = doc.splitTextToSize(AVISO_TEXTO, textMaxWidth);
+  const lineHeight = 4.5;
+  const titleHeight = 7;
+  const totalBoxHeight = padding + titleHeight + splitText.length * lineHeight + padding;
+
+  let yPos = yStart;
+
+  // If not enough space, add new page
+  if (yPos + totalBoxHeight + 10 > pageHeight - 15) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  // Draw box with light gray background and subtle border
+  doc.setDrawColor(180, 180, 180);
+  doc.setFillColor(245, 245, 245);
+  doc.roundedRect(marginLeft, yPos, boxWidth, totalBoxHeight, 2, 2, "FD");
+
+  // Title
+  let textY = yPos + padding + 4;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(180, 40, 40);
+  doc.text(AVISO_TITULO, marginLeft + padding, textY);
+
+  // Body
+  textY += titleHeight;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(60, 60, 60);
+  for (const line of splitText) {
+    doc.text(line, marginLeft + padding, textY);
+    textY += lineHeight;
+  }
+
+  // Reset text color
+  doc.setTextColor(0, 0, 0);
+
+  return yPos + totalBoxHeight + 8;
+};
+
 // Main export function - now async for programmatic QR generation
 export async function exportConsultaLoteToPDF(params: PDFExportParams): Promise<void> {
   const { 
