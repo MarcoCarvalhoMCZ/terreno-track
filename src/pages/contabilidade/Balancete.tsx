@@ -208,41 +208,43 @@ export default function Balancete() {
     onError: (error) => toast.error("Erro: " + error.message),
   });
 
-  // Build table data
+  // Determine which months to show
+  const mesesExibidos = mesFiltro === 0 ? [1,2,3,4,5,6,7,8,9,10,11,12] : [mesFiltro];
+
   const tableData = useMemo(() => {
     if (!contas || !consolidacao) return [];
 
     return contas.map((conta) => {
-      const meses: (number | null)[] = [];
+      const valores: (number | null)[] = [];
       let total = 0;
-      for (let m = 1; m <= 12; m++) {
+      for (const m of mesesExibidos) {
         const row = consolidacao.find((c) => c.conta_contabil_id === conta.id && c.mes === m);
         if (row) {
           const saldo = (conta.natureza_saldo === "Devedor")
             ? Number(row.valor_debito || 0) - Number(row.valor_credito || 0)
             : Number(row.valor_credito || 0) - Number(row.valor_debito || 0);
-          meses.push(saldo);
+          valores.push(saldo);
           total += saldo;
         } else {
-          meses.push(null);
+          valores.push(null);
         }
       }
-      return { conta, meses, total };
+      return { conta, meses: valores, total };
     }).filter((row) => row.total !== 0 || row.meses.some((m) => m !== null));
-  }, [contas, consolidacao]);
+  }, [contas, consolidacao, mesFiltro]);
 
   // Totals row
   const totais = useMemo(() => {
-    const meses: number[] = Array(12).fill(0);
+    const meses: number[] = Array(mesesExibidos.length).fill(0);
     let total = 0;
     for (const row of tableData) {
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < mesesExibidos.length; i++) {
         meses[i] += row.meses[i] || 0;
       }
       total += row.total;
     }
     return { meses, total };
-  }, [tableData]);
+  }, [tableData, mesFiltro]);
 
   return (
     <div className="space-y-6">
