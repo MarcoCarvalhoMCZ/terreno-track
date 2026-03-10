@@ -86,18 +86,32 @@ export default function SlipContabil() {
   const { data: movimentos, isLoading } = useQuery({
     queryKey: ["slip-contabil-movimentos", ano, mes],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("conta_corrente_lote")
-        .select(`
-          data_mov, tipo_mov, debito, credito, venda_id,
-          lote:lotes(quadra, numero_lote, custo_contabil),
-          venda:vendas(valor_venda, comprador_nome_1)
-        `)
-        .gte("data_mov", startDate)
-        .lte("data_mov", endDate)
-        .order("data_mov");
-      if (error) throw error;
-      return data as any[];
+      // Paginate to avoid 1000-row limit
+      const pageSize = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("conta_corrente_lote")
+          .select(`
+            data_mov, tipo_mov, debito, credito, venda_id,
+            lote:lotes(quadra, numero_lote, custo_contabil),
+            venda:vendas(valor_venda, comprador_nome_1)
+          `)
+          .gte("data_mov", startDate)
+          .lte("data_mov", endDate)
+          .order("data_mov")
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
+      }
+      return allData;
     },
   });
 
