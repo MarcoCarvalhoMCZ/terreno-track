@@ -320,10 +320,10 @@ export default function Balancete() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]">Conta</TableHead>
-                    {MESES.map((m) => (
-                      <TableHead key={m} className="text-right min-w-[100px]">{m}</TableHead>
+                    {mesesExibidos.map((m) => (
+                      <TableHead key={m} className="text-right min-w-[100px]">{MESES[m - 1]}</TableHead>
                     ))}
-                    <TableHead className="text-right min-w-[120px] font-bold">TOTAL</TableHead>
+                    {mesesExibidos.length > 1 && <TableHead className="text-right min-w-[120px] font-bold">TOTAL</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
