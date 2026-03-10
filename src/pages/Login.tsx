@@ -153,6 +153,7 @@ export default function Login() {
           </Tabs>
         </CardContent>
       </Card>
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
     </div>
   );
 }
