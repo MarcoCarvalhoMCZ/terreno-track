@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserSecurityDialog } from "@/components/admin/UserSecurityDialog";
 import { MENU_ITEMS, MenuKey } from "@/hooks/usePermissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, UserPlus, Settings, Trash2, Shield } from "lucide-react";
+import { Users, UserPlus, Settings, Trash2, Shield, KeyRound } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
@@ -46,6 +47,10 @@ interface UserWithProfile {
   role: AppRole | null;
   is_approved: boolean;
   permissions: string[];
+  cpf: string;
+  data_nascimento: string;
+  pergunta_seguranca: string;
+  resposta_seguranca: string;
 }
 
 export default function Usuarios() {
@@ -59,6 +64,8 @@ export default function Usuarios() {
   const [newUserNome, setNewUserNome] = useState("");
   const [newUserRole, setNewUserRole] = useState<AppRole>("CONSULTA");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [securityDialogOpen, setSecurityDialogOpen] = useState(false);
+  const [securityUser, setSecurityUser] = useState<UserWithProfile | null>(null);
   const [loading, setLoading] = useState(false);
 
   const { sortConfig: userSortConfig, handleSort: handleUserSort, sortData: sortUserData } = useTableSort<UserWithProfile>();
@@ -75,7 +82,7 @@ export default function Usuarios() {
       // Buscar profiles
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, nome, is_approved, is_active");
+        .select("id, nome, is_approved, is_active, cpf, data_nascimento, pergunta_seguranca, resposta_seguranca");
       if (profilesError) throw profilesError;
 
       // Buscar roles
@@ -96,11 +103,15 @@ export default function Usuarios() {
       profiles?.forEach(profile => {
         usersMap.set(profile.id, {
           id: profile.id,
-          email: `Usuário ${profile.nome}`, // Placeholder
+          email: `Usuário ${profile.nome}`,
           nome: profile.nome,
           role: null,
           is_approved: profile.is_approved ?? false,
           permissions: [],
+          cpf: (profile as any).cpf || "",
+          data_nascimento: (profile as any).data_nascimento || "",
+          pergunta_seguranca: (profile as any).pergunta_seguranca || "",
+          resposta_seguranca: (profile as any).resposta_seguranca || "",
         });
       });
 
@@ -335,7 +346,18 @@ export default function Usuarios() {
                           }
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSecurityUser(user);
+                            setSecurityDialogOpen(true);
+                          }}
+                        >
+                          <KeyRound className="h-4 w-4 mr-1" />
+                          Segurança
+                        </Button>
                         {user.role !== "ADMIN" && (
                           <Button
                             size="sm"
@@ -443,6 +465,23 @@ export default function Usuarios() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Dados de Segurança */}
+      {securityUser && (
+        <UserSecurityDialog
+          open={securityDialogOpen}
+          onOpenChange={setSecurityDialogOpen}
+          userId={securityUser.id}
+          userName={securityUser.nome}
+          initialData={{
+            cpf: securityUser.cpf,
+            data_nascimento: securityUser.data_nascimento,
+            pergunta_seguranca: securityUser.pergunta_seguranca,
+            resposta_seguranca: securityUser.resposta_seguranca,
+          }}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
+        />
+      )}
     </div>
   );
 }

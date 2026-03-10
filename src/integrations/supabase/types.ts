@@ -923,27 +923,39 @@ export type Database = {
       }
       profiles: {
         Row: {
+          cpf: string | null
           created_at: string | null
+          data_nascimento: string | null
           id: string
           is_active: boolean | null
           is_approved: boolean | null
           nome: string
+          pergunta_seguranca: string | null
+          resposta_seguranca: string | null
           updated_at: string | null
         }
         Insert: {
+          cpf?: string | null
           created_at?: string | null
+          data_nascimento?: string | null
           id: string
           is_active?: boolean | null
           is_approved?: boolean | null
           nome: string
+          pergunta_seguranca?: string | null
+          resposta_seguranca?: string | null
           updated_at?: string | null
         }
         Update: {
+          cpf?: string | null
           created_at?: string | null
+          data_nascimento?: string | null
           id?: string
           is_active?: boolean | null
           is_approved?: boolean | null
           nome?: string
+          pergunta_seguranca?: string | null
+          resposta_seguranca?: string | null
           updated_at?: string | null
         }
         Relationships: []

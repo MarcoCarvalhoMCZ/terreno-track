@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { ForgotPasswordDialog } from "@/components/login/ForgotPasswordDialog";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -88,7 +90,14 @@ export default function Login() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
                 </Button>
-                <p className="text-xs text-muted-foreground text-center mt-4">
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline w-full text-center mt-2"
+                  onClick={() => setForgotOpen(true)}
+                >
+                  Esqueci minha senha
+                </button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
                   EBL - 01/2026
                 </p>
               </form>
@@ -144,6 +153,7 @@ export default function Login() {
           </Tabs>
         </CardContent>
       </Card>
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
     </div>
   );
 }
