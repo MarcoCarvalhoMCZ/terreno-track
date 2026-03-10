@@ -263,9 +263,14 @@ export default function SlipContabil() {
       {/* Slip table */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 flex-wrap">
             <FileText className="h-5 w-5" />
             Slip Contábil – {mesLabel}/{ano}
+            {contaFiltro !== "ALL" && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                Conta: {contaFiltro} – {contas?.find((c) => c.codigo === contaFiltro)?.descricao || ""}
+              </span>
+            )}
             {filteredRows.length > 0 && (
               <span className="text-sm font-normal text-muted-foreground ml-2">
                 ({filteredRows.length} lançamentos)
