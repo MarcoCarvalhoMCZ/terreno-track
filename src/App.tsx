@@ -22,7 +22,7 @@ const RelatorioInadimplencia = lazy(() => import("./pages/contas-correntes/Relat
 const ResumoOperacoes = lazy(() => import("./pages/contas-correntes/ResumoOperacoes"));
 const AtualizacaoMonetaria = lazy(() => import("./pages/contas-correntes/AtualizacaoMonetaria"));
 const Reorganizacao = lazy(() => import("./pages/contas-correntes/Reorganizacao"));
-const EventosContabeis = lazy(() => import("./pages/contabilidade/EventosContabeis"));
+const RecalculoGeral = lazy(() => import("./pages/contabilidade/RecalculoGeral"));
 const ContasContabeis = lazy(() => import("./pages/contabilidade/ContasContabeis"));
 const MapaMovimentoConta = lazy(() => import("./pages/contabilidade/MapaMovimentoConta"));
 const Balancete = lazy(() => import("./pages/contabilidade/Balancete"));
