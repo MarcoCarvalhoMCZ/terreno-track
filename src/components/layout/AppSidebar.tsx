@@ -74,6 +74,7 @@ const contabilidadeItems: MenuItem[] = [
   { title: "Recálculo Geral", url: "/contabilidade/recalculo", icon: RefreshCw, menuKey: "recalculoGeral" },
   { title: "Plano de Contas", url: "/contabilidade/contas", icon: FileSpreadsheet, menuKey: "contasContabeis" },
   { title: "Mapa Movimento × Conta", url: "/contabilidade/mapa", icon: FileSpreadsheet, menuKey: "mapaMovimentoConta" },
+  { title: "Saldo dos Lotes", url: "/contabilidade/saldo-lotes", icon: FileSpreadsheet, menuKey: "saldoLotes" },
 ];
 
 export function AppSidebar() {
