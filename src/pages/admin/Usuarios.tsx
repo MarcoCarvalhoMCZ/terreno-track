@@ -64,6 +64,8 @@ export default function Usuarios() {
   const [newUserNome, setNewUserNome] = useState("");
   const [newUserRole, setNewUserRole] = useState<AppRole>("CONSULTA");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [securityDialogOpen, setSecurityDialogOpen] = useState(false);
+  const [securityUser, setSecurityUser] = useState<UserWithProfile | null>(null);
   const [loading, setLoading] = useState(false);
 
   const { sortConfig: userSortConfig, handleSort: handleUserSort, sortData: sortUserData } = useTableSort<UserWithProfile>();
