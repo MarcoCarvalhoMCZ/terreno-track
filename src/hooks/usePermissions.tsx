@@ -22,6 +22,7 @@ export const MENU_ITEMS = {
   mapaMovimentoConta: { label: "Mapa Movimento × Conta", path: "/contabilidade/mapa" },
   balancete: { label: "Balancete do Loteamento", path: "/contabilidade/balancete" },
   slipContabil: { label: "Slip Contábil", path: "/contabilidade/slip" },
+  saldoLotes: { label: "Saldo dos Lotes", path: "/contabilidade/saldo-lotes" },
   importacao: { label: "Importação (CSV)", path: "/importacao" },
   sobre: { label: "Sobre", path: "/sobre" },
   usuarios: { label: "Usuários e Permissões", path: "/admin/usuarios" },
