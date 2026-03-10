@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { ForgotPasswordDialog } from "@/components/login/ForgotPasswordDialog";
 
 export default function Login() {
   const [email, setEmail] = useState("");

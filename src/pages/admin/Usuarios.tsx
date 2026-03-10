@@ -465,6 +465,23 @@ export default function Usuarios() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Dados de Segurança */}
+      {securityUser && (
+        <UserSecurityDialog
+          open={securityDialogOpen}
+          onOpenChange={setSecurityDialogOpen}
+          userId={securityUser.id}
+          userName={securityUser.nome}
+          initialData={{
+            cpf: securityUser.cpf,
+            data_nascimento: securityUser.data_nascimento,
+            pergunta_seguranca: securityUser.pergunta_seguranca,
+            resposta_seguranca: securityUser.resposta_seguranca,
+          }}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
+        />
+      )}
     </div>
   );
 }
