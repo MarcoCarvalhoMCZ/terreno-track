@@ -59,17 +59,26 @@ export default function SaldoLotes() {
 
       if (vendasErr) throw vendasErr;
 
-      // Buscar movimentos até a data limite para calcular saldo
-      const { data: movimentos, error: movErr } = await supabase
-        .from("conta_corrente_lote")
-        .select("lote_id, debito, credito")
-        .lte("data_mov", dataLimite);
-
-      if (movErr) throw movErr;
+      // Buscar movimentos até a data limite para calcular saldo (paginado)
+      const pageSize = 1000;
+      let allMovimentos: { lote_id: string; debito: number | null; credito: number | null }[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: page, error: movErr } = await supabase
+          .from("conta_corrente_lote")
+          .select("lote_id, debito, credito")
+          .lte("data_mov", dataLimite)
+          .range(from, from + pageSize - 1);
+        if (movErr) throw movErr;
+        allMovimentos = allMovimentos.concat(page || []);
+        hasMore = (page?.length || 0) === pageSize;
+        from += pageSize;
+      }
 
       // Agrupar saldos por lote
       const saldoMap = new Map<string, number>();
-      for (const mov of movimentos || []) {
+      for (const mov of allMovimentos) {
         const prev = saldoMap.get(mov.lote_id) || 0;
         saldoMap.set(mov.lote_id, prev + (mov.debito || 0) - (mov.credito || 0));
       }
