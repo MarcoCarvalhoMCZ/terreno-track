@@ -27,6 +27,7 @@ const ContasContabeis = lazy(() => import("./pages/contabilidade/ContasContabeis
 const MapaMovimentoConta = lazy(() => import("./pages/contabilidade/MapaMovimentoConta"));
 const Balancete = lazy(() => import("./pages/contabilidade/Balancete"));
 const SlipContabil = lazy(() => import("./pages/contabilidade/SlipContabil"));
+const SaldoLotes = lazy(() => import("./pages/contabilidade/SaldoLotes"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Importacao = lazy(() => import("./pages/Importacao"));
 const Sobre = lazy(() => import("./pages/Sobre"));
