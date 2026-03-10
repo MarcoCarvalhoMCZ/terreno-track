@@ -182,12 +182,23 @@ export default function SlipContabil() {
       return row;
     });
 
+    const totalColSpan = headers.length - 1;
+    const footerRow = Array(headers.length).fill("");
+    footerRow[0] = "TOTAL";
+    footerRow[headers.length - 1] = formatCurrency(totalValor);
+
     autoTable(doc, {
       head: [headers],
-      body,
+      body: [...body, footerRow],
       startY: contaFiltro !== "ALL" ? 28 : 22,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [34, 87, 55] },
+      didParseCell: (data: any) => {
+        if (data.row.index === body.length) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [240, 240, 240];
+        }
+      },
     });
 
     doc.save(`slip-contabil-${ano}-${mes.padStart(2, "0")}.pdf`);
