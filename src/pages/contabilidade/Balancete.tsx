@@ -1,283 +1,227 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Calculator, RefreshCw, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Calculator, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { tiposMovimentoTodos } from "@/constants/movimento";
 
-const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
-const MESES_OPTIONS = [
-  { value: 0, label: "Todos" },
-  { value: 1, label: "Janeiro" }, { value: 2, label: "Fevereiro" }, { value: 3, label: "Março" },
-  { value: 4, label: "Abril" }, { value: 5, label: "Maio" }, { value: 6, label: "Junho" },
-  { value: 7, label: "Julho" }, { value: 8, label: "Agosto" }, { value: 9, label: "Setembro" },
-  { value: 10, label: "Outubro" }, { value: 11, label: "Novembro" }, { value: 12, label: "Dezembro" },
+const MESES_LABEL: Record<number, string> = {
+  1: "JAN", 2: "FEV", 3: "MAR", 4: "ABR", 5: "MAI", 6: "JUN",
+  7: "JUL", 8: "AGO", 9: "SET", 10: "OUT", 11: "NOV", 12: "DEZ",
+};
+
+const MESES_NOME: Record<number, string> = {
+  1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho",
+  7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro",
+};
+
+const DEBIT_ROWS = [
+  { key: "VENDA", label: "(+) Vendas" },
+  { key: "ATUALIZACAO", label: "(+) Atualização Monetária" },
+  { key: "JUROS", label: "(+) Juros" },
+  { key: "MULTA", label: "(+) Multa" },
 ];
 
-interface ContaContabil {
-  id: string;
-  codigo: string;
-  descricao: string;
-  natureza_saldo: string | null;
+const CREDIT_ROWS = [
+  { key: "ARRAS", label: "(-) Arras/Sinal" },
+  { key: "PARCELA", label: "(-) Parcelas Recebidas" },
+  { key: "REFORCO", label: "(-) Reforços Recebidos" },
+  { key: "AMORTIZACAO_ESPECIAL", label: "(-) Amortização Especial" },
+];
+
+const OTHER_KEYS = ["DESCONTO", "ESTORNO", "OUTROS"];
+
+interface MovRow {
+  data_mov: string;
+  tipo_mov: string;
+  debito: number | null;
+  credito: number | null;
 }
 
-interface ConsolidacaoRow {
-  id: string;
-  ano: number;
-  mes: number;
-  conta_contabil_id: string;
-  valor_debito: number | null;
-  valor_credito: number | null;
+interface PeriodData {
+  label: string;
+  saldoAnterior: number;
+  debitValues: Record<string, number>;
+  totalDebitos: number;
+  creditValues: Record<string, number>;
+  totalCreditos: number;
+  totalOutros: number;
+  saldoFinal: number;
 }
 
 export default function Balancete() {
-  const { canEdit } = useAuth();
   const queryClient = useQueryClient();
   const [ano, setAno] = useState(new Date().getFullYear());
-  const [mesFiltro, setMesFiltro] = useState(0); // 0 = todos
-  const [consistencia, setConsistencia] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [modo, setModo] = useState<"anual" | "periodo">("anual");
+  const [mesInicio, setMesInicio] = useState(1);
+  const [mesFim, setMesFim] = useState(6);
 
-  const { data: contas } = useQuery({
-    queryKey: ["contas-contabeis-ativas"],
+  // Fetch ALL movements up to end of selected year (paginated)
+  const { data: allMovimentos, isLoading } = useQuery({
+    queryKey: ["balancete-movimentos", ano],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contas_contabeis")
-        .select("id, codigo, descricao, natureza_saldo")
-        .eq("ativo", true)
-        .order("codigo");
-      if (error) throw error;
-      return data as unknown as ContaContabil[];
-    },
-  });
-
-  const { data: consolidacao, isLoading } = useQuery({
-    queryKey: ["consolidacao-contabil", ano],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("consolidacao_contabil" as any)
-        .select("*")
-        .eq("ano", ano)
-        .order("mes");
-      if (error) throw error;
-      return data as unknown as ConsolidacaoRow[];
-    },
-  });
-
-  const { data: mapa } = useQuery({
-    queryKey: ["mapa-movimento-conta"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("mapa_movimento_conta" as any)
-        .select("*");
-      if (error) throw error;
-      return data as unknown as { tipo_movimento: string; conta_contabil_id: string; natureza_lancamento: string }[];
-    },
-  });
-
-  // Recalcular
-  const recalcularMutation = useMutation({
-    mutationFn: async () => {
-      if (!mapa?.length || !contas?.length) throw new Error("Configure o Plano de Contas e o Mapa de Movimentos antes de recalcular.");
-
-      // Delete existing consolidation for the year
-      await supabase.from("consolidacao_contabil" as any).delete().eq("ano", ano);
-
-      // Fetch all movements for the year (paginated to avoid 1000-row limit)
-      const startDate = `${ano}-01-01`;
       const endDate = `${ano}-12-31`;
       const pageSize = 1000;
-      let allMovimentos: any[] = [];
+      let all: MovRow[] = [];
       let from = 0;
       let hasMore = true;
       while (hasMore) {
         const { data, error } = await supabase
           .from("conta_corrente_lote")
           .select("data_mov, tipo_mov, debito, credito")
-          .gte("data_mov", startDate)
           .lte("data_mov", endDate)
           .range(from, from + pageSize - 1);
         if (error) throw error;
-        allMovimentos = allMovimentos.concat(data || []);
-        if (!data || data.length < pageSize) {
-          hasMore = false;
-        } else {
-          from += pageSize;
-        }
+        all = all.concat((data || []) as MovRow[]);
+        hasMore = (data?.length || 0) === pageSize;
+        from += pageSize;
       }
-      const movimentos = allMovimentos;
-
-      // Build consolidation map: { `${mes}-${contaId}`: { debito, credito } }
-      const consolidationMap = new Map<string, { ano: number; mes: number; conta_contabil_id: string; valor_debito: number; valor_credito: number }>();
-
-      for (const mov of movimentos || []) {
-        const mes = new Date(mov.data_mov + "T00:00:00").getMonth() + 1;
-        const mappings = mapa.filter((m) => m.tipo_movimento === mov.tipo_mov);
-
-        for (const mapping of mappings) {
-          const key = `${mes}-${mapping.conta_contabil_id}`;
-          if (!consolidationMap.has(key)) {
-            consolidationMap.set(key, { ano, mes, conta_contabil_id: mapping.conta_contabil_id, valor_debito: 0, valor_credito: 0 });
-          }
-          const entry = consolidationMap.get(key)!;
-
-          // The movement value is the non-zero field (debito or credito from conta_corrente_lote)
-          const valor = Number(mov.debito || 0) + Number(mov.credito || 0);
-
-          if (mapping.natureza_lancamento === "D") {
-            entry.valor_debito += valor;
-          } else {
-            entry.valor_credito += valor;
-          }
-        }
-      }
-
-      // Insert all consolidation rows
-      const rows = Array.from(consolidationMap.values());
-      if (rows.length > 0) {
-        const { error: insertError } = await supabase.from("consolidacao_contabil" as any).insert(rows as any);
-        if (insertError) throw insertError;
-      }
-
-      return rows.length;
+      return all;
     },
-    onSuccess: (count) => {
-      queryClient.invalidateQueries({ queryKey: ["consolidacao-contabil"] });
-      toast.success(`Balancete recalculado: ${count} registros gerados.`);
-    },
-    onError: (error) => toast.error("Erro: " + error.message),
   });
 
-  // Teste de consistência
-  const testarConsistenciaMutation = useMutation({
-    mutationFn: async () => {
-      const startDate = `${ano}-01-01`;
-      const endDate = `${ano}-12-31`;
+  // Constrain mesFim when mesInicio changes
+  const effectiveMesFim = useMemo(() => {
+    if (modo === "anual") return 12;
+    const maxEnd = Math.min(mesInicio + 5, 12);
+    return Math.min(Math.max(mesFim, mesInicio), maxEnd);
+  }, [modo, mesInicio, mesFim]);
 
-      // Total from conta_corrente (paginated)
-      const pageSize = 1000;
-      let ccTotals: any[] = [];
-      let from = 0;
-      let hasMore = true;
-      while (hasMore) {
-        const { data, error: e1 } = await supabase
-          .from("conta_corrente_lote")
-          .select("debito, credito")
-          .gte("data_mov", startDate)
-          .lte("data_mov", endDate)
-          .range(from, from + pageSize - 1);
-        if (e1) throw e1;
-        ccTotals = ccTotals.concat(data || []);
-        if (!data || data.length < pageSize) {
-          hasMore = false;
-        } else {
-          from += pageSize;
-        }
-      }
-
-      const totalCCDebito = (ccTotals || []).reduce((s, r) => s + Number(r.debito || 0), 0);
-      const totalCCCredito = (ccTotals || []).reduce((s, r) => s + Number(r.credito || 0), 0);
-
-      // Total from consolidacao
-      const totalConsDebito = (consolidacao || []).reduce((s, r) => s + Number(r.valor_debito || 0), 0);
-      const totalConsCredito = (consolidacao || []).reduce((s, r) => s + Number(r.valor_credito || 0), 0);
-
-      // Compare: the sum of mapped movements should equal consolidation
-      // Note: unmapped movements won't appear in consolidation, so we check mapped only
-      const mappedTypes = new Set(mapa?.map((m) => m.tipo_movimento) || []);
-      const totalMappedDebito = (ccTotals || []).reduce((s, r) => s + Number(r.debito || 0), 0);
-      const totalMappedCredito = (ccTotals || []).reduce((s, r) => s + Number(r.credito || 0), 0);
-
-      const diffD = Math.abs(totalConsDebito + totalConsCredito - (totalCCDebito + totalCCCredito));
-
-      if (diffD < 0.01) {
-        return { ok: true, msg: `Consistência OK – Total CC: ${formatCurrency(totalCCDebito + totalCCCredito)} = Balancete: ${formatCurrency(totalConsDebito + totalConsCredito)}` };
-      } else {
-        return { ok: false, msg: `Inconsistência detectada – CC: ${formatCurrency(totalCCDebito + totalCCCredito)} ≠ Balancete: ${formatCurrency(totalConsDebito + totalConsCredito)}. Diferença: ${formatCurrency(diffD)}. Verifique se todos os tipos de movimento estão mapeados.` };
-      }
-    },
-    onSuccess: (result) => setConsistencia(result),
-    onError: (error) => toast.error("Erro: " + error.message),
-  });
-
-  // Determine which months to show
-  const mesesExibidos = mesFiltro === 0 ? [1,2,3,4,5,6,7,8,9,10,11,12] : [mesFiltro];
-
-  const tableData = useMemo(() => {
-    if (!contas || !consolidacao) return [];
-
-    return contas.map((conta) => {
-      const valores: (number | null)[] = [];
-      let total = 0;
-      for (const m of mesesExibidos) {
-        const row = consolidacao.find((c) => c.conta_contabil_id === conta.id && c.mes === m);
-        if (row) {
-          const saldo = (conta.natureza_saldo === "Devedor")
-            ? Number(row.valor_debito || 0) - Number(row.valor_credito || 0)
-            : Number(row.valor_credito || 0) - Number(row.valor_debito || 0);
-          valores.push(saldo);
-          total += saldo;
-        } else {
-          valores.push(null);
-        }
-      }
-      return { conta, meses: valores, total };
-    }).filter((row) => row.total !== 0 || row.meses.some((m) => m !== null));
-  }, [contas, consolidacao, mesFiltro]);
-
-  // Totals row
-  const totais = useMemo(() => {
-    const meses: number[] = Array(mesesExibidos.length).fill(0);
-    let total = 0;
-    for (const row of tableData) {
-      for (let i = 0; i < mesesExibidos.length; i++) {
-        meses[i] += row.meses[i] || 0;
-      }
-      total += row.total;
+  // Build period columns
+  const periodos = useMemo(() => {
+    if (modo === "anual") {
+      return [{ label: String(ano), startDate: `${ano}-01-01`, endDate: `${ano}-12-31` }];
     }
-    return { meses, total };
-  }, [tableData, mesFiltro]);
+    const result = [];
+    for (let m = mesInicio; m <= effectiveMesFim; m++) {
+      const mm = String(m).padStart(2, "0");
+      const lastDay = new Date(ano, m, 0).getDate();
+      result.push({
+        label: `${MESES_LABEL[m]}/${String(ano).slice(2)}`,
+        startDate: `${ano}-${mm}-01`,
+        endDate: `${ano}-${mm}-${String(lastDay).padStart(2, "0")}`,
+      });
+    }
+    return result;
+  }, [ano, modo, mesInicio, effectiveMesFim]);
+
+  // Compute table data per period
+  const tableData = useMemo((): PeriodData[] | null => {
+    if (!allMovimentos) return null;
+
+    return periodos.map((periodo) => {
+      const saldoAnterior = allMovimentos
+        .filter((m) => m.data_mov < periodo.startDate)
+        .reduce((s, m) => s + (Number(m.debito || 0) - Number(m.credito || 0)), 0);
+
+      const periodMovs = allMovimentos.filter(
+        (m) => m.data_mov >= periodo.startDate && m.data_mov <= periodo.endDate
+      );
+
+      const byTipo: Record<string, { debito: number; credito: number }> = {};
+      for (const m of periodMovs) {
+        if (!byTipo[m.tipo_mov]) byTipo[m.tipo_mov] = { debito: 0, credito: 0 };
+        byTipo[m.tipo_mov].debito += Number(m.debito || 0);
+        byTipo[m.tipo_mov].credito += Number(m.credito || 0);
+      }
+
+      const debitValues: Record<string, number> = {};
+      let totalDebitos = 0;
+      for (const row of DEBIT_ROWS) {
+        const val = byTipo[row.key]?.debito || 0;
+        debitValues[row.key] = val;
+        totalDebitos += val;
+      }
+
+      const creditValues: Record<string, number> = {};
+      let totalCreditos = 0;
+      for (const row of CREDIT_ROWS) {
+        const val = byTipo[row.key]?.credito || 0;
+        creditValues[row.key] = val;
+        totalCreditos += val;
+      }
+
+      let totalOutros = 0;
+      for (const key of OTHER_KEYS) {
+        if (byTipo[key]) totalOutros += byTipo[key].debito - byTipo[key].credito;
+      }
+
+      return {
+        label: periodo.label,
+        saldoAnterior,
+        debitValues,
+        totalDebitos,
+        creditValues,
+        totalCreditos,
+        totalOutros,
+        saldoFinal: saldoAnterior + totalDebitos - totalCreditos + totalOutros,
+      };
+    });
+  }, [allMovimentos, periodos]);
+
+  // Totals column (when multiple periods)
+  const totaisCol = useMemo((): PeriodData | null => {
+    if (!tableData || tableData.length <= 1) return null;
+    const result: PeriodData = {
+      label: "TOTAL",
+      saldoAnterior: tableData[0].saldoAnterior,
+      debitValues: {},
+      totalDebitos: 0,
+      creditValues: {},
+      totalCreditos: 0,
+      totalOutros: 0,
+      saldoFinal: tableData[tableData.length - 1].saldoFinal,
+    };
+    for (const row of DEBIT_ROWS) result.debitValues[row.key] = 0;
+    for (const row of CREDIT_ROWS) result.creditValues[row.key] = 0;
+    for (const col of tableData) {
+      for (const row of DEBIT_ROWS) result.debitValues[row.key] += col.debitValues[row.key] || 0;
+      result.totalDebitos += col.totalDebitos;
+      for (const row of CREDIT_ROWS) result.creditValues[row.key] += col.creditValues[row.key] || 0;
+      result.totalCreditos += col.totalCreditos;
+      result.totalOutros += col.totalOutros;
+    }
+    return result;
+  }, [tableData]);
+
+  const columns = useMemo(() => {
+    const cols = tableData || [];
+    return totaisCol ? [...cols, totaisCol] : cols;
+  }, [tableData, totaisCol]);
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["balancete-movimentos"] });
+    toast.success("Dados atualizados com sucesso.");
+  };
+
+  const renderValueCell = (value: number, isBold = false, isTotal = false) => (
+    <TableCell
+      className={`text-right font-mono text-sm ${isBold ? "font-bold" : ""} ${isTotal ? "text-primary" : ""} ${value < 0 ? "text-destructive" : ""}`}
+    >
+      {formatCurrency(value)}
+    </TableCell>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Balancete do Loteamento</h1>
-          <p className="text-muted-foreground">Consolidação contábil mensal por conta</p>
+          <p className="text-muted-foreground">Demonstrativo por tipos de movimento</p>
         </div>
-        <div className="flex gap-2">
-          {canEdit && (
-            <Button onClick={() => recalcularMutation.mutate()} disabled={recalcularMutation.isPending}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${recalcularMutation.isPending ? "animate-spin" : ""}`} />
-              Recalcular Balancete
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => testarConsistenciaMutation.mutate()} disabled={testarConsistenciaMutation.isPending}>
-            <Calculator className="mr-2 h-4 w-4" />
-            Teste de Consistência
-          </Button>
-        </div>
+        <Button variant="outline" onClick={handleRefresh}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Atualizar Dados
+        </Button>
       </div>
 
-      {/* Consistência result */}
-      {consistencia && (
-        <Card className={consistencia.ok ? "border-primary/50 bg-primary/5" : "border-destructive/50 bg-destructive/5"}>
-          <CardContent className="flex items-center gap-3 py-3">
-            {consistencia.ok ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : <AlertTriangle className="h-5 w-5 text-destructive" />}
-            <p className="text-sm">{consistencia.msg}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Year/Month selector */}
+      {/* Period controls */}
       <div className="flex items-center gap-4 flex-wrap">
         <Button variant="outline" size="icon" onClick={() => setAno((a) => a - 1)}>
           <ChevronLeft className="h-4 w-4" />
@@ -286,81 +230,166 @@ export default function Balancete() {
         <Button variant="outline" size="icon" onClick={() => setAno((a) => a + 1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <Select value={String(mesFiltro)} onValueChange={(v) => setMesFiltro(Number(v))}>
-          <SelectTrigger className="w-[160px]">
+
+        <Select value={modo} onValueChange={(v) => setModo(v as "anual" | "periodo")}>
+          <SelectTrigger className="w-[140px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {MESES_OPTIONS.map((m) => (
-              <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
-            ))}
+            <SelectItem value="anual">Anual</SelectItem>
+            <SelectItem value="periodo">Período</SelectItem>
           </SelectContent>
         </Select>
+
+        {modo === "periodo" && (
+          <>
+            <Select value={String(mesInicio)} onValueChange={(v) => setMesInicio(Number(v))}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Mês início" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <SelectItem key={m} value={String(m)}>{MESES_NOME[m]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-muted-foreground">até</span>
+            <Select value={String(effectiveMesFim)} onValueChange={(v) => setMesFim(Number(v))}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Mês fim" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: Math.min(6, 12 - mesInicio + 1) }, (_, i) => mesInicio + i).map((m) => (
+                  <SelectItem key={m} value={String(m)}>{MESES_NOME[m]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5" />
-            Balancete {ano}
+            Balancete {modo === "anual" ? ano : `${MESES_LABEL[mesInicio]}–${MESES_LABEL[effectiveMesFim]}/${ano}`}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex justify-center py-8"><span className="text-muted-foreground">Carregando...</span></div>
-          ) : tableData.length === 0 ? (
+            <div className="flex justify-center py-8">
+              <span className="text-muted-foreground">Carregando...</span>
+            </div>
+          ) : !tableData || columns.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Calculator className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">Nenhum dado consolidado para {ano}.</p>
-              <p className="text-sm text-muted-foreground">Use "Recalcular Balancete" para gerar a consolidação.</p>
+              <p className="text-muted-foreground">Nenhum dado encontrado para o período selecionado.</p>
             </div>
           ) : (
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]">Conta</TableHead>
-                    {mesesExibidos.map((m) => (
-                      <TableHead key={m} className="text-right min-w-[100px]">{MESES[m - 1]}</TableHead>
+                    <TableHead className="sticky left-0 bg-background z-10 min-w-[250px]">Movimento</TableHead>
+                    {columns.map((col) => (
+                      <TableHead
+                        key={col.label}
+                        className={`text-right min-w-[130px] ${col.label === "TOTAL" ? "font-bold bg-muted/30" : ""}`}
+                      >
+                        {col.label}
+                      </TableHead>
                     ))}
-                    {mesesExibidos.length > 1 && <TableHead className="text-right min-w-[120px] font-bold">TOTAL</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tableData.map((row) => (
-                    <TableRow key={row.conta.id}>
-                      <TableCell className="sticky left-0 bg-background z-10">
-                        <div>
-                          <span className="font-medium">{row.conta.descricao}</span>
-                          <span className="text-xs text-muted-foreground ml-2">({row.conta.codigo})</span>
-                        </div>
-                      </TableCell>
-                      {row.meses.map((val, i) => (
-                        <TableCell key={i} className="text-right font-mono text-sm">
-                          {val !== null ? formatCurrency(val) : "-"}
-                        </TableCell>
-                      ))}
-                      {mesesExibidos.length > 1 && (
-                        <TableCell className="text-right font-mono font-bold">
-                          {formatCurrency(row.total)}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-                <TableFooter>
-                  <TableRow>
-                    <TableCell className="sticky left-0 bg-muted/50 z-10 font-bold">TOTAL</TableCell>
-                    {totais.meses.map((val, i) => (
-                      <TableCell key={i} className="text-right font-mono font-bold">
-                        {formatCurrency(val)}
+                  {/* Saldo Anterior */}
+                  <TableRow className="bg-muted/20">
+                    <TableCell className="sticky left-0 bg-muted/20 z-10 font-semibold">(+) Saldo Anterior</TableCell>
+                    {columns.map((col) => (
+                      <TableCell key={col.label} className={`text-right font-mono text-sm font-semibold ${col.label === "TOTAL" ? "bg-muted/30" : ""}`}>
+                        {formatCurrency(col.saldoAnterior)}
                       </TableCell>
                     ))}
-                    {mesesExibidos.length > 1 && (
-                      <TableCell className="text-right font-mono font-bold text-primary">
-                        {formatCurrency(totais.total)}
+                  </TableRow>
+
+                  {/* Separator */}
+                  <TableRow><TableCell colSpan={columns.length + 1} className="h-1 p-0 bg-border/50" /></TableRow>
+
+                  {/* Debit rows */}
+                  {DEBIT_ROWS.map((row) => (
+                    <TableRow key={row.key}>
+                      <TableCell className="sticky left-0 bg-background z-10">{row.label}</TableCell>
+                      {columns.map((col) => (
+                        <TableCell key={col.label} className={`text-right font-mono text-sm ${col.label === "TOTAL" ? "bg-muted/30" : ""}`}>
+                          {col.debitValues[row.key] ? formatCurrency(col.debitValues[row.key]) : "-"}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+
+                  {/* Subtotal débitos */}
+                  <TableRow className="bg-muted/10 border-t">
+                    <TableCell className="sticky left-0 bg-muted/10 z-10 font-bold text-sm">Subtotal Débitos</TableCell>
+                    {columns.map((col) => renderValueCell(col.totalDebitos, true, col.label === "TOTAL"))}
+                  </TableRow>
+
+                  {/* Separator */}
+                  <TableRow><TableCell colSpan={columns.length + 1} className="h-1 p-0 bg-border/50" /></TableRow>
+
+                  {/* Credit rows */}
+                  {CREDIT_ROWS.map((row) => (
+                    <TableRow key={row.key}>
+                      <TableCell className="sticky left-0 bg-background z-10">{row.label}</TableCell>
+                      {columns.map((col) => (
+                        <TableCell key={col.label} className={`text-right font-mono text-sm ${col.label === "TOTAL" ? "bg-muted/30" : ""}`}>
+                          {col.creditValues[row.key] ? formatCurrency(col.creditValues[row.key]) : "-"}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+
+                  {/* Subtotal créditos */}
+                  <TableRow className="bg-muted/10 border-t">
+                    <TableCell className="sticky left-0 bg-muted/10 z-10 font-bold text-sm">Subtotal Créditos</TableCell>
+                    {columns.map((col) => renderValueCell(col.totalCreditos, true, col.label === "TOTAL"))}
+                  </TableRow>
+
+                  {/* Separator */}
+                  <TableRow><TableCell colSpan={columns.length + 1} className="h-1 p-0 bg-border/50" /></TableRow>
+
+                  {/* Others */}
+                  <TableRow>
+                    <TableCell className="sticky left-0 bg-background z-10">(±) Outros/Ajustes</TableCell>
+                    {columns.map((col) => (
+                      <TableCell key={col.label} className={`text-right font-mono text-sm ${col.totalOutros < 0 ? "text-destructive" : ""} ${col.label === "TOTAL" ? "bg-muted/30" : ""}`}>
+                        {col.totalOutros !== 0 ? formatCurrency(col.totalOutros) : "-"}
                       </TableCell>
-                    )}
+                    ))}
+                  </TableRow>
+
+                  {/* Subtotal outros */}
+                  <TableRow className="bg-muted/10 border-t">
+                    <TableCell className="sticky left-0 bg-muted/10 z-10 font-bold text-sm">Subtotal Outros</TableCell>
+                    {columns.map((col) => (
+                      <TableCell key={col.label} className={`text-right font-mono text-sm font-bold ${col.totalOutros < 0 ? "text-destructive" : ""} ${col.label === "TOTAL" ? "text-primary" : ""}`}>
+                        {formatCurrency(col.totalOutros)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableBody>
+
+                {/* Saldo Final */}
+                <TableFooter>
+                  <TableRow>
+                    <TableCell className="sticky left-0 bg-muted/50 z-10 font-bold">(=) Saldo Final</TableCell>
+                    {columns.map((col) => (
+                      <TableCell
+                        key={col.label}
+                        className={`text-right font-mono font-bold ${col.saldoFinal < 0 ? "text-destructive" : "text-primary"} ${col.label === "TOTAL" ? "bg-muted/30" : ""}`}
+                      >
+                        {formatCurrency(col.saldoFinal)}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 </TableFooter>
               </Table>
