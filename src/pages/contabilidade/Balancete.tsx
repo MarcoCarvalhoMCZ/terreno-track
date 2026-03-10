@@ -231,7 +231,7 @@ export default function Balancete() {
 
       {/* Consistência result */}
       {consistencia && (
-        <Card className={consistencia.ok ? "border-green-500/50 bg-green-50/50" : "border-destructive/50 bg-destructive/5"}>
+        <Card className={consistencia.ok ? "border-primary/50 bg-primary/5" : "border-destructive/50 bg-destructive/5"}>
           <CardContent className="flex items-center gap-3 py-3">
             {consistencia.ok ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : <AlertTriangle className="h-5 w-5 text-destructive" />}
             <p className="text-sm">{consistencia.msg}</p>
