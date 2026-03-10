@@ -90,7 +90,14 @@ export default function Login() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
                 </Button>
-                <p className="text-xs text-muted-foreground text-center mt-4">
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline w-full text-center mt-2"
+                  onClick={() => setForgotOpen(true)}
+                >
+                  Esqueci minha senha
+                </button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
                   EBL - 01/2026
                 </p>
               </form>
