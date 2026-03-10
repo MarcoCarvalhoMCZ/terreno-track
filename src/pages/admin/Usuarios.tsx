@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, UserPlus, Settings, Trash2, Shield } from "lucide-react";
+import { Users, UserPlus, Settings, Trash2, Shield, KeyRound } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
