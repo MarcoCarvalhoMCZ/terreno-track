@@ -82,7 +82,7 @@ export default function Usuarios() {
       // Buscar profiles
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, nome, is_approved, is_active");
+        .select("id, nome, is_approved, is_active, cpf, data_nascimento, pergunta_seguranca, resposta_seguranca");
       if (profilesError) throw profilesError;
 
       // Buscar roles
