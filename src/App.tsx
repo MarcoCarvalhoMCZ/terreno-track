@@ -99,7 +99,7 @@ function AppRoutes() {
         <Route path="/contas-correntes/resumo" element={<ProtectedRoute><ResumoOperacoes /></ProtectedRoute>} />
         <Route path="/contas-correntes/atualizacao" element={<ProtectedRoute><AtualizacaoMonetaria /></ProtectedRoute>} />
         <Route path="/contas-correntes/reorganizacao" element={<ProtectedRoute><Reorganizacao /></ProtectedRoute>} />
-        <Route path="/contabilidade/eventos" element={<ProtectedRoute><EventosContabeis /></ProtectedRoute>} />
+        <Route path="/contabilidade/recalculo" element={<ProtectedRoute><RecalculoGeral /></ProtectedRoute>} />
         <Route path="/contabilidade/contas" element={<ProtectedRoute><ContasContabeis /></ProtectedRoute>} />
         <Route path="/contabilidade/mapa" element={<ProtectedRoute><MapaMovimentoConta /></ProtectedRoute>} />
         <Route path="/contabilidade/balancete" element={<ProtectedRoute><Balancete /></ProtectedRoute>} />
