@@ -42,6 +42,7 @@ export default function Balancete() {
   const { canEdit } = useAuth();
   const queryClient = useQueryClient();
   const [ano, setAno] = useState(new Date().getFullYear());
+  const [mesFiltro, setMesFiltro] = useState(0); // 0 = todos
   const [consistencia, setConsistencia] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const { data: contas } = useQuery({
