@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Calculator, RefreshCw, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { tiposMovimentoTodos } from "@/constants/movimento";
 
 const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
