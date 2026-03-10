@@ -142,6 +142,53 @@ export type Database = {
           },
         ]
       }
+      consolidacao_contabil: {
+        Row: {
+          ano: number
+          conta_contabil_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          mes: number
+          updated_at: string | null
+          updated_by: string | null
+          valor_credito: number | null
+          valor_debito: number | null
+        }
+        Insert: {
+          ano: number
+          conta_contabil_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          mes: number
+          updated_at?: string | null
+          updated_by?: string | null
+          valor_credito?: number | null
+          valor_debito?: number | null
+        }
+        Update: {
+          ano?: number
+          conta_contabil_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          mes?: number
+          updated_at?: string | null
+          updated_by?: string | null
+          valor_credito?: number | null
+          valor_debito?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consolidacao_contabil_conta_contabil_id_fkey"
+            columns: ["conta_contabil_id"]
+            isOneToOne: false
+            referencedRelation: "contas_contabeis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conta_corrente_lote: {
         Row: {
           banco_origem: string | null
@@ -244,30 +291,39 @@ export type Database = {
         Row: {
           ativo: boolean | null
           codigo: string
+          codigo_estruturado: string | null
           created_at: string | null
           created_by: string | null
           descricao: string
           id: string
+          natureza_saldo: string | null
+          tipo_conta: string | null
           updated_at: string | null
           updated_by: string | null
         }
         Insert: {
           ativo?: boolean | null
           codigo: string
+          codigo_estruturado?: string | null
           created_at?: string | null
           created_by?: string | null
           descricao: string
           id?: string
+          natureza_saldo?: string | null
+          tipo_conta?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
         Update: {
           ativo?: boolean | null
           codigo?: string
+          codigo_estruturado?: string | null
           created_at?: string | null
           created_by?: string | null
           descricao?: string
           id?: string
+          natureza_saldo?: string | null
+          tipo_conta?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -590,6 +646,47 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      mapa_movimento_conta: {
+        Row: {
+          conta_contabil_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          natureza_lancamento: string
+          tipo_movimento: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          conta_contabil_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          natureza_lancamento: string
+          tipo_movimento: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          conta_contabil_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          natureza_lancamento?: string
+          tipo_movimento?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapa_movimento_conta_conta_contabil_id_fkey"
+            columns: ["conta_contabil_id"]
+            isOneToOne: false
+            referencedRelation: "contas_contabeis"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       modos_pagamento: {
         Row: {
