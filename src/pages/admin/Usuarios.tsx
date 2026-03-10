@@ -47,6 +47,10 @@ interface UserWithProfile {
   role: AppRole | null;
   is_approved: boolean;
   permissions: string[];
+  cpf: string;
+  data_nascimento: string;
+  pergunta_seguranca: string;
+  resposta_seguranca: string;
 }
 
 export default function Usuarios() {
