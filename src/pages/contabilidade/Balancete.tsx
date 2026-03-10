@@ -153,13 +153,26 @@ export default function Balancete() {
       const startDate = `${ano}-01-01`;
       const endDate = `${ano}-12-31`;
 
-      // Total from conta_corrente
-      const { data: ccTotals, error: e1 } = await supabase
-        .from("conta_corrente_lote")
-        .select("debito, credito")
-        .gte("data_mov", startDate)
-        .lte("data_mov", endDate);
-      if (e1) throw e1;
+      // Total from conta_corrente (paginated)
+      const pageSize = 1000;
+      let ccTotals: any[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error: e1 } = await supabase
+          .from("conta_corrente_lote")
+          .select("debito, credito")
+          .gte("data_mov", startDate)
+          .lte("data_mov", endDate)
+          .range(from, from + pageSize - 1);
+        if (e1) throw e1;
+        ccTotals = ccTotals.concat(data || []);
+        if (!data || data.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
+      }
 
       const totalCCDebito = (ccTotals || []).reduce((s, r) => s + Number(r.debito || 0), 0);
       const totalCCCredito = (ccTotals || []).reduce((s, r) => s + Number(r.credito || 0), 0);
