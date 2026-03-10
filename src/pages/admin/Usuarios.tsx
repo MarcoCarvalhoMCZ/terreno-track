@@ -103,11 +103,15 @@ export default function Usuarios() {
       profiles?.forEach(profile => {
         usersMap.set(profile.id, {
           id: profile.id,
-          email: `Usuário ${profile.nome}`, // Placeholder
+          email: `Usuário ${profile.nome}`,
           nome: profile.nome,
           role: null,
           is_approved: profile.is_approved ?? false,
           permissions: [],
+          cpf: (profile as any).cpf || "",
+          data_nascimento: (profile as any).data_nascimento || "",
+          pergunta_seguranca: (profile as any).pergunta_seguranca || "",
+          resposta_seguranca: (profile as any).resposta_seguranca || "",
         });
       });
 
