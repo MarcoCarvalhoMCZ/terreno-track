@@ -346,7 +346,18 @@ export default function Usuarios() {
                           }
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSecurityUser(user);
+                            setSecurityDialogOpen(true);
+                          }}
+                        >
+                          <KeyRound className="h-4 w-4 mr-1" />
+                          Segurança
+                        </Button>
                         {user.role !== "ADMIN" && (
                           <Button
                             size="sm"
