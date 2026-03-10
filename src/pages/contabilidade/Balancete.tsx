@@ -356,9 +356,11 @@ export default function Balancete() {
                         {formatCurrency(val)}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right font-mono font-bold text-primary">
-                      {formatCurrency(totais.total)}
-                    </TableCell>
+                    {mesesExibidos.length > 1 && (
+                      <TableCell className="text-right font-mono font-bold text-primary">
+                        {formatCurrency(totais.total)}
+                      </TableCell>
+                    )}
                   </TableRow>
                 </TableFooter>
               </Table>
