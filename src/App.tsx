@@ -22,7 +22,7 @@ const RelatorioInadimplencia = lazy(() => import("./pages/contas-correntes/Relat
 const ResumoOperacoes = lazy(() => import("./pages/contas-correntes/ResumoOperacoes"));
 const AtualizacaoMonetaria = lazy(() => import("./pages/contas-correntes/AtualizacaoMonetaria"));
 const Reorganizacao = lazy(() => import("./pages/contas-correntes/Reorganizacao"));
-const EventosContabeis = lazy(() => import("./pages/contabilidade/EventosContabeis"));
+const RecalculoGeral = lazy(() => import("./pages/contabilidade/RecalculoGeral"));
 const ContasContabeis = lazy(() => import("./pages/contabilidade/ContasContabeis"));
 const MapaMovimentoConta = lazy(() => import("./pages/contabilidade/MapaMovimentoConta"));
 const Balancete = lazy(() => import("./pages/contabilidade/Balancete"));
@@ -99,7 +99,7 @@ function AppRoutes() {
         <Route path="/contas-correntes/resumo" element={<ProtectedRoute><ResumoOperacoes /></ProtectedRoute>} />
         <Route path="/contas-correntes/atualizacao" element={<ProtectedRoute><AtualizacaoMonetaria /></ProtectedRoute>} />
         <Route path="/contas-correntes/reorganizacao" element={<ProtectedRoute><Reorganizacao /></ProtectedRoute>} />
-        <Route path="/contabilidade/eventos" element={<ProtectedRoute><EventosContabeis /></ProtectedRoute>} />
+        <Route path="/contabilidade/recalculo" element={<ProtectedRoute><RecalculoGeral /></ProtectedRoute>} />
         <Route path="/contabilidade/contas" element={<ProtectedRoute><ContasContabeis /></ProtectedRoute>} />
         <Route path="/contabilidade/mapa" element={<ProtectedRoute><MapaMovimentoConta /></ProtectedRoute>} />
         <Route path="/contabilidade/balancete" element={<ProtectedRoute><Balancete /></ProtectedRoute>} />

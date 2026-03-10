@@ -17,7 +17,7 @@ export const MENU_ITEMS = {
   atualizacaoMonetaria: { label: "Atualização Monetária", path: "/contas-correntes/atualizacao" },
   resumoOperacoes: { label: "Resumo das Operações", path: "/contas-correntes/resumo" },
   reorganizacao: { label: "Reorganização", path: "/contas-correntes/reorganizacao" },
-  eventosContabeis: { label: "Eventos Contábeis", path: "/contabilidade/eventos" },
+  recalculoGeral: { label: "Recálculo Geral", path: "/contabilidade/recalculo" },
   contasContabeis: { label: "Plano de Contas", path: "/contabilidade/contas" },
   mapaMovimentoConta: { label: "Mapa Movimento × Conta", path: "/contabilidade/mapa" },
   balancete: { label: "Balancete do Loteamento", path: "/contabilidade/balancete" },

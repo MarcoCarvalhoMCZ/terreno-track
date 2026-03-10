@@ -71,7 +71,7 @@ const contaCorrenteItems: MenuItem[] = [
 const contabilidadeItems: MenuItem[] = [
   { title: "Balancete do Loteamento", url: "/contabilidade/balancete", icon: Calculator, menuKey: "balancete" },
   { title: "Slip Contábil", url: "/contabilidade/slip", icon: FileSpreadsheet, menuKey: "slipContabil" },
-  { title: "Eventos Contábeis", url: "/contabilidade/eventos", icon: Calculator, menuKey: "eventosContabeis" },
+  { title: "Recálculo Geral", url: "/contabilidade/recalculo", icon: RefreshCw, menuKey: "recalculoGeral" },
   { title: "Plano de Contas", url: "/contabilidade/contas", icon: FileSpreadsheet, menuKey: "contasContabeis" },
   { title: "Mapa Movimento × Conta", url: "/contabilidade/mapa", icon: FileSpreadsheet, menuKey: "mapaMovimentoConta" },
 ];
