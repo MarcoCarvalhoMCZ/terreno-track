@@ -11,9 +11,17 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Calculator, RefreshCw, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { tiposMovimentoTodos } from "@/constants/movimento";
 
 const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+const MESES_OPTIONS = [
+  { value: 0, label: "Todos" },
+  { value: 1, label: "Janeiro" }, { value: 2, label: "Fevereiro" }, { value: 3, label: "Março" },
+  { value: 4, label: "Abril" }, { value: 5, label: "Maio" }, { value: 6, label: "Junho" },
+  { value: 7, label: "Julho" }, { value: 8, label: "Agosto" }, { value: 9, label: "Setembro" },
+  { value: 10, label: "Outubro" }, { value: 11, label: "Novembro" }, { value: 12, label: "Dezembro" },
+];
 
 interface ContaContabil {
   id: string;
@@ -35,6 +43,7 @@ export default function Balancete() {
   const { canEdit } = useAuth();
   const queryClient = useQueryClient();
   const [ano, setAno] = useState(new Date().getFullYear());
+  const [mesFiltro, setMesFiltro] = useState(0); // 0 = todos
   const [consistencia, setConsistencia] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const { data: contas } = useQuery({
@@ -199,41 +208,43 @@ export default function Balancete() {
     onError: (error) => toast.error("Erro: " + error.message),
   });
 
-  // Build table data
+  // Determine which months to show
+  const mesesExibidos = mesFiltro === 0 ? [1,2,3,4,5,6,7,8,9,10,11,12] : [mesFiltro];
+
   const tableData = useMemo(() => {
     if (!contas || !consolidacao) return [];
 
     return contas.map((conta) => {
-      const meses: (number | null)[] = [];
+      const valores: (number | null)[] = [];
       let total = 0;
-      for (let m = 1; m <= 12; m++) {
+      for (const m of mesesExibidos) {
         const row = consolidacao.find((c) => c.conta_contabil_id === conta.id && c.mes === m);
         if (row) {
           const saldo = (conta.natureza_saldo === "Devedor")
             ? Number(row.valor_debito || 0) - Number(row.valor_credito || 0)
             : Number(row.valor_credito || 0) - Number(row.valor_debito || 0);
-          meses.push(saldo);
+          valores.push(saldo);
           total += saldo;
         } else {
-          meses.push(null);
+          valores.push(null);
         }
       }
-      return { conta, meses, total };
+      return { conta, meses: valores, total };
     }).filter((row) => row.total !== 0 || row.meses.some((m) => m !== null));
-  }, [contas, consolidacao]);
+  }, [contas, consolidacao, mesFiltro]);
 
   // Totals row
   const totais = useMemo(() => {
-    const meses: number[] = Array(12).fill(0);
+    const meses: number[] = Array(mesesExibidos.length).fill(0);
     let total = 0;
     for (const row of tableData) {
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < mesesExibidos.length; i++) {
         meses[i] += row.meses[i] || 0;
       }
       total += row.total;
     }
     return { meses, total };
-  }, [tableData]);
+  }, [tableData, mesFiltro]);
 
   return (
     <div className="space-y-6">
@@ -266,8 +277,8 @@ export default function Balancete() {
         </Card>
       )}
 
-      {/* Year selector */}
-      <div className="flex items-center gap-4">
+      {/* Year/Month selector */}
+      <div className="flex items-center gap-4 flex-wrap">
         <Button variant="outline" size="icon" onClick={() => setAno((a) => a - 1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -275,6 +286,16 @@ export default function Balancete() {
         <Button variant="outline" size="icon" onClick={() => setAno((a) => a + 1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
+        <Select value={String(mesFiltro)} onValueChange={(v) => setMesFiltro(Number(v))}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MESES_OPTIONS.map((m) => (
+              <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>
@@ -299,10 +320,10 @@ export default function Balancete() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]">Conta</TableHead>
-                    {MESES.map((m) => (
-                      <TableHead key={m} className="text-right min-w-[100px]">{m}</TableHead>
+                    {mesesExibidos.map((m) => (
+                      <TableHead key={m} className="text-right min-w-[100px]">{MESES[m - 1]}</TableHead>
                     ))}
-                    <TableHead className="text-right min-w-[120px] font-bold">TOTAL</TableHead>
+                    {mesesExibidos.length > 1 && <TableHead className="text-right min-w-[120px] font-bold">TOTAL</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -319,9 +340,11 @@ export default function Balancete() {
                           {val !== null ? formatCurrency(val) : "-"}
                         </TableCell>
                       ))}
-                      <TableCell className="text-right font-mono font-bold">
-                        {formatCurrency(row.total)}
-                      </TableCell>
+                      {mesesExibidos.length > 1 && (
+                        <TableCell className="text-right font-mono font-bold">
+                          {formatCurrency(row.total)}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -333,9 +356,11 @@ export default function Balancete() {
                         {formatCurrency(val)}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right font-mono font-bold text-primary">
-                      {formatCurrency(totais.total)}
-                    </TableCell>
+                    {mesesExibidos.length > 1 && (
+                      <TableCell className="text-right font-mono font-bold text-primary">
+                        {formatCurrency(totais.total)}
+                      </TableCell>
+                    )}
                   </TableRow>
                 </TableFooter>
               </Table>
