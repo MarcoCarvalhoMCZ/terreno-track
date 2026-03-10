@@ -275,8 +275,8 @@ export default function Balancete() {
         </Card>
       )}
 
-      {/* Year selector */}
-      <div className="flex items-center gap-4">
+      {/* Year/Month selector */}
+      <div className="flex items-center gap-4 flex-wrap">
         <Button variant="outline" size="icon" onClick={() => setAno((a) => a - 1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -284,6 +284,16 @@ export default function Balancete() {
         <Button variant="outline" size="icon" onClick={() => setAno((a) => a + 1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
+        <Select value={String(mesFiltro)} onValueChange={(v) => setMesFiltro(Number(v))}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MESES_OPTIONS.map((m) => (
+              <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>
