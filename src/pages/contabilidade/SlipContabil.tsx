@@ -153,7 +153,8 @@ export default function SlipContabil() {
     doc.text(`SLIP CONTÁBIL – ${mesLabel.toUpperCase()}/${ano}`, 14, 15);
     doc.setFontSize(10);
     if (contaFiltro !== "ALL") {
-      doc.text(`Conta: ${contaFiltro}`, 14, 22);
+      const contaSel = contas?.find((c) => c.codigo === contaFiltro);
+      doc.text(`Conta: ${contaFiltro}${contaSel ? ` – ${contaSel.descricao}` : ""}`, 14, 22);
     }
 
     const isVendaPresent = filteredRows.some((r) => r.tipo_mov === "VENDA");
