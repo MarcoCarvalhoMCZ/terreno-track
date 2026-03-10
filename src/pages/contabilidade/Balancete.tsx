@@ -340,9 +340,11 @@ export default function Balancete() {
                           {val !== null ? formatCurrency(val) : "-"}
                         </TableCell>
                       ))}
-                      <TableCell className="text-right font-mono font-bold">
-                        {formatCurrency(row.total)}
-                      </TableCell>
+                      {mesesExibidos.length > 1 && (
+                        <TableCell className="text-right font-mono font-bold">
+                          {formatCurrency(row.total)}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
