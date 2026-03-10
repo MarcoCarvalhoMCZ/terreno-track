@@ -82,15 +82,29 @@ export default function Balancete() {
       // Delete existing consolidation for the year
       await supabase.from("consolidacao_contabil" as any).delete().eq("ano", ano);
 
-      // Fetch all movements for the year
+      // Fetch all movements for the year (paginated to avoid 1000-row limit)
       const startDate = `${ano}-01-01`;
       const endDate = `${ano}-12-31`;
-      const { data: movimentos, error } = await supabase
-        .from("conta_corrente_lote")
-        .select("data_mov, tipo_mov, debito, credito")
-        .gte("data_mov", startDate)
-        .lte("data_mov", endDate);
-      if (error) throw error;
+      const pageSize = 1000;
+      let allMovimentos: any[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("conta_corrente_lote")
+          .select("data_mov, tipo_mov, debito, credito")
+          .gte("data_mov", startDate)
+          .lte("data_mov", endDate)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allMovimentos = allMovimentos.concat(data || []);
+        if (!data || data.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
+      }
+      const movimentos = allMovimentos;
 
       // Build consolidation map: { `${mes}-${contaId}`: { debito, credito } }
       const consolidationMap = new Map<string, { ano: number; mes: number; conta_contabil_id: string; valor_debito: number; valor_credito: number }>();
