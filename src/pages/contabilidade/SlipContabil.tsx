@@ -153,7 +153,8 @@ export default function SlipContabil() {
     doc.text(`SLIP CONTÁBIL – ${mesLabel.toUpperCase()}/${ano}`, 14, 15);
     doc.setFontSize(10);
     if (contaFiltro !== "ALL") {
-      doc.text(`Conta: ${contaFiltro}`, 14, 22);
+      const contaSel = contas?.find((c) => c.codigo === contaFiltro);
+      doc.text(`Conta: ${contaFiltro}${contaSel ? ` – ${contaSel.descricao}` : ""}`, 14, 22);
     }
 
     const isVendaPresent = filteredRows.some((r) => r.tipo_mov === "VENDA");
@@ -181,12 +182,23 @@ export default function SlipContabil() {
       return row;
     });
 
+    const totalColSpan = headers.length - 1;
+    const footerRow = Array(headers.length).fill("");
+    footerRow[0] = "TOTAL";
+    footerRow[headers.length - 1] = formatCurrency(totalValor);
+
     autoTable(doc, {
       head: [headers],
-      body,
+      body: [...body, footerRow],
       startY: contaFiltro !== "ALL" ? 28 : 22,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [34, 87, 55] },
+      didParseCell: (data: any) => {
+        if (data.row.index === body.length) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [240, 240, 240];
+        }
+      },
     });
 
     doc.save(`slip-contabil-${ano}-${mes.padStart(2, "0")}.pdf`);
@@ -251,9 +263,14 @@ export default function SlipContabil() {
       {/* Slip table */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 flex-wrap">
             <FileText className="h-5 w-5" />
             Slip Contábil – {mesLabel}/{ano}
+            {contaFiltro !== "ALL" && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                Conta: {contaFiltro} – {contas?.find((c) => c.codigo === contaFiltro)?.descricao || ""}
+              </span>
+            )}
             {filteredRows.length > 0 && (
               <span className="text-sm font-normal text-muted-foreground ml-2">
                 ({filteredRows.length} lançamentos)
