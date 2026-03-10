@@ -78,7 +78,7 @@ export default function SaldoLotes() {
 
       // Agrupar saldos por lote
       const saldoMap = new Map<string, number>();
-      for (const mov of movimentos || []) {
+      for (const mov of allMovimentos) {
         const prev = saldoMap.get(mov.lote_id) || 0;
         saldoMap.set(mov.lote_id, prev + (mov.debito || 0) - (mov.credito || 0));
       }
