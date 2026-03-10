@@ -24,6 +24,9 @@ const AtualizacaoMonetaria = lazy(() => import("./pages/contas-correntes/Atualiz
 const Reorganizacao = lazy(() => import("./pages/contas-correntes/Reorganizacao"));
 const EventosContabeis = lazy(() => import("./pages/contabilidade/EventosContabeis"));
 const ContasContabeis = lazy(() => import("./pages/contabilidade/ContasContabeis"));
+const MapaMovimentoConta = lazy(() => import("./pages/contabilidade/MapaMovimentoConta"));
+const Balancete = lazy(() => import("./pages/contabilidade/Balancete"));
+const SlipContabil = lazy(() => import("./pages/contabilidade/SlipContabil"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Importacao = lazy(() => import("./pages/Importacao"));
 const Sobre = lazy(() => import("./pages/Sobre"));
@@ -98,6 +101,9 @@ function AppRoutes() {
         <Route path="/contas-correntes/reorganizacao" element={<ProtectedRoute><Reorganizacao /></ProtectedRoute>} />
         <Route path="/contabilidade/eventos" element={<ProtectedRoute><EventosContabeis /></ProtectedRoute>} />
         <Route path="/contabilidade/contas" element={<ProtectedRoute><ContasContabeis /></ProtectedRoute>} />
+        <Route path="/contabilidade/mapa" element={<ProtectedRoute><MapaMovimentoConta /></ProtectedRoute>} />
+        <Route path="/contabilidade/balancete" element={<ProtectedRoute><Balancete /></ProtectedRoute>} />
+        <Route path="/contabilidade/slip" element={<ProtectedRoute><SlipContabil /></ProtectedRoute>} />
         <Route path="/importacao" element={<ProtectedRoute><Importacao /></ProtectedRoute>} />
         <Route path="/sobre" element={<ProtectedRoute><Sobre /></ProtectedRoute>} />
         <Route path="/admin/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
