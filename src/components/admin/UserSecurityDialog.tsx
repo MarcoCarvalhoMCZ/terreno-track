@@ -34,11 +34,20 @@ export function UserSecurityDialog({
   initialData,
   onSaved,
 }: UserSecurityDialogProps) {
-  const [cpf, setCpf] = useState(initialData.cpf);
-  const [dataNascimento, setDataNascimento] = useState(initialData.data_nascimento);
-  const [pergunta, setPergunta] = useState(initialData.pergunta_seguranca);
-  const [resposta, setResposta] = useState(initialData.resposta_seguranca);
+  const [cpf, setCpf] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
+  const [pergunta, setPergunta] = useState("");
+  const [resposta, setResposta] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setCpf(initialData.cpf);
+      setDataNascimento(initialData.data_nascimento);
+      setPergunta(initialData.pergunta_seguranca);
+      setResposta(initialData.resposta_seguranca);
+    }
+  }, [open, userId]);
 
   const handleSave = async () => {
     setSaving(true);
