@@ -5,6 +5,7 @@ import { format, subMonths, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { generatePixPayload, generateTxId, TipoFluxoTxId } from "@/lib/pix";
 import { calcularResumoLote } from "@/lib/calculo-financeiro";
+import { regenerarParcelasAbertas } from "@/lib/parcelas-abertas";
 import type { ResumoFluxo, ResumoLote, TipoConta } from "@/types/conta-corrente.types";
 
 // Fetch lotes for selection
