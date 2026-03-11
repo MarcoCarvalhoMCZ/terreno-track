@@ -120,13 +120,16 @@ export default function RelGerencialInadimplencia() {
         const parcelasControle = allParcControle[venda.lote_id] || [];
 
         // Find last ATUALIZACAO for THIS specific lot — use raw date (same as Consulta de Lote)
+        // Filter out corrupted dates (future beyond current year + 1)
+        const now = new Date();
+        const maxValidYear = now.getFullYear() + 1;
         const lastAtMovLote = movimentos
-          .filter(m => m.tipo_mov === "ATUALIZACAO")
+          .filter(m => m.tipo_mov === "ATUALIZACAO" && new Date(m.data_mov).getFullYear() <= maxValidYear)
           .sort((a, b) => b.data_mov.localeCompare(a.data_mov))[0];
 
         const dataRefLote = lastAtMovLote
           ? new Date(lastAtMovLote.data_mov)
-          : new Date();
+          : now;
 
         if (dataRefLote > maxDataRef) {
           maxDataRef = dataRefLote;
