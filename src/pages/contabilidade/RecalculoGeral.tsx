@@ -5,8 +5,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { RefreshCw, Calculator, CheckCircle2, AlertTriangle } from "lucide-react";
+import { RefreshCw, Calculator, CheckCircle2, AlertTriangle, ListChecks } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
+import { regenerarTodasParcelasAbertas } from "@/lib/parcelas-abertas";
 import {
   AlertDialog,
   AlertDialogAction,
