@@ -165,9 +165,12 @@ export default function Balancete() {
         totalCreditos += val;
       }
 
+      // "Outros" = tudo que não está nas categorias de débito ou crédito
       let totalOutros = 0;
-      for (const key of OTHER_KEYS) {
-        if (byTipo[key]) totalOutros += byTipo[key].debito - byTipo[key].credito;
+      for (const [key, vals] of Object.entries(byTipo)) {
+        if (!KNOWN_DEBIT_KEYS.has(key) && !KNOWN_CREDIT_KEYS.has(key)) {
+          totalOutros += vals.debito - vals.credito;
+        }
       }
 
       return {
