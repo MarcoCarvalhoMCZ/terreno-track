@@ -21,7 +21,23 @@ interface LoteResumo {
 }
 
 function parseDateOnly(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
+  const datePart = String(dateStr).slice(0, 10);
+  const [year, month, day] = datePart.split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+function normalizeToLocalDate(value: string | Date | null | undefined): Date | null {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate(), 12, 0, 0, 0);
+  }
+
+  const datePart = String(value).slice(0, 10);
+  const [year, month, day] = datePart.split("-").map(Number);
+  if (!year || !month || !day) return null;
+
   return new Date(year, month - 1, day, 12, 0, 0, 0);
 }
 
@@ -38,11 +54,17 @@ function monthKeyFromDate(date: Date): string {
   return `${year}-${month}`;
 }
 
+function monthKeyFromValue(value: string | Date | null | undefined): string | null {
+  const date = normalizeToLocalDate(value);
+  if (!date) return null;
+  return monthKeyFromDate(date);
+}
+
 export default function RelGerencialInadimplencia() {
-  const [fetchCount, setFetchCount] = useState(0);
+  const [consultar, setConsultar] = useState(false);
 
   const { data: resultado, isLoading } = useQuery({
-    queryKey: ["rel-gerencial-contas-receber", fetchCount],
+    queryKey: ["rel-gerencial-contas-receber"],
     queryFn: async () => {
       // 1. Determinar data de referência: último dia do mês da última atualização monetária
       const { data: lastUpdate } = await supabase
@@ -53,7 +75,7 @@ export default function RelGerencialInadimplencia() {
         .limit(1)
         .single();
 
-      const lastUpdateDate = lastUpdate?.data_mov ? parseDateOnly(lastUpdate.data_mov) : new Date();
+      const lastUpdateDate = normalizeToLocalDate(lastUpdate?.data_mov) ?? new Date();
       const dataRef = lastDayOfMonth(lastUpdateDate);
       const mesRefKey = monthKeyFromDate(dataRef);
 
@@ -69,22 +91,13 @@ export default function RelGerencialInadimplencia() {
       if (error) throw error;
       if (!parcelas || parcelas.length === 0) return { lotes: [], competencias: [], dataRef: formatDateOnly(dataRef) };
 
-      // DEBUG: log reference info and sample data
-      console.log("=== REL GERENCIAL DEBUG ===");
-      console.log("mesRefKey:", mesRefKey, "dataRef:", formatDateOnly(dataRef));
-      if (parcelas.length > 0) {
-        const sample = parcelas[0];
-        console.log("Sample parcela vencimento:", sample.vencimento, "typeof:", typeof sample.vencimento, "slice(0,7):", String(sample.vencimento).slice(0, 7));
-      }
-
       // 3. Classificar parcelas por competência de vencimento
       const allCompetencias = new Set<string>();
       const lotesMap = new Map<string, LoteResumo>();
 
       for (const p of parcelas) {
-        const vencKey = typeof p.vencimento === "string"
-          ? p.vencimento.slice(0, 7)
-          : monthKeyFromDate(new Date(p.vencimento));
+        const vencKey = monthKeyFromValue(p.vencimento);
+        if (!vencKey) continue;
 
         // Não exibir competências futuras no relatório gerencial de referência
         if (vencKey > mesRefKey) continue;
