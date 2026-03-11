@@ -1,18 +1,11 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, format, isSameMonth } from "date-fns";
+import { format, isSameMonth } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileDown, Search } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
-import {
-  calcularResumoLote,
-  type MovimentoConta,
-  type ParcelasControleRow,
-  type DadosVenda,
-} from "@/lib/calculo-financeiro";
-import { calcularEncargosParcela, type MoraConfig, type CriterioJurosMora } from "@/lib/calculo-mora";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
