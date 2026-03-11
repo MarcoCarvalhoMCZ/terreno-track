@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, format, endOfMonth, isSameMonth } from "date-fns";
+import { addMonths, format, isSameMonth } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileDown, Search } from "lucide-react";
@@ -119,14 +119,14 @@ export default function RelGerencialInadimplencia() {
         const movimentos = allMovimentos[venda.lote_id] || [];
         const parcelasControle = allParcControle[venda.lote_id] || [];
 
-        // Find last ATUALIZACAO for THIS specific lot (same as Consulta de Lote)
+        // Find last ATUALIZACAO for THIS specific lot — use raw date (same as Consulta de Lote)
         const lastAtMovLote = movimentos
           .filter(m => m.tipo_mov === "ATUALIZACAO")
           .sort((a, b) => b.data_mov.localeCompare(a.data_mov))[0];
 
         const dataRefLote = lastAtMovLote
-          ? endOfMonth(new Date(lastAtMovLote.data_mov))
-          : endOfMonth(new Date());
+          ? new Date(lastAtMovLote.data_mov)
+          : new Date();
 
         if (dataRefLote > maxDataRef) {
           maxDataRef = dataRefLote;

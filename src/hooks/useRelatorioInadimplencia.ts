@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, endOfMonth, isSameMonth } from "date-fns";
+import { addMonths, isSameMonth } from "date-fns";
 import {
   calcularResumoLote,
   type MovimentoConta,
@@ -164,14 +164,14 @@ export function useRelatorioInadimplencia(moraConfig: MoraConfig | null | undefi
       const movimentos = rawData.movimentos[venda.lote_id] || [];
       const parcelasControle = rawData.parcelasControle[venda.lote_id] || [];
 
-      // Same reference date logic as Consulta de Lote: last ATUALIZACAO for this lot
+      // Same reference date as Consulta de Lote: raw date of last ATUALIZACAO (NOT endOfMonth)
       const lastAtMov = movimentos
         .filter(m => m.tipo_mov === "ATUALIZACAO")
         .sort((a, b) => b.data_mov.localeCompare(a.data_mov))[0];
 
       const dataRef = lastAtMov
-        ? endOfMonth(new Date(lastAtMov.data_mov))
-        : endOfMonth(new Date());
+        ? new Date(lastAtMov.data_mov)
+        : new Date();
 
       // Use the SAME engine as Consulta de Lote
       const dadosVenda: DadosVenda = {
