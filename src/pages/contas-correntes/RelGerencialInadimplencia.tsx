@@ -240,7 +240,7 @@ export default function RelGerencialInadimplencia() {
       {resultado && resultado.lotes.length > 0 && totais && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Inadimplência por Lote e Competência</CardTitle>
+            <CardTitle className="text-lg">Contas a Receber por Lote e Competência</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
