@@ -50,10 +50,12 @@ interface MapaForm {
   historico_padrao: string;
 }
 
+const NONE = "__NONE__";
+
 const initialForm: MapaForm = {
   tipo_movimento: "",
-  conta_debito_id: "",
-  conta_credito_id: "",
+  conta_debito_id: NONE,
+  conta_credito_id: NONE,
   historico_padrao: "",
 };
 
