@@ -511,6 +511,8 @@ export default function ContaCorrenteLote() {
       modo_pagamento: isPagamento ? (formData.modo_pagamento || null) : null,
       banco_origem: isPagamento ? (formData.banco_origem || null) : null,
       cpf_cnpj_pagador: isPagamento ? (formData.cpf_cnpj_pagador || null) : null,
+      numero_parcela: formData.numero_parcela ?? null,
+      sequencia_parcela: formData.sequencia_parcela ?? null,
     };
 
     // Verificar duplicidade para ATUALIZACAO (consulta robusta no banco)
