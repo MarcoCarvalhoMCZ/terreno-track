@@ -23,6 +23,8 @@ export interface MovimentoConta {
   data_mov: string;
   vencimento: string | null;
   referencia: string | null;
+  numero_parcela: number | null;
+  sequencia_parcela: number | null;
 }
 
 export interface ParcelasControleRow {
