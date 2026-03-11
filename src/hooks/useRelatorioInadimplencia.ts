@@ -128,8 +128,7 @@ export function useRelatorioInadimplencia() {
       const parcelasAtraso: ParcelaAtrasoRelatorio[] = parcelas.map(p => ({
         numero: p.numero_parcela,
         totalParcelas: p.total_parcelas,
-        tipoFluxo: p.tipo_fluxo as "PARCELAMENTO" | "REFORCO",
-        vencimento: new Date(p.vencimento),
+        vencimento: parseDateOnly(p.vencimento) || new Date(p.vencimento),
         valorParcela: p.valor_parcela,
         mesesAtraso: 0, // Simplified — juros_percentual gives the info
         jurosPercentual: p.juros_percentual,
