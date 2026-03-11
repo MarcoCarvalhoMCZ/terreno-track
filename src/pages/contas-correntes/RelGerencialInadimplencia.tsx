@@ -119,14 +119,14 @@ export default function RelGerencialInadimplencia() {
         const movimentos = allMovimentos[venda.lote_id] || [];
         const parcelasControle = allParcControle[venda.lote_id] || [];
 
-        // Find last ATUALIZACAO for THIS specific lot (same as Consulta de Lote)
+        // Find last ATUALIZACAO for THIS specific lot — use raw date (same as Consulta de Lote)
         const lastAtMovLote = movimentos
           .filter(m => m.tipo_mov === "ATUALIZACAO")
           .sort((a, b) => b.data_mov.localeCompare(a.data_mov))[0];
 
         const dataRefLote = lastAtMovLote
-          ? endOfMonth(new Date(lastAtMovLote.data_mov))
-          : endOfMonth(new Date());
+          ? new Date(lastAtMovLote.data_mov)
+          : new Date();
 
         if (dataRefLote > maxDataRef) {
           maxDataRef = dataRefLote;
