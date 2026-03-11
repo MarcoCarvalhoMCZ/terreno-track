@@ -30,6 +30,16 @@ interface ResultadoRecalculo {
 export default function RecalculoGeral() {
   const { canEdit } = useAuth();
   const [resultado, setResultado] = useState<ResultadoRecalculo | null>(null);
+  const [qtdParcelasGeradas, setQtdParcelasGeradas] = useState<number | null>(null);
+
+  const popularParcelasMutation = useMutation({
+    mutationFn: () => regenerarTodasParcelasAbertas(),
+    onSuccess: (count) => {
+      setQtdParcelasGeradas(count);
+      toast.success(`${count} parcela(s) aberta(s) gerada(s) com sucesso!`);
+    },
+    onError: (error) => toast.error("Erro: " + error.message),
+  });
 
   const { data: mapa } = useQuery({
     queryKey: ["mapa-movimento-conta"],
