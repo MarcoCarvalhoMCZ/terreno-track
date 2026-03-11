@@ -209,10 +209,12 @@ export default function ContaCorrenteLote() {
         
         return {
           valor: valorProximo > 0 ? valorProximo.toFixed(2) : "",
-          referencia: qtdTotal > 0 ? `${parcelaAtual} de ${qtdTotal}` : "",
+          referencia: "",
           vencimento: vencimentoSugerido,
           percentual: "",
           descricao: `${tipoLabel} ${loteLabel}`,
+          numero_parcela: parcelaAtual > 0 ? parcelaAtual : null,
+          sequencia_parcela: 1,
         };
       }
 
