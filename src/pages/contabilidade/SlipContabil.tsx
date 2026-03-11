@@ -116,6 +116,67 @@ function formatContaSlip(codigo: string, estruturado: string): string {
   return codigo;
 }
 
+function normalizeMovimentosParaSlip(movimentos: any[]) {
+  const movimentosConsolidados: any[] = [];
+  const vendaInicialPorChave = new Map<string, any>();
+
+  for (const mov of movimentos) {
+    const debito = Number(mov.debito || 0);
+    const credito = Number(mov.credito || 0);
+    const isVendaInicial = mov.tipo_mov === "VENDA" && !!mov.venda_id && debito > 0 && credito === 0;
+
+    if (!isVendaInicial) {
+      movimentosConsolidados.push(mov);
+      continue;
+    }
+
+    const key = `${mov.venda_id}-${mov.data_mov}`;
+    const valorVenda = Number(mov.venda?.valor_venda ?? debito);
+    const existente = vendaInicialPorChave.get(key);
+
+    if (!existente) {
+      const consolidado = { ...mov, debito: valorVenda, credito: 0 };
+      vendaInicialPorChave.set(key, consolidado);
+      movimentosConsolidados.push(consolidado);
+      continue;
+    }
+
+    existente.debito = valorVenda;
+    existente.credito = 0;
+  }
+
+  return movimentosConsolidados;
+}
+
+function resolveCompradores(venda: any) {
+  const compradorPrincipal =
+    venda?.comprador_nome_1 ||
+    venda?.comprador?.nome_razao ||
+    venda?.comprador_nome_2 ||
+    null;
+
+  const cpfPrincipal =
+    venda?.comprador_cpf_1 ||
+    venda?.comprador?.cpf_cnpj ||
+    venda?.comprador_cpf_2 ||
+    null;
+
+  const compradorSecundarioOriginal = venda?.comprador_nome_2 || null;
+  const cpfSecundarioOriginal = venda?.comprador_cpf_2 || null;
+
+  const compradorSecundario =
+    compradorSecundarioOriginal && compradorSecundarioOriginal !== compradorPrincipal
+      ? compradorSecundarioOriginal
+      : null;
+
+  return {
+    comprador: compradorPrincipal,
+    cpfComprador: cpfPrincipal,
+    comprador2: compradorSecundario,
+    cpfComprador2: compradorSecundario ? cpfSecundarioOriginal : null,
+  };
+}
+
 export default function SlipContabil() {
   const [ano, setAno] = useState(new Date().getFullYear());
   const [mes, setMes] = useState(String(new Date().getMonth() + 1));
@@ -148,7 +209,7 @@ export default function SlipContabil() {
           .select(`
             data_mov, tipo_mov, debito, credito, venda_id, numero_parcela,
             lote:lotes(quadra, numero_lote, custo_contabil, area_m2, matricula_ri),
-            venda:vendas(valor_venda, comprador_nome_1, comprador_cpf_1, comprador_nome_2, comprador_cpf_2, data_venda, valor_arras, valor_reforco, qtd_reforcos, valor_parcelamento, qtd_parcelas)
+            venda:vendas(valor_venda, comprador_nome_1, comprador_cpf_1, comprador_nome_2, comprador_cpf_2, data_venda, valor_arras, valor_reforco, qtd_reforcos, valor_parcelamento, qtd_parcelas, comprador:pessoas!vendas_comprador_pessoa_id_fkey(nome_razao, cpf_cnpj))
           `)
           .gte("data_mov", startDate)
           .lte("data_mov", endDate)
@@ -168,22 +229,24 @@ export default function SlipContabil() {
 
     const parentMappings = mapa.filter((m) => !m.lancamento_pai_id);
     const childMappings = mapa.filter((m) => !!m.lancamento_pai_id);
+    const movimentosNormalizados = normalizeMovimentosParaSlip(movimentos);
 
     const rows: SlipRow[] = [];
 
-    for (const mov of movimentos) {
+    for (const mov of movimentosNormalizados) {
       const mappings = parentMappings.filter((m) => m.tipo_movimento === mov.tipo_mov);
       if (!mappings.length) continue;
 
       const valor = Number(mov.debito || 0) + Number(mov.credito || 0);
       const lote = mov.lote as any;
       const venda = mov.venda as any;
+      const compradores = resolveCompradores(venda);
 
       const ctx: HistoricoCtx = {
-        comprador: venda?.comprador_nome_1 || null,
-        cpf_comprador: venda?.comprador_cpf_1 || null,
-        comprador_nome_2: venda?.comprador_nome_2 || null,
-        cpf_comprador_2: venda?.comprador_cpf_2 || null,
+        comprador: compradores.comprador,
+        cpf_comprador: compradores.cpfComprador,
+        comprador_nome_2: compradores.comprador2,
+        cpf_comprador_2: compradores.cpfComprador2,
         quadra: lote?.quadra || "-",
         lote: lote?.numero_lote || "-",
         area_m2: lote?.area_m2 ?? null,
