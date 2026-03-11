@@ -368,7 +368,7 @@ export default function MapaMovimentoConta() {
               <Select value={form.conta_debito_id} onValueChange={(v) => setForm({ ...form, conta_debito_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma</SelectItem>
+                  <SelectItem value={NONE}>Nenhuma</SelectItem>
                   {contas?.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.codigo} – {c.descricao}</SelectItem>
                   ))}
