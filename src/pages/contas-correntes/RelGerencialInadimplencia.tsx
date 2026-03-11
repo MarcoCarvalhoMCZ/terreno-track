@@ -154,7 +154,7 @@ export default function RelGerencialInadimplencia() {
 
       return { lotes, competencias, dataRef: formatDateOnly(dataRef) };
     },
-    enabled: fetchCount > 0,
+    enabled: consultar,
   });
 
   const totais = useMemo(() => {
