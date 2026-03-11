@@ -191,15 +191,18 @@ export default function MapaMovimentoConta() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.tipo_movimento || (!form.conta_debito_id && !form.conta_credito_id)) {
+    const debitoId = form.conta_debito_id === NONE ? null : form.conta_debito_id;
+    const creditoId = form.conta_credito_id === NONE ? null : form.conta_credito_id;
+
+    if (!form.tipo_movimento || (!debitoId && !creditoId)) {
       toast.error("Tipo de movimento e pelo menos uma conta são obrigatórios");
       return;
     }
 
     const payload: any = {
       tipo_movimento: form.tipo_movimento,
-      conta_debito_id: form.conta_debito_id || null,
-      conta_credito_id: form.conta_credito_id || null,
+      conta_debito_id: debitoId,
+      conta_credito_id: creditoId,
       historico_padrao: form.historico_padrao || null,
       lancamento_pai_id: isSecondEntry ? parentId : null,
     };
