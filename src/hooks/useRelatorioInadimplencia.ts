@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, endOfMonth, isSameMonth } from "date-fns";
+import { addMonths, isSameMonth } from "date-fns";
 import {
   calcularResumoLote,
   type MovimentoConta,
