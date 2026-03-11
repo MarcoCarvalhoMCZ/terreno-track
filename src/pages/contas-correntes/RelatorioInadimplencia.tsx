@@ -179,10 +179,7 @@ function CompradorCard({ comprador }: { comprador: CompradorInadimplente }) {
 
 export default function RelatorioInadimplencia() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: moraConfig, isLoading: loadingConfig } = useMoraConfig();
-  const { relatorio, isLoading: loadingRelatorio } = useRelatorioInadimplencia(moraConfig);
-
-  const isLoading = loadingConfig || loadingRelatorio;
+  const { relatorio, isLoading } = useRelatorioInadimplencia();
 
   // Filtrar compradores pelo termo de busca
   const compradoresFiltrados = relatorio.compradores.filter((comprador) => {
