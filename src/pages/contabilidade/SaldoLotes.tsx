@@ -54,7 +54,7 @@ export default function SaldoLotes() {
       const { data: vendas, error: vendasErr } = await supabase
         .from("vendas")
         .select("lote_id, comprador_nome_1, lotes!vendas_lote_id_fkey(quadra, numero_lote)")
-        .eq("status", "ATIVA")
+        .in("status", ["ATIVA", "QUITADA"])
         .order("lote_id");
 
       if (vendasErr) throw vendasErr;
