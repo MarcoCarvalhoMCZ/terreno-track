@@ -277,27 +277,16 @@ export default function RelatorioInadimplencia() {
             </Card>
           </div>
 
-          {/* Configurações de mora aplicadas */}
-          {moraConfig && (
-            <Card className="bg-muted/30">
-              <CardContent className="py-3">
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <span>
-                    <strong>Juros de mora:</strong> {moraConfig.juros_mora_percentual}% ao mês
-                  </span>
-                  <span>
-                    <strong>Multa:</strong> {moraConfig.multa_mora_percentual}%
-                  </span>
-                  <span>
-                    <strong>Critério:</strong>{" "}
-                    {moraConfig.criterio_juros_mora === "MES_SUBSEQUENTE"
-                      ? "A partir do mês subsequente ao vencimento"
-                      : `Após ${moraConfig.tolerancia_dias_juros} dias de tolerância`}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Info do relatório */}
+          <Card className="bg-muted/30">
+            <CardContent className="py-3">
+              <div className="flex flex-wrap gap-4 text-sm">
+                <span>
+                  Dados obtidos da tabela de parcelas abertas (Contas a Receber).
+                </span>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Busca */}
           <div className="flex items-center gap-4">
