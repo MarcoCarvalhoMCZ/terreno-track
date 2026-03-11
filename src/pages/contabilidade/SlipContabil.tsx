@@ -4,15 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
-  Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { FileText, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { formatCurrency, formatDocument } from "@/lib/formatters";
-import { getTipoMovimentoLabel } from "@/constants/movimento";
+import { tiposMovimentoTodos, getTipoMovimentoLabel } from "@/constants/movimento";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -31,8 +29,8 @@ interface MapaEntry {
   conta_credito_id: string | null;
   historico_padrao: string | null;
   lancamento_pai_id: string | null;
-  conta_debito: { id: string; codigo: string; descricao: string } | null;
-  conta_credito: { id: string; codigo: string; descricao: string } | null;
+  conta_debito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
+  conta_credito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
 }
 
 interface SlipRow {
@@ -46,8 +44,10 @@ interface SlipRow {
   debito_valor: number | null;
   credito_valor: number | null;
   conta_debito_codigo: string;
+  conta_debito_estruturado: string;
   conta_debito_descricao: string;
   conta_credito_codigo: string;
+  conta_credito_estruturado: string;
   conta_credito_descricao: string;
   historico: string;
   valor: number;
@@ -105,30 +105,23 @@ function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
     .replace(/\{parcela\}/g, ctx.parcela != null ? String(ctx.parcela) : "—");
 }
 
+function formatContaSlip(codigo: string, estruturado: string): string {
+  if (!codigo) return "—";
+  if (estruturado) return `${codigo} / ${estruturado}`;
+  return codigo;
+}
+
 export default function SlipContabil() {
   const [ano, setAno] = useState(new Date().getFullYear());
   const [mes, setMes] = useState(String(new Date().getMonth() + 1));
-  const [contaFiltro, setContaFiltro] = useState<string>("ALL");
-
-  const { data: contas } = useQuery({
-    queryKey: ["contas-contabeis-ativas"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contas_contabeis")
-        .select("id, codigo, descricao")
-        .eq("ativo", true)
-        .order("codigo");
-      if (error) throw error;
-      return data as { id: string; codigo: string; descricao: string }[];
-    },
-  });
+  const [tipoMovFiltro, setTipoMovFiltro] = useState<string>("ALL");
 
   const { data: mapa } = useQuery({
     queryKey: ["mapa-movimento-conta"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("mapa_movimento_conta" as any)
-        .select("*, conta_debito:contas_contabeis!mapa_movimento_conta_conta_debito_id_fkey(id, codigo, descricao), conta_credito:contas_contabeis!mapa_movimento_conta_conta_credito_id_fkey(id, codigo, descricao)");
+        .select("*, conta_debito:contas_contabeis!mapa_movimento_conta_conta_debito_id_fkey(id, codigo, descricao, codigo_estruturado), conta_credito:contas_contabeis!mapa_movimento_conta_conta_credito_id_fkey(id, codigo, descricao, codigo_estruturado)");
       if (error) throw error;
       return data as unknown as MapaEntry[];
     },
@@ -168,7 +161,6 @@ export default function SlipContabil() {
   const slipRows = useMemo(() => {
     if (!movimentos || !mapa) return [];
 
-    // Separate parent and child mappings
     const parentMappings = mapa.filter((m) => !m.lancamento_pai_id);
     const childMappings = mapa.filter((m) => !!m.lancamento_pai_id);
 
@@ -214,8 +206,10 @@ export default function SlipContabil() {
           debito_valor: mov.debito,
           credito_valor: mov.credito,
           conta_debito_codigo: mapping.conta_debito?.codigo || "",
+          conta_debito_estruturado: mapping.conta_debito?.codigo_estruturado || "",
           conta_debito_descricao: mapping.conta_debito?.descricao || "",
           conta_credito_codigo: mapping.conta_credito?.codigo || "",
+          conta_credito_estruturado: mapping.conta_credito?.codigo_estruturado || "",
           conta_credito_descricao: mapping.conta_credito?.descricao || "",
           historico: resolveHistorico(mapping.historico_padrao, ctx),
           valor,
@@ -224,7 +218,6 @@ export default function SlipContabil() {
           parcela: ctx.parcela,
         });
 
-        // Check for linked second entry
         const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
         if (child) {
           rows.push({
@@ -238,8 +231,10 @@ export default function SlipContabil() {
             debito_valor: mov.debito,
             credito_valor: mov.credito,
             conta_debito_codigo: child.conta_debito?.codigo || "",
+            conta_debito_estruturado: child.conta_debito?.codigo_estruturado || "",
             conta_debito_descricao: child.conta_debito?.descricao || "",
             conta_credito_codigo: child.conta_credito?.codigo || "",
+            conta_credito_estruturado: child.conta_credito?.codigo_estruturado || "",
             conta_credito_descricao: child.conta_credito?.descricao || "",
             historico: resolveHistorico(child.historico_padrao, ctx),
             valor,
@@ -255,23 +250,23 @@ export default function SlipContabil() {
   }, [movimentos, mapa]);
 
   const filteredRows = useMemo(() => {
-    if (contaFiltro === "ALL") return slipRows;
-    return slipRows.filter(
-      (r) => r.conta_debito_codigo === contaFiltro || r.conta_credito_codigo === contaFiltro
-    );
-  }, [slipRows, contaFiltro]);
+    if (tipoMovFiltro === "ALL") return slipRows;
+    return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
+  }, [slipRows, tipoMovFiltro]);
 
   const totalValor = useMemo(() => {
-    // Sum only non-second entries to avoid double counting
     return filteredRows.filter((r) => !r.is_second).reduce((s, r) => s + r.valor, 0);
   }, [filteredRows]);
 
   const mesLabel = MESES_LABEL.find((m) => m.value === mes)?.label || "";
+  const tipoMovLabel = tipoMovFiltro !== "ALL" ? getTipoMovimentoLabel(tipoMovFiltro) : "";
 
-  const contaLabel = (codigo: string, descricao: string) => {
-    if (!codigo) return "—";
-    return `${codigo} – ${descricao}`;
-  };
+  // Get unique tipo_mov values present in data for the filter
+  const tiposPresentes = useMemo(() => {
+    if (!slipRows.length) return [];
+    const unique = [...new Set(slipRows.map((r) => r.tipo_mov))];
+    return tiposMovimentoTodos.filter((t) => unique.includes(t.value));
+  }, [slipRows]);
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
@@ -279,24 +274,22 @@ export default function SlipContabil() {
     doc.text(`SLIP CONTÁBIL – ${mesLabel.toUpperCase()}/${ano}`, 14, 15);
     doc.setFontSize(10);
     let startY = 22;
-    if (contaFiltro !== "ALL") {
-      const contaSel = contas?.find((c) => c.codigo === contaFiltro);
-      doc.text(`Conta: ${contaFiltro}${contaSel ? ` – ${contaSel.descricao}` : ""}`, 14, 22);
+    if (tipoMovFiltro !== "ALL") {
+      doc.text(`Tipo: ${tipoMovLabel}`, 14, 22);
       startY = 28;
     }
 
-    const headers = ["Data", "Débito", "Crédito", "Quadra/Lote", "Valor R$", "Histórico"];
+    const headers = ["Data", "Débito", "Crédito", "Valor R$", "Histórico"];
 
     const body = filteredRows.map((r) => [
-      format(new Date(r.data_mov + "T00:00:00"), "dd/MM"),
-      contaLabel(r.conta_debito_codigo, r.conta_debito_descricao),
-      contaLabel(r.conta_credito_codigo, r.conta_credito_descricao),
-      `${r.quadra}-${r.numero_lote}`,
+      format(new Date(r.data_mov + "T00:00:00"), "dd/MM/yyyy"),
+      formatContaSlip(r.conta_debito_codigo, r.conta_debito_estruturado),
+      formatContaSlip(r.conta_credito_codigo, r.conta_credito_estruturado),
       formatCurrency(r.valor),
       r.historico || "-",
     ]);
 
-    const footerRow = ["TOTAL", "", "", "", formatCurrency(totalValor), ""];
+    const footerRow = ["TOTAL", "", "", formatCurrency(totalValor), ""];
 
     autoTable(doc, {
       head: [headers],
@@ -305,14 +298,13 @@ export default function SlipContabil() {
       styles: { fontSize: 7 },
       headStyles: { fillColor: [34, 87, 55] },
       columnStyles: {
-        5: { cellWidth: 60 },
+        4: { cellWidth: 80 },
       },
       didParseCell: (data: any) => {
         if (data.row.index === body.length) {
           data.cell.styles.fontStyle = "bold";
           data.cell.styles.fillColor = [240, 240, 240];
         }
-        // Highlight second entries
         if (data.row.index < body.length && filteredRows[data.row.index]?.is_second) {
           data.cell.styles.textColor = [100, 100, 100];
           data.cell.styles.fontStyle = "italic";
@@ -339,7 +331,7 @@ export default function SlipContabil() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Ano</Label>
               <div className="flex items-center gap-2">
@@ -364,13 +356,13 @@ export default function SlipContabil() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Conta Contábil (opcional)</Label>
-              <Select value={contaFiltro} onValueChange={setContaFiltro}>
+              <Label>Tipo de Movimento</Label>
+              <Select value={tipoMovFiltro} onValueChange={setTipoMovFiltro}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">Todas as contas</SelectItem>
-                  {contas?.map((c) => (
-                    <SelectItem key={c.id} value={c.codigo}>{c.codigo} – {c.descricao}</SelectItem>
+                  <SelectItem value="ALL">Todos os tipos</SelectItem>
+                  {tiposPresentes.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -379,15 +371,15 @@ export default function SlipContabil() {
         </CardContent>
       </Card>
 
-      {/* Slip table */}
+      {/* Slip entries */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 flex-wrap">
             <FileText className="h-5 w-5" />
             Slip Contábil – {mesLabel}/{ano}
-            {contaFiltro !== "ALL" && (
+            {tipoMovFiltro !== "ALL" && (
               <span className="text-sm font-normal text-muted-foreground ml-2">
-                Conta: {contaFiltro} – {contas?.find((c) => c.codigo === contaFiltro)?.descricao || ""}
+                Tipo: {tipoMovLabel}
               </span>
             )}
             {filteredRows.length > 0 && (
@@ -407,61 +399,58 @@ export default function SlipContabil() {
               <p className="text-sm text-muted-foreground">Verifique se o Mapa de Movimentos está configurado.</p>
             </div>
           ) : (
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Débito</TableHead>
-                    <TableHead>Crédito</TableHead>
-                    <TableHead>Quadra/Lote</TableHead>
-                    <TableHead className="text-right">Valor R$</TableHead>
-                    <TableHead>Histórico</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRows.map((row, idx) => (
-                    <TableRow key={idx} className={row.is_second ? "bg-muted/30" : ""}>
-                      <TableCell>
-                        {format(new Date(row.data_mov + "T00:00:00"), "dd/MM/yyyy")}
-                        {row.is_second && <span className="text-xs text-muted-foreground ml-1">(2º)</span>}
-                      </TableCell>
-                      <TableCell>
-                        {row.conta_debito_codigo ? (
-                          <>
-                            <span className="font-mono text-xs">{row.conta_debito_codigo}</span>
-                            <span className="ml-1 text-muted-foreground text-xs">– {row.conta_debito_descricao}</span>
-                          </>
-                        ) : "—"}
-                      </TableCell>
-                      <TableCell>
-                        {row.conta_credito_codigo ? (
-                          <>
-                            <span className="font-mono text-xs">{row.conta_credito_codigo}</span>
-                            <span className="ml-1 text-muted-foreground text-xs">– {row.conta_credito_descricao}</span>
-                          </>
-                        ) : "—"}
-                      </TableCell>
-                      <TableCell>{row.quadra}-{row.numero_lote}</TableCell>
-                      <TableCell className="text-right font-mono font-medium">
-                        {formatCurrency(row.valor)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
-                        {row.historico || "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-                <TableFooter>
-                  <TableRow>
-                    <TableCell colSpan={4} className="font-bold">TOTAL</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary">
-                      {formatCurrency(totalValor)}
-                    </TableCell>
-                    <TableCell />
-                  </TableRow>
-                </TableFooter>
-              </Table>
+            <div className="space-y-0">
+              {filteredRows.map((row, idx) => (
+                <div key={idx}>
+                  <div className={`py-3 px-4 space-y-1 ${row.is_second ? "bg-muted/30 pl-8" : ""}`}>
+                    {row.is_second && (
+                      <span className="text-xs text-muted-foreground font-medium">↳ 2º lançamento vinculado</span>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_auto] gap-x-4 gap-y-1">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Data</span>
+                        <p className="font-medium text-sm">
+                          {format(new Date(row.data_mov + "T00:00:00"), "dd/MM/yyyy")}
+                        </p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div>
+                          <span className="text-xs text-muted-foreground">Débito: </span>
+                          <span className="font-mono text-sm">
+                            {formatContaSlip(row.conta_debito_codigo, row.conta_debito_estruturado)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground">Crédito: </span>
+                          <span className="font-mono text-sm">
+                            {formatContaSlip(row.conta_credito_codigo, row.conta_credito_estruturado)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-muted-foreground">Valor R$</span>
+                        <p className="font-mono font-bold text-sm text-primary">
+                          {formatCurrency(row.valor)}
+                        </p>
+                      </div>
+                    </div>
+                    {row.historico && (
+                      <div className="mt-1">
+                        <span className="text-xs text-muted-foreground">Histórico: </span>
+                        <span className="text-sm">{row.historico}</span>
+                      </div>
+                    )}
+                  </div>
+                  {idx < filteredRows.length - 1 && <Separator />}
+                </div>
+              ))}
+              <Separator />
+              <div className="py-3 px-4 flex justify-between items-center bg-muted/20">
+                <span className="font-bold">TOTAL</span>
+                <span className="font-mono font-bold text-primary text-lg">
+                  {formatCurrency(totalValor)}
+                </span>
+              </div>
             </div>
           )}
         </CardContent>
