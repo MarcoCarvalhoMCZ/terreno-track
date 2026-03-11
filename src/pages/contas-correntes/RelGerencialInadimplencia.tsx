@@ -146,7 +146,7 @@ export default function RelGerencialInadimplencia() {
 
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     doc.setFontSize(14);
-    doc.text("Relatório Gerencial de Inadimplência", 14, 15);
+    doc.text("Relatório Gerencial de Contas a Receber", 14, 15);
     doc.setFontSize(8);
     doc.text(`Data referência: ${dataRefFormatted}    Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 20);
 
