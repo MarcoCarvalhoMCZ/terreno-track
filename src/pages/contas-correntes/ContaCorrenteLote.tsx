@@ -417,6 +417,8 @@ export default function ContaCorrenteLote() {
       modo_pagamento: mov.modo_pagamento || null,
       banco_origem: mov.banco_origem || null,
       cpf_cnpj_pagador: mov.cpf_cnpj_pagador || null,
+      numero_parcela: mov.numero_parcela ?? null,
+      sequencia_parcela: mov.sequencia_parcela ?? null,
     });
     setDialogOpen(true);
   };
