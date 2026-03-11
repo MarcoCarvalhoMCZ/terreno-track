@@ -50,10 +50,12 @@ interface MapaForm {
   historico_padrao: string;
 }
 
+const NONE = "__NONE__";
+
 const initialForm: MapaForm = {
   tipo_movimento: "",
-  conta_debito_id: "",
-  conta_credito_id: "",
+  conta_debito_id: NONE,
+  conta_credito_id: NONE,
   historico_padrao: "",
 };
 
@@ -165,8 +167,8 @@ export default function MapaMovimentoConta() {
     setSelected(item);
     setForm({
       tipo_movimento: item.tipo_movimento,
-      conta_debito_id: item.conta_debito_id || "",
-      conta_credito_id: item.conta_credito_id || "",
+      conta_debito_id: item.conta_debito_id || NONE,
+      conta_credito_id: item.conta_credito_id || NONE,
       historico_padrao: item.historico_padrao || "",
     });
     setIsSecondEntry(!!item.lancamento_pai_id);
@@ -178,8 +180,8 @@ export default function MapaMovimentoConta() {
     setSelected(null);
     setForm({
       tipo_movimento: parent.tipo_movimento,
-      conta_debito_id: "",
-      conta_credito_id: "",
+      conta_debito_id: NONE,
+      conta_credito_id: NONE,
       historico_padrao: "",
     });
     setIsSecondEntry(true);
@@ -189,15 +191,18 @@ export default function MapaMovimentoConta() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.tipo_movimento || (!form.conta_debito_id && !form.conta_credito_id)) {
+    const debitoId = form.conta_debito_id === NONE ? null : form.conta_debito_id;
+    const creditoId = form.conta_credito_id === NONE ? null : form.conta_credito_id;
+
+    if (!form.tipo_movimento || (!debitoId && !creditoId)) {
       toast.error("Tipo de movimento e pelo menos uma conta são obrigatórios");
       return;
     }
 
     const payload: any = {
       tipo_movimento: form.tipo_movimento,
-      conta_debito_id: form.conta_debito_id || null,
-      conta_credito_id: form.conta_credito_id || null,
+      conta_debito_id: debitoId,
+      conta_credito_id: creditoId,
       historico_padrao: form.historico_padrao || null,
       lancamento_pai_id: isSecondEntry ? parentId : null,
     };
@@ -363,7 +368,7 @@ export default function MapaMovimentoConta() {
               <Select value={form.conta_debito_id} onValueChange={(v) => setForm({ ...form, conta_debito_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma</SelectItem>
+                  <SelectItem value={NONE}>Nenhuma</SelectItem>
                   {contas?.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.codigo} – {c.descricao}</SelectItem>
                   ))}
@@ -375,7 +380,7 @@ export default function MapaMovimentoConta() {
               <Select value={form.conta_credito_id} onValueChange={(v) => setForm({ ...form, conta_credito_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma</SelectItem>
+                  <SelectItem value={NONE}>Nenhuma</SelectItem>
                   {contas?.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.codigo} – {c.descricao}</SelectItem>
                   ))}
