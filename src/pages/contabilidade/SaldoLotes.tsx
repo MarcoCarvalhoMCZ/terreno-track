@@ -59,6 +59,10 @@ export default function SaldoLotes() {
 
       if (vendasErr) throw vendasErr;
 
+      // Filtrar apenas lotes com vendas ativas
+      const loteIds = Array.from(new Set((vendas || []).map(v => v.lote_id)));
+      if (loteIds.length === 0) return [];
+
       // Buscar movimentos até a data limite para calcular saldo (paginado)
       const pageSize = 1000;
       let allMovimentos: { lote_id: string; debito: number | null; credito: number | null }[] = [];
@@ -68,6 +72,7 @@ export default function SaldoLotes() {
         const { data: page, error: movErr } = await supabase
           .from("conta_corrente_lote")
           .select("lote_id, debito, credito")
+          .in("lote_id", loteIds)
           .lte("data_mov", dataLimite)
           .range(from, from + pageSize - 1);
         if (movErr) throw movErr;
