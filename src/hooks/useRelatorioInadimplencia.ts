@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { parseDateOnly } from "@/lib/date";
 
 /**
  * Parcela em atraso para o relatório
@@ -65,7 +66,8 @@ export function useRelatorioInadimplencia() {
     queryFn: async () => {
       // 1. Parcelas abertas
       // Somente parcelas já vencidas (vencimento < hoje)
-      const hoje = new Date().toISOString().split("T")[0];
+      const now = new Date();
+      const hoje = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const { data: parcelas, error: parcErr } = await supabase
         .from("parcelas_abertas")
         .select("*")
@@ -127,7 +129,7 @@ export function useRelatorioInadimplencia() {
         numero: p.numero_parcela,
         totalParcelas: p.total_parcelas,
         tipoFluxo: p.tipo_fluxo as "PARCELAMENTO" | "REFORCO",
-        vencimento: new Date(p.vencimento),
+        vencimento: parseDateOnly(p.vencimento) || new Date(p.vencimento),
         valorParcela: p.valor_parcela,
         mesesAtraso: 0, // Simplified — juros_percentual gives the info
         jurosPercentual: p.juros_percentual,
