@@ -171,9 +171,25 @@ export function useRelatorioInadimplencia() {
       comp.qtdParcelasAtraso += parcelasAtraso.length;
     }
 
-    resultado.compradores = Array.from(compradoresMap.values()).sort(
-      (a, b) => b.totalGeral - a.totalGeral,
-    );
+    // Sort lotes within each comprador by quadra+lote
+    const sortLotes = (a: LoteInadimplente, b: LoteInadimplente) => {
+      const cmpQ = a.quadra.localeCompare(b.quadra, "pt-BR", { numeric: true });
+      if (cmpQ !== 0) return cmpQ;
+      return a.numeroLote.localeCompare(b.numeroLote, "pt-BR", { numeric: true });
+    };
+
+    for (const comp of compradoresMap.values()) {
+      comp.lotes.sort(sortLotes);
+    }
+
+    // Sort compradores by their first lote's quadra+lote
+    resultado.compradores = Array.from(compradoresMap.values()).sort((a, b) => {
+      const la = a.lotes[0];
+      const lb = b.lotes[0];
+      const cmpQ = la.quadra.localeCompare(lb.quadra, "pt-BR", { numeric: true });
+      if (cmpQ !== 0) return cmpQ;
+      return la.numeroLote.localeCompare(lb.numeroLote, "pt-BR", { numeric: true });
+    });
     resultado.totalGeralDevido = resultado.compradores.reduce((sum, c) => sum + c.totalGeral, 0);
     resultado.qtdTotalParcelasAtraso = resultado.compradores.reduce((sum, c) => sum + c.qtdParcelasAtraso, 0);
     resultado.qtdLotesInadimplentes = resultado.compradores.reduce((sum, c) => sum + c.lotes.length, 0);
