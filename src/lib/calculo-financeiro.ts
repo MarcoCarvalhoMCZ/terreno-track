@@ -106,25 +106,34 @@ export function calcularTotaisFluxo(movimentos: MovimentoConta[]): ResumoFluxoCa
 
 /**
  * Conta pagamentos realizados considerando baseline de parcelas_controle.
+ * Usa numero_parcela para contar parcelas DISTINTAS (evita contar pagamentos
+ * parcelados da mesma parcela como parcelas diferentes).
+ * Fallback: se nenhum movimento tiver numero_parcela, conta linhas como antes.
  */
 export function contarPagamentos(
   movimentos: MovimentoConta[],
   baseline: ParcelasControleRow | null,
 ): number {
-  if (!baseline) {
-    return movimentos.filter(m =>
-      (m.credito || 0) > 0 &&
+  const pagamentos = movimentos.filter(m => {
+    const isPagamento = (m.credito || 0) > 0 &&
       !isArrasSinal(m.referencia) &&
-      ["PARCELA", "REFORCO"].includes(m.tipo_mov),
-    ).length;
+      ["PARCELA", "REFORCO"].includes(m.tipo_mov);
+    if (!isPagamento) return false;
+    if (baseline && m.data_mov <= baseline.data_base) return false;
+    return true;
+  });
+
+  // Se há numero_parcela preenchido, contar parcelas distintas
+  const comNumeroParcela = pagamentos.filter(m => m.numero_parcela != null);
+  if (comNumeroParcela.length > 0) {
+    const parcelasDistintas = new Set(comNumeroParcela.map(m => m.numero_parcela!));
+    // Somar também pagamentos sem numero_parcela (legados não parseados)
+    const semNumeroParcela = pagamentos.filter(m => m.numero_parcela == null).length;
+    return parcelasDistintas.size + semNumeroParcela;
   }
 
-  return movimentos.filter(m =>
-    (m.credito || 0) > 0 &&
-    !isArrasSinal(m.referencia) &&
-    m.data_mov > baseline.data_base &&
-    ["PARCELA", "REFORCO"].includes(m.tipo_mov),
-  ).length;
+  // Fallback: contar linhas (comportamento antigo)
+  return pagamentos.length;
 }
 
 /**
