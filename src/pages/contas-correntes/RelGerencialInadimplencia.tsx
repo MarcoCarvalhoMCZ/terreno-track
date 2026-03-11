@@ -26,7 +26,20 @@ export default function RelGerencialInadimplencia() {
   const { data: resultado, isLoading } = useQuery({
     queryKey: ["rel-gerencial-inadimplencia"],
     queryFn: async () => {
-      // Buscar parcelas abertas diretamente da tabela persistida
+      // 1. Determinar data de referência: último dia do mês da última atualização monetária
+      const { data: lastUpdate } = await supabase
+        .from("conta_corrente_lote")
+        .select("data_mov")
+        .eq("tipo_mov", "ATUALIZACAO")
+        .order("data_mov", { ascending: false })
+        .limit(1)
+        .single();
+
+      const lastUpdateDate = lastUpdate ? new Date(lastUpdate.data_mov + "T12:00:00") : new Date();
+      const dataRef = lastDayOfMonth(lastUpdateDate);
+      const mesRefKey = format(dataRef, "yyyy-MM"); // e.g. "2026-03"
+
+      // 2. Buscar parcelas abertas
       const { data: parcelas, error } = await supabase
         .from("parcelas_abertas")
         .select("*")
@@ -36,16 +49,15 @@ export default function RelGerencialInadimplencia() {
         .order("vencimento");
 
       if (error) throw error;
-      if (!parcelas || parcelas.length === 0) return { lotes: [], competencias: [] };
+      if (!parcelas || parcelas.length === 0) return { lotes: [], competencias: [], dataRef: dataRef.toISOString() };
 
-      // Determinar data de referência (max vencimento com dados)
+      // 3. Classificar parcelas por mês de vencimento vs mês de referência
       const allCompetencias = new Set<string>();
       const lotesMap = new Map<string, LoteResumo>();
-      let maxDataRef = new Date(0);
 
       for (const p of parcelas) {
-        const venc = new Date(p.vencimento);
-        if (venc > maxDataRef) maxDataRef = venc;
+        const venc = new Date(p.vencimento + "T12:00:00");
+        const vencKey = format(venc, "yyyy-MM");
 
         const key = p.lote_id;
         if (!lotesMap.has(key)) {
@@ -62,24 +74,24 @@ export default function RelGerencialInadimplencia() {
         }
 
         const item = lotesMap.get(key)!;
+        const isMesRef = vencKey === mesRefKey;
 
         if (p.tipo_fluxo === "REFORCO") {
-          // Para reforços, usar a mesma lógica: mês ref vs atrasado
-          // Comparar com o vencimento mais recente do lote como proxy de data ref
-          // Simplificar: se não há juros, é do mês; se há juros, é atrasado
-          if (p.juros_percentual > 0) {
-            item.reforcoAtrasado += p.total_devido;
-          } else {
+          if (isMesRef) {
             item.reforcoMesRef += p.total_devido;
+          } else {
+            // Antes do mês ref = atrasado
+            item.reforcoAtrasado += p.total_devido;
           }
         } else {
           // PARCELAMENTO
-          if (p.juros_percentual > 0) {
-            const comp = format(venc, "yyyy-MM");
+          if (isMesRef) {
+            item.parcelamentoMesRef += p.total_devido;
+          } else {
+            // Atrasado — agrupar por competência
+            const comp = vencKey;
             item.parcelamentoPorMes[comp] = (item.parcelamentoPorMes[comp] || 0) + p.total_devido;
             allCompetencias.add(comp);
-          } else {
-            item.parcelamentoMesRef += p.total_devido;
           }
         }
       }
@@ -98,7 +110,7 @@ export default function RelGerencialInadimplencia() {
 
       const competencias = Array.from(allCompetencias).sort((a, b) => b.localeCompare(a));
 
-      return { lotes, competencias, dataRef: maxDataRef.toISOString() };
+      return { lotes, competencias, dataRef: dataRef.toISOString() };
     },
     enabled: consultar,
   });
