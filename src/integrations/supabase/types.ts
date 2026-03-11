@@ -206,6 +206,7 @@ export type Database = {
           percentual_calculo: number | null
           referencia: string | null
           saldo: number | null
+          sequencia_parcela: number | null
           tipo_fluxo: string | null
           tipo_mov: string
           updated_at: string | null
@@ -229,6 +230,7 @@ export type Database = {
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null
+          sequencia_parcela?: number | null
           tipo_fluxo?: string | null
           tipo_mov: string
           updated_at?: string | null
@@ -252,6 +254,7 @@ export type Database = {
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null
+          sequencia_parcela?: number | null
           tipo_fluxo?: string | null
           tipo_mov?: string
           updated_at?: string | null
