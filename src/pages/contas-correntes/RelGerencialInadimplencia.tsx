@@ -201,7 +201,7 @@ export default function RelGerencialInadimplencia() {
     doc.setFontSize(14);
     doc.text("Relatório Gerencial de Contas a Receber", 14, 15);
     doc.setFontSize(8);
-    doc.text(`Data referência: ${dataRefFormatted}    Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 20);
+    doc.text(`Data referência: ${dataRefFormatted}    Total Geral: ${formatCurrency(totais.totalGeral)}    Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 20);
 
     const head = [
       "Lote",
