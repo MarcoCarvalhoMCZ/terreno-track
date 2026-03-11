@@ -35,7 +35,8 @@ const CREDIT_ROWS = [
   { key: "AMORTIZACAO_ESPECIAL", label: "(-) Amortização Especial" },
 ];
 
-const OTHER_KEYS = ["DESCONTO", "ESTORNO", "OUTROS"];
+const KNOWN_DEBIT_KEYS = new Set(["VENDA", "ATUALIZACAO", "JUROS", "MULTA"]);
+const KNOWN_CREDIT_KEYS = new Set(["ARRAS", "PARCELA", "REFORCO", "AMORTIZACAO_ESPECIAL"]);
 
 interface MovRow {
   data_mov: string;
