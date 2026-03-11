@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, formatDocument } from "@/lib/formatters";
 import { getTipoMovimentoLabel } from "@/constants/movimento";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
@@ -56,25 +56,51 @@ interface SlipRow {
   parcela: number | null;
 }
 
-function resolveHistorico(
-  template: string | null,
-  ctx: {
-    comprador: string | null;
-    quadra: string;
-    lote: string;
-    data_venda: string | null;
-    valor_venda: number | null;
-    valor: number;
-    parcela: number | null;
-  }
-): string {
+interface HistoricoCtx {
+  comprador: string | null;
+  cpf_comprador: string | null;
+  comprador_nome_2: string | null;
+  cpf_comprador_2: string | null;
+  quadra: string;
+  lote: string;
+  area_m2: number | null;
+  matricula_ri: string | null;
+  data_venda: string | null;
+  valor_venda: number | null;
+  valor_arras: number | null;
+  valor_reforco: number | null;
+  qtd_reforcos: number | null;
+  valor_parcelamento: number | null;
+  qtd_parcelas: number | null;
+  valor: number;
+  parcela: number | null;
+}
+
+function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
   if (!template) return "";
+
+  const solidario = ctx.comprador_nome_2
+    ? `E ${ctx.comprador_nome_2} (CPF ${formatDocument(ctx.cpf_comprador_2)}) `
+    : "";
+
   return template
+    .replace(/\{ql\}/g, `${ctx.quadra}-${ctx.lote}`)
     .replace(/\{comprador\}/g, ctx.comprador || "—")
+    .replace(/\{cpf_comprador\}/g, formatDocument(ctx.cpf_comprador))
+    .replace(/\{solidario\}/g, solidario)
+    .replace(/\{comprador_2\}/g, ctx.comprador_nome_2 || "")
+    .replace(/\{cpf_comprador_2\}/g, ctx.cpf_comprador_2 ? formatDocument(ctx.cpf_comprador_2) : "")
     .replace(/\{quadra\}/g, ctx.quadra)
     .replace(/\{lote\}/g, ctx.lote)
+    .replace(/\{area\}/g, ctx.area_m2 != null ? String(ctx.area_m2) : "—")
+    .replace(/\{matricula\}/g, ctx.matricula_ri || "—")
     .replace(/\{data_venda\}/g, ctx.data_venda ? format(new Date(ctx.data_venda + "T00:00:00"), "dd/MM/yyyy") : "—")
     .replace(/\{valor_venda\}/g, ctx.valor_venda != null ? formatCurrency(ctx.valor_venda) : "—")
+    .replace(/\{valor_arras\}/g, ctx.valor_arras != null ? formatCurrency(ctx.valor_arras) : "—")
+    .replace(/\{valor_reforco\}/g, ctx.valor_reforco != null ? formatCurrency(ctx.valor_reforco) : "—")
+    .replace(/\{qtd_reforcos\}/g, ctx.qtd_reforcos != null ? String(ctx.qtd_reforcos) : "—")
+    .replace(/\{valor_parcelamento\}/g, ctx.valor_parcelamento != null ? formatCurrency(ctx.valor_parcelamento) : "—")
+    .replace(/\{qtd_parcelas\}/g, ctx.qtd_parcelas != null ? String(ctx.qtd_parcelas) : "—")
     .replace(/\{valor\}/g, formatCurrency(ctx.valor))
     .replace(/\{parcela\}/g, ctx.parcela != null ? String(ctx.parcela) : "—");
 }
@@ -123,8 +149,8 @@ export default function SlipContabil() {
           .from("conta_corrente_lote")
           .select(`
             data_mov, tipo_mov, debito, credito, venda_id, numero_parcela,
-            lote:lotes(quadra, numero_lote, custo_contabil),
-            venda:vendas(valor_venda, comprador_nome_1, data_venda)
+            lote:lotes(quadra, numero_lote, custo_contabil, area_m2, matricula_ri),
+            venda:vendas(valor_venda, comprador_nome_1, comprador_cpf_1, comprador_nome_2, comprador_cpf_2, data_venda, valor_arras, valor_reforco, qtd_reforcos, valor_parcelamento, qtd_parcelas)
           `)
           .gte("data_mov", startDate)
           .lte("data_mov", endDate)
@@ -156,12 +182,22 @@ export default function SlipContabil() {
       const lote = mov.lote as any;
       const venda = mov.venda as any;
 
-      const ctx = {
+      const ctx: HistoricoCtx = {
         comprador: venda?.comprador_nome_1 || null,
+        cpf_comprador: venda?.comprador_cpf_1 || null,
+        comprador_nome_2: venda?.comprador_nome_2 || null,
+        cpf_comprador_2: venda?.comprador_cpf_2 || null,
         quadra: lote?.quadra || "-",
         lote: lote?.numero_lote || "-",
+        area_m2: lote?.area_m2 ?? null,
+        matricula_ri: lote?.matricula_ri || null,
         data_venda: venda?.data_venda || null,
-        valor_venda: mov.tipo_mov === "VENDA" ? venda?.valor_venda : null,
+        valor_venda: venda?.valor_venda ?? null,
+        valor_arras: venda?.valor_arras ?? null,
+        valor_reforco: venda?.valor_reforco ?? null,
+        qtd_reforcos: venda?.qtd_reforcos ?? null,
+        valor_parcelamento: venda?.valor_parcelamento ?? null,
+        qtd_parcelas: venda?.qtd_parcelas ?? null,
         valor,
         parcela: mov.numero_parcela || null,
       };

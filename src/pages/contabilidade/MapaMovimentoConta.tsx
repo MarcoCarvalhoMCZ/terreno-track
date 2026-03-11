@@ -60,11 +60,23 @@ const initialForm: MapaForm = {
 };
 
 const PLACEHOLDERS_HELP = [
-  { placeholder: "{comprador}", desc: "Nome do comprador" },
+  { placeholder: "{comprador}", desc: "Nome do comprador principal" },
+  { placeholder: "{cpf_comprador}", desc: "CPF do comprador principal" },
+  { placeholder: "{solidario}", desc: "Bloco 'E NOME (CPF xxx)' do solidário (vazio se não houver)" },
+  { placeholder: "{comprador_2}", desc: "Nome do comprador solidário" },
+  { placeholder: "{cpf_comprador_2}", desc: "CPF do comprador solidário" },
+  { placeholder: "{ql}", desc: "Quadra-Lote (ex: A-03)" },
   { placeholder: "{quadra}", desc: "Quadra do lote" },
   { placeholder: "{lote}", desc: "Número do lote" },
+  { placeholder: "{area}", desc: "Área do lote em m²" },
+  { placeholder: "{matricula}", desc: "Matrícula do RI" },
   { placeholder: "{data_venda}", desc: "Data da venda" },
-  { placeholder: "{valor_venda}", desc: "Valor da venda" },
+  { placeholder: "{valor_venda}", desc: "Valor total da venda" },
+  { placeholder: "{valor_arras}", desc: "Valor das arras/sinal" },
+  { placeholder: "{valor_reforco}", desc: "Valor total de reforços" },
+  { placeholder: "{qtd_reforcos}", desc: "Quantidade de reforços" },
+  { placeholder: "{valor_parcelamento}", desc: "Valor do parcelamento" },
+  { placeholder: "{qtd_parcelas}", desc: "Quantidade de parcelas" },
   { placeholder: "{valor}", desc: "Valor do lançamento" },
   { placeholder: "{parcela}", desc: "Nº da parcela" },
 ];
