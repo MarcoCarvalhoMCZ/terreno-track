@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, formatDocument } from "@/lib/formatters";
 import { getTipoMovimentoLabel } from "@/constants/movimento";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
