@@ -70,7 +70,7 @@ export default function RelGerencialInadimplencia() {
         const chunk = loteIds.slice(i, i + 50);
         const { data: movData, error: movErr } = await supabase
           .from("conta_corrente_lote")
-          .select("lote_id, tipo_mov, tipo_fluxo, debito, credito, data_mov, vencimento, referencia")
+          .select("lote_id, tipo_mov, tipo_fluxo, debito, credito, data_mov, vencimento, referencia, numero_parcela, sequencia_parcela")
           .in("lote_id", chunk)
           .order("data_mov", { ascending: true });
 
@@ -85,6 +85,8 @@ export default function RelGerencialInadimplencia() {
             data_mov: m.data_mov,
             vencimento: m.vencimento,
             referencia: m.referencia,
+            numero_parcela: m.numero_parcela,
+            sequencia_parcela: m.sequencia_parcela,
           });
         }
       }

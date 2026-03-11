@@ -115,7 +115,7 @@ export function useResumoLoteConsulta(loteId: string, venda: any) {
       const [movResult, controleResult] = await Promise.all([
         supabase
           .from("conta_corrente_lote")
-          .select("tipo_mov, tipo_fluxo, debito, credito, data_mov, vencimento, referencia")
+          .select("tipo_mov, tipo_fluxo, debito, credito, data_mov, vencimento, referencia, numero_parcela, sequencia_parcela")
           .eq("lote_id", loteId)
           .order("data_mov", { ascending: true })
           .order("created_at", { ascending: true }),
