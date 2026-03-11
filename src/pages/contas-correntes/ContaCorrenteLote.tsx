@@ -636,6 +636,8 @@ export default function ContaCorrenteLote() {
         case "tipo_mov": return item.tipo_mov;
         case "descricao": return item.descricao;
         case "referencia": return item.referencia;
+        case "numero_parcela": return item.numero_parcela || 0;
+        case "sequencia_parcela": return item.sequencia_parcela || 0;
         case "debito": return item.debito || 0;
         case "credito": return item.credito || 0;
         default: return null;
