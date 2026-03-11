@@ -14,6 +14,7 @@ export const MENU_ITEMS = {
   contaCorrenteLote: { label: "Conta Corrente do Lote", path: "/contas-correntes/lote" },
   consultaLote: { label: "Consulta de Lote", path: "/contas-correntes/consulta" },
   relatorioInadimplencia: { label: "Relatório de Inadimplência", path: "/contas-correntes/inadimplencia" },
+  relGerencialInadimplencia: { label: "Rel. Gerencial Inadimplência", path: "/contas-correntes/inadimplencia-gerencial" },
   atualizacaoMonetaria: { label: "Atualização Monetária", path: "/contas-correntes/atualizacao" },
   resumoOperacoes: { label: "Resumo das Operações", path: "/contas-correntes/resumo" },
   reorganizacao: { label: "Reorganização", path: "/contas-correntes/reorganizacao" },

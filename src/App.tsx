@@ -98,6 +98,7 @@ function AppRoutes() {
         <Route path="/contas-correntes/lote" element={<ProtectedRoute><ContaCorrenteLote /></ProtectedRoute>} />
         <Route path="/contas-correntes/consulta" element={<ProtectedRoute><ConsultaLote /></ProtectedRoute>} />
         <Route path="/contas-correntes/inadimplencia" element={<ProtectedRoute><RelatorioInadimplencia /></ProtectedRoute>} />
+        <Route path="/contas-correntes/inadimplencia-gerencial" element={<ProtectedRoute><RelGerencialInadimplencia /></ProtectedRoute>} />
         <Route path="/contas-correntes/resumo" element={<ProtectedRoute><ResumoOperacoes /></ProtectedRoute>} />
         <Route path="/contas-correntes/atualizacao" element={<ProtectedRoute><AtualizacaoMonetaria /></ProtectedRoute>} />
         <Route path="/contas-correntes/reorganizacao" element={<ProtectedRoute><Reorganizacao /></ProtectedRoute>} />
