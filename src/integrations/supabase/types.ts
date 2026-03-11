@@ -780,6 +780,104 @@ export type Database = {
           },
         ]
       }
+      parcelas_abertas: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          data_pagamento: string | null
+          id: string
+          juros_percentual: number | null
+          lote_id: string
+          numero_lote: string
+          numero_parcela: number
+          quadra: string
+          status: string
+          tipo_fluxo: string
+          total_devido: number
+          total_parcelas: number
+          updated_at: string | null
+          updated_by: string | null
+          valor_juros: number | null
+          valor_multa: number | null
+          valor_parcela: number
+          vencimento: string
+          venda_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          data_pagamento?: string | null
+          id?: string
+          juros_percentual?: number | null
+          lote_id: string
+          numero_lote: string
+          numero_parcela: number
+          quadra: string
+          status?: string
+          tipo_fluxo?: string
+          total_devido?: number
+          total_parcelas: number
+          updated_at?: string | null
+          updated_by?: string | null
+          valor_juros?: number | null
+          valor_multa?: number | null
+          valor_parcela?: number
+          vencimento: string
+          venda_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          data_pagamento?: string | null
+          id?: string
+          juros_percentual?: number | null
+          lote_id?: string
+          numero_lote?: string
+          numero_parcela?: number
+          quadra?: string
+          status?: string
+          tipo_fluxo?: string
+          total_devido?: number
+          total_parcelas?: number
+          updated_at?: string | null
+          updated_by?: string | null
+          valor_juros?: number | null
+          valor_multa?: number | null
+          valor_parcela?: number
+          vencimento?: string
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcelas_abertas_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcelas_abertas_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_operacoes_lote"
+            referencedColumns: ["lote_id"]
+          },
+          {
+            foreignKeyName: "parcelas_abertas_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "vw_totalizacao_mensal_por_lote"
+            referencedColumns: ["lote_id"]
+          },
+          {
+            foreignKeyName: "parcelas_abertas_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parcelas_controle: {
         Row: {
           created_at: string | null

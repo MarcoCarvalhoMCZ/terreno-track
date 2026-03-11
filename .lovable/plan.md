@@ -1,101 +1,116 @@
+## Arquitetura Final - EBL-Loteamentos
 
+### Princípios
 
-## Plan: Create `parcelas_abertas` Table (Accounts Receivable)
+- **Sistema de Bases Correntes**: `Nova parcela = saldo atualizado ÷ parcelas restantes`
+- **Single Source of Truth**: Cada regra de cálculo existe em apenas um módulo
+- **DRY**: Tipos, constantes e lógica nunca são duplicados entre telas
 
-### Summary
+### Módulos Centrais
 
-Create a persistent "Parcelas Abertas" table that acts as an Accounts Receivable ledger. It will be populated during monetary updates, updated on payment receipt, and serve as the data source for delinquency reports.
+#### 1. Motor Financeiro (`src/lib/calculo-financeiro.ts`)
+- **Ponto único** para cálculos de saldo, parcelas e reforços
+- Funções: `calcularResumoLote`, `calcularTotaisFluxo`, `contarPagamentos`, `calcularValorProximo`
+- Consumido via `useResumoLoteConsulta` em todas as telas
 
-### 1. Database Migration
+#### 2. Motor de Mora (`src/lib/calculo-mora.ts`)
+- **Ponto único** para juros e multa de mora
+- Funções: `calcularEncargosParcela`, `calcularMesesAtraso`, `isParcelaVencida`, `calcularDataInicioJuros`
+- Consumido por `useParcelasEmAtraso` e `useRelatorioInadimplencia`
 
-Create the table `parcelas_abertas`:
+#### 3. Constantes (`src/constants/`)
+- `movimento.ts`: Tipos de movimento, natureza (débito/crédito), tipos de atualização
+- `status.ts`: Status de lotes e vendas com labels e cores (design tokens)
 
-```sql
-CREATE TABLE public.parcelas_abertas (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  lote_id UUID NOT NULL REFERENCES lotes(id),
-  venda_id UUID REFERENCES vendas(id),
-  quadra TEXT NOT NULL,
-  numero_lote TEXT NOT NULL,
-  tipo_fluxo TEXT NOT NULL DEFAULT 'PARCELAMENTO', -- PARCELAMENTO | REFORCO
-  numero_parcela INTEGER NOT NULL,
-  total_parcelas INTEGER NOT NULL,
-  vencimento DATE NOT NULL,
-  valor_parcela NUMERIC NOT NULL DEFAULT 0,
-  juros_percentual NUMERIC DEFAULT 0,
-  valor_juros NUMERIC DEFAULT 0,
-  valor_multa NUMERIC DEFAULT 0,
-  total_devido NUMERIC NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'ABERTO', -- ABERTO | PAGO
-  data_pagamento DATE,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  created_by UUID,
-  updated_at TIMESTAMPTZ,
-  updated_by UUID,
-  UNIQUE(lote_id, tipo_fluxo, numero_parcela)
-);
+#### 4. Tipos (`src/types/`)
+- `lote.types.ts`: Lote, LoteInsert, LoteUpdate, LoteMinimal
+- `venda.types.ts`: Venda, VendaComRelacionamentos, VendaFormData, emptyVenda
+- `conta-corrente.types.ts`: ContaCorrente, ResumoFluxo, ResumoLote, ContaCorrenteComSaldo
 
-ALTER TABLE public.parcelas_abertas ENABLE ROW LEVEL SECURITY;
+### Hooks de Domínio
 
--- RLS policies (same pattern as conta_corrente_lote)
-CREATE POLICY "Admins and operators can manage parcelas_abertas"
-  ON public.parcelas_abertas FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'ADMIN') OR has_role(auth.uid(), 'OPERADOR'));
+| Hook | Responsabilidade |
+|------|-----------------|
+| `useConsultaLote` | Consulta completa + PIX + atualização auto (usa motor central) |
+| `useParcelasEmAtraso` | Parcelas vencidas com encargos (usa calculo-mora) |
+| `useRelatorioInadimplencia` | Relatório consolidado por comprador (usa calculo-mora) |
+| `useContaCorrente` | CRUD da conta corrente |
+| `useParcelasControle` | Baseline de parcelas pagas |
+| `usePermissions` | Permissões de menu por usuário |
+| `useTableSort` | Ordenação genérica de tabelas |
 
-CREATE POLICY "Authenticated can view parcelas_abertas"
-  ON public.parcelas_abertas FOR SELECT TO authenticated
-  USING (true);
+### Utilitários
+
+| Módulo | Responsabilidade |
+|--------|-----------------|
+| `lib/formatters.ts` | Formatação de moeda, datas, documentos, parsing BR |
+| `lib/pix.ts` | Geração de payloads PIX |
+| `lib/date.ts` | Parsing de datas |
+| `lib/qr-utils.ts` | Utilitários de QR Code |
+| `lib/consulta-lote-pdf.ts` | Exportação PDF da consulta |
+
+### Estrutura do Projeto
+
+```
+src/
+├── lib/                          ← Regras de negócio (sem dependência de React)
+│   ├── calculo-financeiro.ts     ← Motor financeiro (Bases Correntes)
+│   ├── calculo-mora.ts           ← Motor de juros/multa
+│   ├── formatters.ts             ← Formatação unificada
+│   ├── pix.ts                    ← PIX payload
+│   ├── date.ts                   ← Parsing de datas
+│   ├── qr-utils.ts               ← QR Code
+│   └── consulta-lote-pdf.ts      ← PDF export
+├── constants/
+│   ├── movimento.ts              ← Tipos de movimento e atualização
+│   └── status.ts                 ← Status com labels e cores
+├── types/
+│   ├── lote.types.ts
+│   ├── venda.types.ts
+│   └── conta-corrente.types.ts
+├── hooks/
+│   ├── useConsultaLote.ts        ← Consulta + PIX + auto-atualização
+│   ├── useParcelasEmAtraso.ts    ← Parcelas em atraso
+│   ├── useRelatorioInadimplencia.ts
+│   ├── useContaCorrente.ts       ← CRUD conta corrente
+│   ├── useParcelasControle.ts    ← Baseline parcelas
+│   ├── usePermissions.tsx        ← Menus permitidos
+│   └── useTableSort.ts           ← Ordenação genérica
+├── pages/
+│   ├── Dashboard.tsx             ← KPIs + mapa + gráficos
+│   ├── Vendas.tsx                ← CRUD vendas (usa tipos centrais)
+│   ├── RecebimentoParcela.tsx    ← Liquidação de títulos
+│   ├── Configuracoes.tsx
+│   ├── Importacao.tsx
+│   ├── Login.tsx
+│   ├── cadastro/                 ← Lotes, Pessoas, Indicadores
+│   ├── contas-correntes/         ← ContaCorrente, Consulta, Inadimplência, etc.
+│   └── contabilidade/            ← Eventos e Contas Contábeis
+├── components/
+│   ├── layout/                   ← AppLayout, AppSidebar
+│   ├── ui/                       ← shadcn components
+│   ├── LoteSearchSelect.tsx      ← Seletor de lote reutilizável
+│   ├── SortableTableHead.tsx     ← Cabeçalho ordenável
+│   └── ParcelasEmAtrasoTable.tsx ← Tabela de parcelas em atraso
+└── contexts/
+    └── AuthContext.tsx            ← Autenticação + roles
 ```
 
-### 2. Population Logic (Edge Function or DB Function)
+### Refatorações Realizadas
 
-Create a database function `popular_parcelas_abertas(p_lote_id UUID)` that:
-- Fetches the active sale for the lot
-- Gets movements and parcelas_controle
-- Runs the same algorithm as `useParcelasEmAtraso` (calculate resumo via saldo/parcelas, generate due dates, compute encargos)
-- Upserts into `parcelas_abertas` (DELETE + INSERT for the lot)
+| Ação | Resultado |
+|------|-----------|
+| Criação do motor financeiro central | Eliminou ~150 linhas duplicadas |
+| Unificação da lógica de mora | Eliminou triplicação entre hooks |
+| Dashboard usando `conta_corrente_lote` | Corrigiu inconsistência com tabela legada `parcelas` |
+| Vendas.tsx usando tipos centrais | Eliminou ~75 linhas de tipos/constantes locais |
+| Dashboard usando `vendaStatusColors` | Eliminou `getStatusBadge` local duplicado |
+| Dashboard usando design tokens | Substituiu cores hardcoded por tokens semânticos |
 
-Also create `popular_todas_parcelas_abertas()` for bulk initial population.
+### Pontos para Revisão Futura
 
-### 3. Integration Points
-
-**a) Atualização Monetária** — After inserting ATUALIZACAO movements (both batch and auto), call repopulation for affected lots. Modify:
-- `src/pages/contas-correntes/AtualizacaoMonetaria.tsx` (batch mutation `onSuccess`)
-- `src/hooks/useConsultaLote.ts` (`useAtualizacaoMonetariaAutomatica` mutation `onSuccess`)
-
-**b) Recebimento de Parcela** — After payment, mark matching row as `PAGO` or delete it. Modify:
-- `src/pages/RecebimentoParcela.tsx` (mutation `onSuccess` — update `parcelas_abertas` status)
-
-**c) Delinquency Reports** — Refactor to read from `parcelas_abertas` instead of computing in-memory:
-- `src/hooks/useRelatorioInadimplencia.ts` — query `parcelas_abertas` WHERE status = 'ABERTO'
-- `src/pages/contas-correntes/RelGerencialInadimplencia.tsx` — same
-
-**d) Initial Population** — Run `popular_todas_parcelas_abertas()` via migration or one-time call to seed existing data.
-
-### 4. Implementation Approach
-
-Given the complexity of the financial engine (mora config, parcelas_controle baselines, saldo-based installment values), the population will be done **client-side** via a new utility function that reuses the existing `calcularResumoLote` + `calcularEncargosParcela` engines, then upserts to the table. This ensures 100% consistency with the existing Consulta de Lote calculations without duplicating the logic in SQL.
-
-A new shared function `regenerarParcelasAbertas(loteId)` will:
-1. Fetch venda, movimentos, parcelas_controle, mora config
-2. Call `calcularResumoLote()` + loop generating parcelas with `calcularEncargosParcela()`
-3. Delete existing `parcelas_abertas` for the lot
-4. Insert new rows
-
-### 5. Files to Create/Modify
-
-- **New**: Database migration for `parcelas_abertas` table
-- **New**: `src/lib/parcelas-abertas.ts` — shared `regenerarParcelasAbertas()` function
-- **Modify**: `src/pages/contas-correntes/AtualizacaoMonetaria.tsx` — call regeneration after batch update
-- **Modify**: `src/hooks/useConsultaLote.ts` — call regeneration after auto monetary update
-- **Modify**: `src/pages/RecebimentoParcela.tsx` — mark as PAGO + regenerate after receipt
-- **Modify**: `src/hooks/useRelatorioInadimplencia.ts` — read from `parcelas_abertas` table
-- **Modify**: `src/pages/contas-correntes/RelGerencialInadimplencia.tsx` — read from `parcelas_abertas` table
-
-### Technical Notes
-
-- The UNIQUE constraint `(lote_id, tipo_fluxo, numero_parcela)` ensures no duplicate installment per lot/flow.
-- Mora values (juros/multa) are recalculated on each monetary update since they depend on the reference date.
-- The `status` field enables quick filtering for open vs. paid installments.
-- Reports become simple SELECT queries instead of heavy in-memory computations.
-
+- `Vendas.tsx` (~900 linhas) pode extrair formulário para componente separado
+- `AtualizacaoMonetaria.tsx` (~900 linhas) pode extrair lógica de cálculo para hook dedicado
+- `ContaCorrenteLote.tsx` pode extrair lógica de sugestões para hook dedicado
+- Tabelas `parcelas` + `planos_pagamento` são legadas e podem ser descontinuadas
+- `useAtualizacaoMonetariaAutomatica` em `useConsultaLote.ts` poderia ser hook separado
