@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, format, endOfMonth } from "date-fns";
+import { addMonths, format, endOfMonth, isSameMonth } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileDown, Search } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   type ParcelasControleRow,
   type DadosVenda,
 } from "@/lib/calculo-financeiro";
+import { calcularEncargosParcela, type MoraConfig, type CriterioJurosMora } from "@/lib/calculo-mora";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -20,9 +21,10 @@ interface LoteResumo {
   quadra: string;
   numeroLote: string;
   loteLabel: string;
-  reforcoAnual: number;
-  reforcoAtrasado: number;
-  parcelamentoPorMes: Record<string, number>;
+  reforcoMesRef: number;       // reforço vencendo no mês de referência
+  reforcoAtrasado: number;     // reforços atrasados (antes do mês de referência)
+  parcelamentoMesRef: number;  // parcela vencendo no mês de referência
+  parcelamentoPorMes: Record<string, number>; // parcelas atrasadas por competência (com encargos)
 }
 
 export default function RelGerencialInadimplencia() {
@@ -31,7 +33,21 @@ export default function RelGerencialInadimplencia() {
   const { data: resultado, isLoading } = useQuery({
     queryKey: ["rel-gerencial-inadimplencia"],
     queryFn: async () => {
-      // 1. Vendas ativas
+      // 1. Mora config
+      const { data: configData } = await supabase
+        .from("configuracoes")
+        .select("juros_mora_percentual, multa_mora_percentual, criterio_juros_mora, tolerancia_dias_juros")
+        .limit(1)
+        .maybeSingle();
+
+      const moraConfig: MoraConfig = {
+        juros_mora_percentual: configData?.juros_mora_percentual ?? 1.0,
+        multa_mora_percentual: configData?.multa_mora_percentual ?? 2.0,
+        criterio_juros_mora: (configData?.criterio_juros_mora as CriterioJurosMora) || "MES_SUBSEQUENTE",
+        tolerancia_dias_juros: configData?.tolerancia_dias_juros ?? 0,
+      };
+
+      // 2. Vendas ativas
       const { data: vendas, error: vendasErr } = await supabase
         .from("vendas")
         .select(`
@@ -46,11 +62,10 @@ export default function RelGerencialInadimplencia() {
       if (vendasErr) throw vendasErr;
       if (!vendas || vendas.length === 0) return { lotes: [], competencias: [] };
 
-      // 2. ALL movimentos (bulk fetch, grouped in memory)
+      // 3. ALL movimentos (bulk fetch)
       const loteIds = [...new Set(vendas.map((v) => v.lote_id))];
       const allMovimentos: Record<string, MovimentoConta[]> = {};
 
-      // Fetch in chunks of 50 lote_ids to avoid URL length issues
       for (let i = 0; i < loteIds.length; i += 50) {
         const chunk = loteIds.slice(i, i + 50);
         const { data: movData, error: movErr } = await supabase
@@ -74,7 +89,7 @@ export default function RelGerencialInadimplencia() {
         }
       }
 
-      // 3. ALL parcelas_controle
+      // 4. ALL parcelas_controle
       const { data: pcData, error: pcErr } = await supabase
         .from("parcelas_controle")
         .select("lote_id, tipo_fluxo, data_base, qtd_pagas_base")
@@ -91,7 +106,7 @@ export default function RelGerencialInadimplencia() {
         });
       }
 
-      // 4. Determine reference date: last day of month of last ATUALIZACAO across all lots
+      // 5. Reference date: last day of month of last ATUALIZACAO
       let dataRef = new Date();
       const { data: lastAtData } = await supabase
         .from("conta_corrente_lote")
@@ -104,7 +119,6 @@ export default function RelGerencialInadimplencia() {
         dataRef = endOfMonth(new Date(lastAtData[0].data_mov));
       }
 
-      const anoRef = dataRef.getFullYear();
       const allCompetencias = new Set<string>();
       const lotes: LoteResumo[] = [];
 
@@ -134,12 +148,13 @@ export default function RelGerencialInadimplencia() {
           quadra: lote.quadra,
           numeroLote: lote.numero_lote,
           loteLabel,
-          reforcoAnual: 0,
+          reforcoMesRef: 0,
           reforcoAtrasado: 0,
+          parcelamentoMesRef: 0,
           parcelamentoPorMes: {},
         };
 
-        // Reforços em atraso (using central engine values)
+        // --- REFORÇOS ---
         if (resumo.qtdReforcosAPagar > 0 && resumo.primeiroVencimentoReforco) {
           const freq = venda.frequencia_reforcos_meses || 12;
           const valorReforco = resumo.valorProximoReforco;
@@ -147,15 +162,18 @@ export default function RelGerencialInadimplencia() {
           for (let i = 0; i < resumo.qtdReforcosAPagar; i++) {
             const venc = addMonths(resumo.primeiroVencimentoReforco, (resumo.qtdReforcosPagos + i) * freq);
             if (venc > dataRef) break;
-            if (venc.getFullYear() === anoRef) {
-              item.reforcoAnual += valorReforco;
+
+            const encargos = calcularEncargosParcela(valorReforco, venc, dataRef, moraConfig);
+
+            if (isSameMonth(venc, dataRef)) {
+              item.reforcoMesRef += encargos.totalParcela;
             } else {
-              item.reforcoAtrasado += valorReforco;
+              item.reforcoAtrasado += encargos.totalParcela;
             }
           }
         }
 
-        // Parcelas em atraso por competência (using central engine values)
+        // --- PARCELAMENTO ---
         if (resumo.qtdParcelasAPagar > 0 && resumo.primeiroVencimentoParcela) {
           const freq = venda.frequencia_parcelas_meses || 1;
           const valorParcela = resumo.valorProximaParcela;
@@ -163,14 +181,21 @@ export default function RelGerencialInadimplencia() {
           for (let i = 0; i < resumo.qtdParcelasAPagar; i++) {
             const venc = addMonths(resumo.primeiroVencimentoParcela, (resumo.qtdParcelasPagas + i) * freq);
             if (venc > dataRef) break;
-            const comp = format(venc, "yyyy-MM");
-            item.parcelamentoPorMes[comp] = (item.parcelamentoPorMes[comp] || 0) + valorParcela;
-            allCompetencias.add(comp);
+
+            const encargos = calcularEncargosParcela(valorParcela, venc, dataRef, moraConfig);
+
+            if (isSameMonth(venc, dataRef)) {
+              item.parcelamentoMesRef += encargos.totalParcela;
+            } else {
+              const comp = format(venc, "yyyy-MM");
+              item.parcelamentoPorMes[comp] = (item.parcelamentoPorMes[comp] || 0) + encargos.totalParcela;
+              allCompetencias.add(comp);
+            }
           }
         }
 
-        const temReforco = item.reforcoAnual > 0 || item.reforcoAtrasado > 0;
-        const temParcela = Object.keys(item.parcelamentoPorMes).length > 0;
+        const temReforco = item.reforcoMesRef > 0 || item.reforcoAtrasado > 0;
+        const temParcela = item.parcelamentoMesRef > 0 || Object.keys(item.parcelamentoPorMes).length > 0;
         if (temReforco || temParcela) {
           lotes.push(item);
         }
@@ -182,6 +207,7 @@ export default function RelGerencialInadimplencia() {
         return a.numeroLote.localeCompare(b.numeroLote, "pt-BR", { numeric: true });
       });
 
+      // Competências de parcelas atrasadas (desc = mais recente primeiro)
       const competencias = Array.from(allCompetencias).sort((a, b) => b.localeCompare(a));
 
       return { lotes, competencias, dataRef: dataRef.toISOString() };
@@ -192,13 +218,14 @@ export default function RelGerencialInadimplencia() {
   const totais = useMemo(() => {
     if (!resultado || resultado.lotes.length === 0) return null;
     const lots = resultado.lotes as LoteResumo[];
-    const totReforcoAnual = lots.reduce((s, l) => s + l.reforcoAnual, 0);
+    const totReforcoMesRef = lots.reduce((s, l) => s + l.reforcoMesRef, 0);
     const totReforcoAtrasado = lots.reduce((s, l) => s + l.reforcoAtrasado, 0);
+    const totParcelaMesRef = lots.reduce((s, l) => s + l.parcelamentoMesRef, 0);
     const totPorMes: Record<string, number> = {};
     for (const comp of resultado.competencias) {
       totPorMes[comp] = lots.reduce((s, l) => s + (l.parcelamentoPorMes[comp] || 0), 0);
     }
-    return { totReforcoAnual, totReforcoAtrasado, totPorMes };
+    return { totReforcoMesRef, totReforcoAtrasado, totParcelaMesRef, totPorMes };
   }, [resultado]);
 
   function formatComp(comp: string) {
@@ -210,29 +237,32 @@ export default function RelGerencialInadimplencia() {
     ? new Date(resultado.dataRef).toLocaleDateString("pt-BR")
     : "";
 
+  const mesRefLabel = resultado?.dataRef
+    ? format(new Date(resultado.dataRef), "MM/yyyy")
+    : "";
+
   function exportarPDF() {
     if (!resultado || resultado.lotes.length === 0 || !totais) return;
 
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const titulo = "Relatório Gerencial de Inadimplência";
-
     doc.setFontSize(14);
-    doc.text(titulo, 14, 15);
+    doc.text("Relatório Gerencial de Inadimplência", 14, 15);
     doc.setFontSize(8);
     doc.text(`Data referência: ${dataRefFormatted}    Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 20);
 
-    const anoRef = resultado.dataRef ? new Date(resultado.dataRef).getFullYear() : new Date().getFullYear();
     const head = [
       "Lote",
-      `Reforços ${anoRef}`,
+      `Ref. ${mesRefLabel}`,
       "Ref. Atrasados",
+      `Parc. ${mesRefLabel}`,
       ...resultado.competencias.map(formatComp),
     ];
 
     const body = resultado.lotes.map((l) => [
       l.loteLabel,
-      l.reforcoAnual > 0 ? formatCurrency(l.reforcoAnual) : "",
+      l.reforcoMesRef > 0 ? formatCurrency(l.reforcoMesRef) : "",
       l.reforcoAtrasado > 0 ? formatCurrency(l.reforcoAtrasado) : "",
+      l.parcelamentoMesRef > 0 ? formatCurrency(l.parcelamentoMesRef) : "",
       ...resultado.competencias.map((c) =>
         l.parcelamentoPorMes[c] ? formatCurrency(l.parcelamentoPorMes[c]) : ""
       ),
@@ -240,8 +270,9 @@ export default function RelGerencialInadimplencia() {
 
     const foot = [
       "TOTAIS",
-      totais.totReforcoAnual > 0 ? formatCurrency(totais.totReforcoAnual) : "",
+      totais.totReforcoMesRef > 0 ? formatCurrency(totais.totReforcoMesRef) : "",
       totais.totReforcoAtrasado > 0 ? formatCurrency(totais.totReforcoAtrasado) : "",
+      totais.totParcelaMesRef > 0 ? formatCurrency(totais.totParcelaMesRef) : "",
       ...resultado.competencias.map((c) =>
         totais.totPorMes[c] > 0 ? formatCurrency(totais.totPorMes[c]) : ""
       ),
@@ -260,18 +291,13 @@ export default function RelGerencialInadimplencia() {
       ),
       didParseCell: (data) => {
         if (data.section === "foot") {
-          data.cell.styles.halign = "right";
-        }
-        if (data.section === "foot" && data.column.index === 0) {
-          data.cell.styles.halign = "left";
+          data.cell.styles.halign = data.column.index === 0 ? "left" : "right";
         }
       },
     });
 
     doc.save("rel_gerencial_inadimplencia.pdf");
   }
-
-  const anoRef = resultado?.dataRef ? new Date(resultado.dataRef).getFullYear() : new Date().getFullYear();
 
   return (
     <div className="space-y-6">
@@ -327,16 +353,19 @@ export default function RelGerencialInadimplencia() {
                     <th colSpan={2} className="px-3 py-1 text-center font-bold bg-amber-100 dark:bg-amber-900/30 border-r">
                       REFORÇOS
                     </th>
-                    <th colSpan={resultado.competencias.length} className="px-3 py-1 text-center font-bold bg-green-100 dark:bg-green-900/30">
+                    <th colSpan={1 + resultado.competencias.length} className="px-3 py-1 text-center font-bold bg-green-100 dark:bg-green-900/30">
                       PARCELAMENTO
                     </th>
                   </tr>
                   <tr className="border-b bg-muted/50">
                     <th className="px-3 py-1.5 text-right text-xs font-semibold bg-amber-50 dark:bg-amber-900/20 border-r whitespace-nowrap">
-                      {anoRef}
+                      {mesRefLabel}
                     </th>
                     <th className="px-3 py-1.5 text-right text-xs font-semibold bg-amber-50 dark:bg-amber-900/20 border-r whitespace-nowrap">
                       Atrasados
+                    </th>
+                    <th className="px-3 py-1.5 text-right text-xs font-semibold bg-green-50 dark:bg-green-900/10 border-r whitespace-nowrap">
+                      {mesRefLabel}
                     </th>
                     {resultado.competencias.map((c) => (
                       <th key={c} className="px-3 py-1.5 text-right text-xs font-semibold bg-green-50 dark:bg-green-900/10 whitespace-nowrap">
@@ -352,10 +381,13 @@ export default function RelGerencialInadimplencia() {
                         {l.loteLabel}
                       </td>
                       <td className="px-3 py-1.5 text-right font-mono text-xs border-r">
-                        {l.reforcoAnual > 0 ? formatCurrency(l.reforcoAnual) : ""}
+                        {l.reforcoMesRef > 0 ? formatCurrency(l.reforcoMesRef) : ""}
                       </td>
                       <td className={`px-3 py-1.5 text-right font-mono text-xs border-r ${l.reforcoAtrasado > 0 ? "text-destructive font-semibold" : ""}`}>
                         {l.reforcoAtrasado > 0 ? formatCurrency(l.reforcoAtrasado) : ""}
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-mono text-xs border-r">
+                        {l.parcelamentoMesRef > 0 ? formatCurrency(l.parcelamentoMesRef) : ""}
                       </td>
                       {resultado.competencias.map((c) => {
                         const val = l.parcelamentoPorMes[c];
@@ -372,10 +404,13 @@ export default function RelGerencialInadimplencia() {
                   <tr className="border-t-2 bg-muted/50 font-bold">
                     <td className="sticky left-0 z-10 px-3 py-2 bg-muted/50 border-r">TOTAIS</td>
                     <td className="px-3 py-2 text-right font-mono text-xs border-r">
-                      {totais.totReforcoAnual > 0 ? formatCurrency(totais.totReforcoAnual) : ""}
+                      {totais.totReforcoMesRef > 0 ? formatCurrency(totais.totReforcoMesRef) : ""}
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs border-r text-destructive">
                       {totais.totReforcoAtrasado > 0 ? formatCurrency(totais.totReforcoAtrasado) : ""}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs border-r">
+                      {totais.totParcelaMesRef > 0 ? formatCurrency(totais.totParcelaMesRef) : ""}
                     </td>
                     {resultado.competencias.map((c) => (
                       <td key={c} className="px-3 py-2 text-right font-mono text-xs">
