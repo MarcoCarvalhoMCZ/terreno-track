@@ -180,8 +180,8 @@ export default function MapaMovimentoConta() {
     setSelected(null);
     setForm({
       tipo_movimento: parent.tipo_movimento,
-      conta_debito_id: "",
-      conta_credito_id: "",
+      conta_debito_id: NONE,
+      conta_credito_id: NONE,
       historico_padrao: "",
     });
     setIsSecondEntry(true);
