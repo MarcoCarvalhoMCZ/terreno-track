@@ -215,7 +215,7 @@ export default function RelGerencialInadimplencia() {
 
       return { lotes, competencias, dataRef: maxDataRef.toISOString() };
 
-      return { lotes, competencias, dataRef: dataRef.toISOString() };
+      
     },
     enabled: consultar,
   });
