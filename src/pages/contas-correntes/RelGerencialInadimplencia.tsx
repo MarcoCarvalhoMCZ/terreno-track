@@ -155,11 +155,11 @@ export default function RelGerencialInadimplencia() {
   }
 
   const dataRefFormatted = resultado?.dataRef
-    ? new Date(resultado.dataRef).toLocaleDateString("pt-BR")
+    ? parseDateOnly(resultado.dataRef).toLocaleDateString("pt-BR")
     : "";
 
   const mesRefLabel = resultado?.dataRef
-    ? format(new Date(resultado.dataRef), "MM/yyyy")
+    ? format(parseDateOnly(resultado.dataRef), "MM/yyyy")
     : "";
 
   function exportarPDF() {

@@ -126,30 +126,31 @@ export async function regenerarParcelasAbertas(loteId: string): Promise<number> 
 
   const resumo = calcularResumoLote(movimentos, parcelasControle, dadosVenda);
 
-  // Data de referência: última ATUALIZACAO válida ou hoje
+  // Data de referência: última ATUALIZACAO válida (fim do mês) ou mês atual
   const now = new Date();
   const maxValidYear = now.getFullYear() + 1;
   const lastAtMov = movimentos
-    .filter(m => m.tipo_mov === "ATUALIZACAO" && new Date(m.data_mov).getFullYear() <= maxValidYear)
+    .filter(m => m.tipo_mov === "ATUALIZACAO" && parseDateOnly(m.data_mov).getFullYear() <= maxValidYear)
     .sort((a, b) => b.data_mov.localeCompare(a.data_mov))[0];
-  const dataRef = lastAtMov ? new Date(lastAtMov.data_mov) : now;
+
+  const dataRefBase = lastAtMov ? parseDateOnly(lastAtMov.data_mov) : now;
+  const dataRef = endOfMonth(dataRefBase);
 
   // 4. Gerar parcelas abertas
   const rows: any[] = [];
 
   const gerarParcelas = (
     tipoFluxo: "PARCELAMENTO" | "REFORCO",
-    qtdAPagar: number,
     qtdPagas: number,
     qtdTotal: number,
     valorParcela: number,
     primeiroVenc: Date | null,
     freq: number,
   ) => {
-    if (qtdAPagar <= 0 || !primeiroVenc) return;
+    if (qtdTotal <= 0 || !primeiroVenc) return;
 
-    for (let i = 0; i < qtdAPagar; i++) {
-      const venc = addMonths(primeiroVenc, (qtdPagas + i) * freq);
+    for (let numeroParcela = qtdPagas + 1; numeroParcela <= qtdTotal; numeroParcela++) {
+      const venc = addMonths(primeiroVenc, (numeroParcela - 1) * freq);
       if (venc > dataRef && !isSameMonth(venc, dataRef)) break;
 
       const encargos = calcularEncargosParcela(valorParcela, venc, dataRef, moraConfig);
@@ -161,9 +162,9 @@ export async function regenerarParcelasAbertas(loteId: string): Promise<number> 
           quadra: lote?.quadra || "",
           numero_lote: lote?.numero_lote || "",
           tipo_fluxo: tipoFluxo,
-          numero_parcela: qtdPagas + i + 1,
+          numero_parcela: numeroParcela,
           total_parcelas: qtdTotal,
-          vencimento: venc.toISOString().split("T")[0],
+          vencimento: formatDateOnly(venc),
           valor_parcela: valorParcela,
           juros_percentual: encargos.jurosPercentual,
           valor_juros: encargos.valorJuros,
@@ -177,15 +178,17 @@ export async function regenerarParcelasAbertas(loteId: string): Promise<number> 
 
   gerarParcelas(
     "PARCELAMENTO",
-    resumo.qtdParcelasAPagar, resumo.qtdParcelasPagas,
-    resumo.qtdParcelasContratadas, resumo.valorProximaParcela,
+    resumo.qtdParcelasPagas,
+    resumo.qtdParcelasContratadas,
+    resumo.valorProximaParcela,
     resumo.primeiroVencimentoParcela, venda.frequencia_parcelas_meses || 1,
   );
 
   gerarParcelas(
     "REFORCO",
-    resumo.qtdReforcosAPagar, resumo.qtdReforcosPagos,
-    resumo.qtdReforcosContratados, resumo.valorProximoReforco,
+    resumo.qtdReforcosPagos,
+    resumo.qtdReforcosContratados,
+    resumo.valorProximoReforco,
     resumo.primeiroVencimentoReforco, venda.frequencia_reforcos_meses || 12,
   );
 
