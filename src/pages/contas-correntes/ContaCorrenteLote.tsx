@@ -773,6 +773,8 @@ export default function ContaCorrenteLote() {
                     <SortableTableHead sortKey="tipo_mov" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>TIPO</SortableTableHead>
                     <SortableTableHead sortKey="descricao" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>DESCRIÇÃO</SortableTableHead>
                     <SortableTableHead sortKey="referencia" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>REFERÊNCIA</SortableTableHead>
+                    <SortableTableHead sortKey="numero_parcela" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-center">Nº PARC.</SortableTableHead>
+                    <SortableTableHead sortKey="sequencia_parcela" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-center">SEQ.</SortableTableHead>
                     <SortableTableHead sortKey="debito" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-right">DÉBITO</SortableTableHead>
                     <SortableTableHead sortKey="credito" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-right">CRÉDITO</SortableTableHead>
                     <TableHead className="text-right">SALDO</TableHead>
@@ -795,6 +797,12 @@ export default function ContaCorrenteLote() {
                         {mov.descricao || "-"}
                       </TableCell>
                       <TableCell>{mov.referencia || "-"}</TableCell>
+                      <TableCell className="text-center text-muted-foreground">
+                        {mov.numero_parcela ?? "-"}
+                      </TableCell>
+                      <TableCell className="text-center text-muted-foreground">
+                        {mov.sequencia_parcela ?? "-"}
+                      </TableCell>
                       <TableCell className="text-right text-destructive">
                         {mov.debito ? formatCurrency(mov.debito) : "-"}
                       </TableCell>
