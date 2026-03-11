@@ -177,7 +177,8 @@ export default function RelGerencialInadimplencia() {
     for (const comp of resultado.competencias) {
       totPorMes[comp] = lots.reduce((s, l) => s + (l.parcelamentoPorMes[comp] || 0), 0);
     }
-    return { totReforcoMesRef, totReforcoAtrasado, totParcelaMesRef, totPorMes };
+    const totalGeral = totReforcoMesRef + totReforcoAtrasado + totParcelaMesRef + Object.values(totPorMes).reduce((s, v) => s + v, 0);
+    return { totReforcoMesRef, totReforcoAtrasado, totParcelaMesRef, totPorMes, totalGeral };
   }, [resultado]);
 
   function formatComp(comp: string) {
