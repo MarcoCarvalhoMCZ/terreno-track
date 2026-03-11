@@ -655,41 +655,61 @@ export type Database = {
       }
       mapa_movimento_conta: {
         Row: {
-          conta_contabil_id: string
+          conta_credito_id: string | null
+          conta_debito_id: string | null
           created_at: string | null
           created_by: string | null
+          historico_padrao: string | null
           id: string
-          natureza_lancamento: string
+          lancamento_pai_id: string | null
           tipo_movimento: string
           updated_at: string | null
           updated_by: string | null
         }
         Insert: {
-          conta_contabil_id: string
+          conta_credito_id?: string | null
+          conta_debito_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          historico_padrao?: string | null
           id?: string
-          natureza_lancamento: string
+          lancamento_pai_id?: string | null
           tipo_movimento: string
           updated_at?: string | null
           updated_by?: string | null
         }
         Update: {
-          conta_contabil_id?: string
+          conta_credito_id?: string | null
+          conta_debito_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          historico_padrao?: string | null
           id?: string
-          natureza_lancamento?: string
+          lancamento_pai_id?: string | null
           tipo_movimento?: string
           updated_at?: string | null
           updated_by?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "mapa_movimento_conta_conta_contabil_id_fkey"
-            columns: ["conta_contabil_id"]
+            foreignKeyName: "mapa_movimento_conta_conta_credito_id_fkey"
+            columns: ["conta_credito_id"]
             isOneToOne: false
             referencedRelation: "contas_contabeis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mapa_movimento_conta_conta_debito_id_fkey"
+            columns: ["conta_debito_id"]
+            isOneToOne: false
+            referencedRelation: "contas_contabeis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mapa_movimento_conta_lancamento_pai_id_fkey"
+            columns: ["lancamento_pai_id"]
+            isOneToOne: false
+            referencedRelation: "mapa_movimento_conta"
             referencedColumns: ["id"]
           },
         ]
