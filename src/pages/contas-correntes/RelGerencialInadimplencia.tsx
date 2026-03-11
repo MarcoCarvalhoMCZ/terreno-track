@@ -191,11 +191,11 @@ export default function RelGerencialInadimplencia() {
 
   const totais = useMemo(() => {
     if (!resultado || resultado.lotes.length === 0) return null;
-    const totReforcoAnual = resultado.lotes.reduce((s, l) => s + l.reforcoAnual, 0);
-    const totReforcoAtrasado = resultado.lotes.reduce((s, l) => s + l.reforcoAtrasado, 0);
+    const totReforcoAnual = resultado.lotes.reduce((s: number, l) => s + l.reforcoAnual, 0);
+    const totReforcoAtrasado = resultado.lotes.reduce((s: number, l) => s + l.reforcoAtrasado, 0);
     const totPorMes: Record<string, number> = {};
     for (const comp of resultado.competencias) {
-      totPorMes[comp] = resultado.lotes.reduce((s, l) => s + (l.parcelamentoPorMes[comp] || 0), 0);
+      totPorMes[comp] = resultado.lotes.reduce((s: number, l) => s + (l.parcelamentoPorMes[comp] || 0), 0);
     }
     return { totReforcoAnual, totReforcoAtrasado, totPorMes };
   }, [resultado]);
