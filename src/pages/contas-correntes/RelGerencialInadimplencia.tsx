@@ -39,10 +39,10 @@ function monthKeyFromDate(date: Date): string {
 }
 
 export default function RelGerencialInadimplencia() {
-  const [consultar, setConsultar] = useState(false);
+  const [fetchCount, setFetchCount] = useState(0);
 
   const { data: resultado, isLoading } = useQuery({
-    queryKey: ["rel-gerencial-inadimplencia"],
+    queryKey: ["rel-gerencial-contas-receber", fetchCount],
     queryFn: async () => {
       // 1. Determinar data de referência: último dia do mês da última atualização monetária
       const { data: lastUpdate } = await supabase
