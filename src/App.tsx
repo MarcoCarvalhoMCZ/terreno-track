@@ -19,6 +19,7 @@ const RecebimentoParcela = lazy(() => import("./pages/RecebimentoParcela"));
 const ContaCorrenteLote = lazy(() => import("./pages/contas-correntes/ContaCorrenteLote"));
 const ConsultaLote = lazy(() => import("./pages/contas-correntes/ConsultaLote"));
 const RelatorioInadimplencia = lazy(() => import("./pages/contas-correntes/RelatorioInadimplencia"));
+const RelGerencialInadimplencia = lazy(() => import("./pages/contas-correntes/RelGerencialInadimplencia"));
 const ResumoOperacoes = lazy(() => import("./pages/contas-correntes/ResumoOperacoes"));
 const AtualizacaoMonetaria = lazy(() => import("./pages/contas-correntes/AtualizacaoMonetaria"));
 const Reorganizacao = lazy(() => import("./pages/contas-correntes/Reorganizacao"));
