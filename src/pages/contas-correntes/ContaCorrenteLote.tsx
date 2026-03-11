@@ -417,6 +417,8 @@ export default function ContaCorrenteLote() {
       modo_pagamento: mov.modo_pagamento || null,
       banco_origem: mov.banco_origem || null,
       cpf_cnpj_pagador: mov.cpf_cnpj_pagador || null,
+      numero_parcela: mov.numero_parcela ?? null,
+      sequencia_parcela: mov.sequencia_parcela ?? null,
     });
     setDialogOpen(true);
   };
@@ -509,6 +511,8 @@ export default function ContaCorrenteLote() {
       modo_pagamento: isPagamento ? (formData.modo_pagamento || null) : null,
       banco_origem: isPagamento ? (formData.banco_origem || null) : null,
       cpf_cnpj_pagador: isPagamento ? (formData.cpf_cnpj_pagador || null) : null,
+      numero_parcela: formData.numero_parcela ?? null,
+      sequencia_parcela: formData.sequencia_parcela ?? null,
     };
 
     // Verificar duplicidade para ATUALIZACAO (consulta robusta no banco)
@@ -634,6 +638,8 @@ export default function ContaCorrenteLote() {
         case "tipo_mov": return item.tipo_mov;
         case "descricao": return item.descricao;
         case "referencia": return item.referencia;
+        case "numero_parcela": return item.numero_parcela || 0;
+        case "sequencia_parcela": return item.sequencia_parcela || 0;
         case "debito": return item.debito || 0;
         case "credito": return item.credito || 0;
         default: return null;
@@ -1018,6 +1024,38 @@ export default function ContaCorrenteLote() {
                       }
                     />
                     <p className="text-xs text-muted-foreground">Sugestão. Pode ser alterado.</p>
+                  </div>
+                </div>
+
+                {/* Nº Parcela e Sequência */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="numero_parcela">Nº Parcela</Label>
+                    <Input
+                      id="numero_parcela"
+                      type="number"
+                      min="1"
+                      value={formData.numero_parcela ?? ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, numero_parcela: e.target.value ? parseInt(e.target.value) : null })
+                      }
+                      placeholder="Ex: 24"
+                    />
+                    <p className="text-xs text-muted-foreground">Número da parcela no plano.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sequencia_parcela">Sequência</Label>
+                    <Input
+                      id="sequencia_parcela"
+                      type="number"
+                      min="1"
+                      value={formData.sequencia_parcela ?? ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sequencia_parcela: e.target.value ? parseInt(e.target.value) : null })
+                      }
+                      placeholder="1"
+                    />
+                    <p className="text-xs text-muted-foreground">Sequência (2+ se parcela paga em partes).</p>
                   </div>
                 </div>
 

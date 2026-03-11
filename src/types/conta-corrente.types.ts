@@ -50,6 +50,8 @@ export const emptyMovimento: ContaCorrenteFormData = {
   modo_pagamento: null,
   banco_origem: null,
   cpf_cnpj_pagador: null,
+  numero_parcela: null,
+  sequencia_parcela: null,
 };
 
 /**
