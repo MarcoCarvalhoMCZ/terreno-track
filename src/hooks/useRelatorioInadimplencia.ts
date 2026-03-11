@@ -164,14 +164,17 @@ export function useRelatorioInadimplencia(moraConfig: MoraConfig | null | undefi
       const movimentos = rawData.movimentos[venda.lote_id] || [];
       const parcelasControle = rawData.parcelasControle[venda.lote_id] || [];
 
-      // Same reference date as Consulta de Lote: raw date of last ATUALIZACAO (NOT endOfMonth)
+      // Same reference date as Consulta de Lote: raw date of last ATUALIZACAO
+      // Filter out corrupted dates (future beyond current year + 1)
+      const now = new Date();
+      const maxValidYear = now.getFullYear() + 1;
       const lastAtMov = movimentos
-        .filter(m => m.tipo_mov === "ATUALIZACAO")
+        .filter(m => m.tipo_mov === "ATUALIZACAO" && new Date(m.data_mov).getFullYear() <= maxValidYear)
         .sort((a, b) => b.data_mov.localeCompare(a.data_mov))[0];
 
       const dataRef = lastAtMov
         ? new Date(lastAtMov.data_mov)
-        : new Date();
+        : now;
 
       // Use the SAME engine as Consulta de Lote
       const dadosVenda: DadosVenda = {
