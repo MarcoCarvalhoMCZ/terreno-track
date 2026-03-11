@@ -83,26 +83,31 @@ function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
     ? `E ${ctx.comprador_nome_2} (CPF ${formatDocument(ctx.cpf_comprador_2)}) `
     : "";
 
-  return template
-    .replace(/\{ql\}/g, `${ctx.quadra}-${ctx.lote}`)
-    .replace(/\{comprador\}/g, ctx.comprador || "—")
-    .replace(/\{cpf_comprador\}/g, formatDocument(ctx.cpf_comprador))
-    .replace(/\{solidario\}/g, solidario)
-    .replace(/\{comprador_2\}/g, ctx.comprador_nome_2 || "")
-    .replace(/\{cpf_comprador_2\}/g, ctx.cpf_comprador_2 ? formatDocument(ctx.cpf_comprador_2) : "")
-    .replace(/\{quadra\}/g, ctx.quadra)
-    .replace(/\{lote\}/g, ctx.lote)
-    .replace(/\{area\}/g, ctx.area_m2 != null ? String(ctx.area_m2) : "—")
-    .replace(/\{matricula\}/g, ctx.matricula_ri || "—")
-    .replace(/\{data_venda\}/g, ctx.data_venda ? format(new Date(ctx.data_venda + "T00:00:00"), "dd/MM/yyyy") : "—")
-    .replace(/\{valor_venda\}/g, ctx.valor_venda != null ? formatCurrency(ctx.valor_venda) : "—")
-    .replace(/\{valor_arras\}/g, ctx.valor_arras != null ? formatCurrency(ctx.valor_arras) : "—")
-    .replace(/\{valor_reforco\}/g, ctx.valor_reforco != null ? formatCurrency(ctx.valor_reforco) : "—")
-    .replace(/\{qtd_reforcos\}/g, ctx.qtd_reforcos != null ? String(ctx.qtd_reforcos) : "—")
-    .replace(/\{valor_parcelamento\}/g, ctx.valor_parcelamento != null ? formatCurrency(ctx.valor_parcelamento) : "—")
-    .replace(/\{qtd_parcelas\}/g, ctx.qtd_parcelas != null ? String(ctx.qtd_parcelas) : "—")
-    .replace(/\{valor\}/g, formatCurrency(ctx.valor))
-    .replace(/\{parcela\}/g, ctx.parcela != null ? String(ctx.parcela) : "—");
+  // Helper: replace both {var} and [var] syntax
+  const r = (text: string, key: string, value: string) =>
+    text.replace(new RegExp(`[{\\[]${key}[}\\]]`, "gi"), value);
+
+  let result = template;
+  result = r(result, "ql", `${ctx.quadra}-${ctx.lote}`);
+  result = r(result, "comprador", ctx.comprador || "—");
+  result = r(result, "cpf_comprador", formatDocument(ctx.cpf_comprador));
+  result = r(result, "solidario", solidario);
+  result = r(result, "comprador_2", ctx.comprador_nome_2 || "");
+  result = r(result, "cpf_comprador_2", ctx.cpf_comprador_2 ? formatDocument(ctx.cpf_comprador_2) : "");
+  result = r(result, "quadra", ctx.quadra);
+  result = r(result, "lote", ctx.lote);
+  result = r(result, "area", ctx.area_m2 != null ? String(ctx.area_m2) : "—");
+  result = r(result, "matricula", ctx.matricula_ri || "—");
+  result = r(result, "data_venda", ctx.data_venda ? format(new Date(ctx.data_venda + "T00:00:00"), "dd/MM/yyyy") : "—");
+  result = r(result, "valor_venda", ctx.valor_venda != null ? formatCurrency(ctx.valor_venda) : "—");
+  result = r(result, "valor_arras", ctx.valor_arras != null ? formatCurrency(ctx.valor_arras) : "—");
+  result = r(result, "valor_reforco", ctx.valor_reforco != null ? formatCurrency(ctx.valor_reforco) : "—");
+  result = r(result, "qtd_reforcos", ctx.qtd_reforcos != null ? String(ctx.qtd_reforcos) : "—");
+  result = r(result, "valor_parcelamento", ctx.valor_parcelamento != null ? formatCurrency(ctx.valor_parcelamento) : "—");
+  result = r(result, "qtd_parcelas", ctx.qtd_parcelas != null ? String(ctx.qtd_parcelas) : "—");
+  result = r(result, "valor", formatCurrency(ctx.valor));
+  result = r(result, "parcela", ctx.parcela != null ? String(ctx.parcela) : "—");
+  return result;
 }
 
 function formatContaSlip(codigo: string, estruturado: string): string {
