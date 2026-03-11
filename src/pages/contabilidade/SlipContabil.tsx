@@ -229,22 +229,24 @@ export default function SlipContabil() {
 
     const parentMappings = mapa.filter((m) => !m.lancamento_pai_id);
     const childMappings = mapa.filter((m) => !!m.lancamento_pai_id);
+    const movimentosNormalizados = normalizeMovimentosParaSlip(movimentos);
 
     const rows: SlipRow[] = [];
 
-    for (const mov of movimentos) {
+    for (const mov of movimentosNormalizados) {
       const mappings = parentMappings.filter((m) => m.tipo_movimento === mov.tipo_mov);
       if (!mappings.length) continue;
 
       const valor = Number(mov.debito || 0) + Number(mov.credito || 0);
       const lote = mov.lote as any;
       const venda = mov.venda as any;
+      const compradores = resolveCompradores(venda);
 
       const ctx: HistoricoCtx = {
-        comprador: venda?.comprador_nome_1 || null,
-        cpf_comprador: venda?.comprador_cpf_1 || null,
-        comprador_nome_2: venda?.comprador_nome_2 || null,
-        cpf_comprador_2: venda?.comprador_cpf_2 || null,
+        comprador: compradores.comprador,
+        cpf_comprador: compradores.cpfComprador,
+        comprador_nome_2: compradores.comprador2,
+        cpf_comprador_2: compradores.cpfComprador2,
         quadra: lote?.quadra || "-",
         lote: lote?.numero_lote || "-",
         area_m2: lote?.area_m2 ?? null,
