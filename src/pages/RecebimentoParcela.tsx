@@ -225,11 +225,18 @@ export default function RecebimentoParcela() {
         if (errMulta) throw errMulta;
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["recebimentos-parcela", loteId] });
       queryClient.invalidateQueries({ queryKey: ["resumo-lote-consulta", loteId] });
       queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
       queryClient.invalidateQueries({ queryKey: ["venda-lote", loteId] });
+      
+      // Regenerar parcelas_abertas após recebimento
+      if (loteId) {
+        try { await regenerarParcelasAbertas(loteId); } catch (e) { console.error("Erro ao regenerar parcelas_abertas:", e); }
+        queryClient.invalidateQueries({ queryKey: ["parcelas-abertas"] });
+      }
+      
       toast.success("Recebimento registrado com sucesso!");
       setDialogOpen(false);
       setLoteId("");

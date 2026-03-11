@@ -513,7 +513,7 @@ export function useAtualizacaoMonetariaAutomatica(
 
       return lancamentos.length;
     },
-    onSuccess: (count) => {
+    onSuccess: async (count) => {
       if (count > 0) {
         // Invalidar queries relacionadas
         queryClient.invalidateQueries({ queryKey: ["verificar-atualizacao-mes", loteId] });
@@ -522,6 +522,12 @@ export function useAtualizacaoMonetariaAutomatica(
         queryClient.invalidateQueries({ queryKey: ["resumo-lote-consulta", loteId] });
         queryClient.invalidateQueries({ queryKey: ["ultima-atualizacao-lote", loteId] });
         queryClient.invalidateQueries({ queryKey: ["movimentacoes-atualizacao-auto", loteId] });
+        
+        // Regenerar parcelas_abertas para este lote
+        if (loteId) {
+          try { await regenerarParcelasAbertas(loteId); } catch (e) { console.error("Erro ao regenerar parcelas_abertas:", e); }
+          queryClient.invalidateQueries({ queryKey: ["parcelas-abertas"] });
+        }
         
         toast.success(`Atualização monetária automática aplicada! (${count} lançamento(s))`);
       }

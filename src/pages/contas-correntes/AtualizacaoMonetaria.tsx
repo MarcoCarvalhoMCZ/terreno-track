@@ -518,11 +518,18 @@ export default function AtualizacaoMonetaria() {
 
       return lancamentos.length;
     },
-    onSuccess: (count) => {
+    onSuccess: async (count) => {
       queryClient.invalidateQueries({ queryKey: ["conta-corrente-atualizacao"] });
       queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
       toast.success(`${count} lançamento(s) de atualização monetária gerado(s) com sucesso!`);
       
+      // Regenerar parcelas_abertas para os lotes processados
+      const lotesProcessados = [...new Set(lotesCalculo.filter(l => l.selecionado).map(l => l.lote_id))];
+      for (const lid of lotesProcessados) {
+        try { await regenerarParcelasAbertas(lid); } catch (e) { console.error("Erro ao regenerar parcelas_abertas:", e); }
+      }
+      queryClient.invalidateQueries({ queryKey: ["parcelas-abertas"] });
+
       // Recalcular para atualizar status
       setTimeout(() => executarCalculo(false), 500);
     },
