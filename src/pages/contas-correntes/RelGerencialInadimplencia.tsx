@@ -20,6 +20,24 @@ interface LoteResumo {
   parcelamentoPorMes: Record<string, number>; // parcelas atrasadas por competência (com encargos)
 }
 
+function parseDateOnly(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+function formatDateOnly(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function monthKeyFromDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
 export default function RelGerencialInadimplencia() {
   const [consultar, setConsultar] = useState(false);
 
@@ -35,9 +53,9 @@ export default function RelGerencialInadimplencia() {
         .limit(1)
         .single();
 
-      const lastUpdateDate = lastUpdate ? new Date(lastUpdate.data_mov + "T12:00:00") : new Date();
+      const lastUpdateDate = lastUpdate?.data_mov ? parseDateOnly(lastUpdate.data_mov) : new Date();
       const dataRef = lastDayOfMonth(lastUpdateDate);
-      const mesRefKey = format(dataRef, "yyyy-MM"); // e.g. "2026-03"
+      const mesRefKey = monthKeyFromDate(dataRef);
 
       // 2. Buscar parcelas abertas
       const { data: parcelas, error } = await supabase
@@ -49,15 +67,19 @@ export default function RelGerencialInadimplencia() {
         .order("vencimento");
 
       if (error) throw error;
-      if (!parcelas || parcelas.length === 0) return { lotes: [], competencias: [], dataRef: dataRef.toISOString() };
+      if (!parcelas || parcelas.length === 0) return { lotes: [], competencias: [], dataRef: formatDateOnly(dataRef) };
 
-      // 3. Classificar parcelas por mês de vencimento vs mês de referência
+      // 3. Classificar parcelas por competência de vencimento
       const allCompetencias = new Set<string>();
       const lotesMap = new Map<string, LoteResumo>();
 
       for (const p of parcelas) {
-        const venc = new Date(p.vencimento + "T12:00:00");
-        const vencKey = format(venc, "yyyy-MM");
+        const vencKey = typeof p.vencimento === "string"
+          ? p.vencimento.slice(0, 7)
+          : monthKeyFromDate(new Date(p.vencimento));
+
+        // Não exibir competências futuras no relatório gerencial de referência
+        if (vencKey > mesRefKey) continue;
 
         const key = p.lote_id;
         if (!lotesMap.has(key)) {
@@ -79,15 +101,14 @@ export default function RelGerencialInadimplencia() {
         if (p.tipo_fluxo === "REFORCO") {
           if (isMesRef) {
             item.reforcoMesRef += p.total_devido;
-          } else {
-            // Antes do mês ref = atrasado
+          } else if (vencKey < mesRefKey) {
             item.reforcoAtrasado += p.total_devido;
           }
         } else {
           // PARCELAMENTO
           if (isMesRef) {
             item.parcelamentoMesRef += p.total_devido;
-          } else {
+          } else if (vencKey < mesRefKey) {
             // Atrasado — agrupar por competência
             const comp = vencKey;
             item.parcelamentoPorMes[comp] = (item.parcelamentoPorMes[comp] || 0) + p.total_devido;
@@ -110,7 +131,7 @@ export default function RelGerencialInadimplencia() {
 
       const competencias = Array.from(allCompetencias).sort((a, b) => b.localeCompare(a));
 
-      return { lotes, competencias, dataRef: dataRef.toISOString() };
+      return { lotes, competencias, dataRef: formatDateOnly(dataRef) };
     },
     enabled: consultar,
   });
@@ -134,11 +155,11 @@ export default function RelGerencialInadimplencia() {
   }
 
   const dataRefFormatted = resultado?.dataRef
-    ? new Date(resultado.dataRef).toLocaleDateString("pt-BR")
+    ? parseDateOnly(resultado.dataRef).toLocaleDateString("pt-BR")
     : "";
 
   const mesRefLabel = resultado?.dataRef
-    ? format(new Date(resultado.dataRef), "MM/yyyy")
+    ? format(parseDateOnly(resultado.dataRef), "MM/yyyy")
     : "";
 
   function exportarPDF() {
