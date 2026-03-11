@@ -116,6 +116,67 @@ function formatContaSlip(codigo: string, estruturado: string): string {
   return codigo;
 }
 
+function normalizeMovimentosParaSlip(movimentos: any[]) {
+  const movimentosConsolidados: any[] = [];
+  const vendaInicialPorChave = new Map<string, any>();
+
+  for (const mov of movimentos) {
+    const debito = Number(mov.debito || 0);
+    const credito = Number(mov.credito || 0);
+    const isVendaInicial = mov.tipo_mov === "VENDA" && !!mov.venda_id && debito > 0 && credito === 0;
+
+    if (!isVendaInicial) {
+      movimentosConsolidados.push(mov);
+      continue;
+    }
+
+    const key = `${mov.venda_id}-${mov.data_mov}`;
+    const valorVenda = Number(mov.venda?.valor_venda ?? debito);
+    const existente = vendaInicialPorChave.get(key);
+
+    if (!existente) {
+      const consolidado = { ...mov, debito: valorVenda, credito: 0 };
+      vendaInicialPorChave.set(key, consolidado);
+      movimentosConsolidados.push(consolidado);
+      continue;
+    }
+
+    existente.debito = valorVenda;
+    existente.credito = 0;
+  }
+
+  return movimentosConsolidados;
+}
+
+function resolveCompradores(venda: any) {
+  const compradorPrincipal =
+    venda?.comprador_nome_1 ||
+    venda?.comprador?.nome_razao ||
+    venda?.comprador_nome_2 ||
+    null;
+
+  const cpfPrincipal =
+    venda?.comprador_cpf_1 ||
+    venda?.comprador?.cpf_cnpj ||
+    venda?.comprador_cpf_2 ||
+    null;
+
+  const compradorSecundarioOriginal = venda?.comprador_nome_2 || null;
+  const cpfSecundarioOriginal = venda?.comprador_cpf_2 || null;
+
+  const compradorSecundario =
+    compradorSecundarioOriginal && compradorSecundarioOriginal !== compradorPrincipal
+      ? compradorSecundarioOriginal
+      : null;
+
+  return {
+    comprador: compradorPrincipal,
+    cpfComprador: cpfPrincipal,
+    comprador2: compradorSecundario,
+    cpfComprador2: compradorSecundario ? cpfSecundarioOriginal : null,
+  };
+}
+
 export default function SlipContabil() {
   const [ano, setAno] = useState(new Date().getFullYear());
   const [mes, setMes] = useState(String(new Date().getMonth() + 1));
