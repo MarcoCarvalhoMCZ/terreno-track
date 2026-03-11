@@ -202,6 +202,7 @@ export type Database = {
           id: string
           lote_id: string
           modo_pagamento: string | null
+          numero_parcela: number | null
           percentual_calculo: number | null
           referencia: string | null
           saldo: number | null
@@ -224,6 +225,7 @@ export type Database = {
           id?: string
           lote_id: string
           modo_pagamento?: string | null
+          numero_parcela?: number | null
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null
@@ -246,6 +248,7 @@ export type Database = {
           id?: string
           lote_id?: string
           modo_pagamento?: string | null
+          numero_parcela?: number | null
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null

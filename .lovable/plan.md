@@ -1,56 +1,116 @@
+## Arquitetura Final - EBL-Loteamentos
 
+### Princípios
 
-## Diagnóstico
+- **Sistema de Bases Correntes**: `Nova parcela = saldo atualizado ÷ parcelas restantes`
+- **Single Source of Truth**: Cada regra de cálculo existe em apenas um módulo
+- **DRY**: Tipos, constantes e lógica nunca são duplicados entre telas
 
-O **Rel. Gerencial de Inadimplência** conta parcelas pagas de forma simplista (contando créditos em `conta_corrente_lote` com `tipo_mov` IN `PARCELA/REFORCO`), ignorando completamente a tabela `parcelas_controle` (baseline). A **Consulta de Lote** usa `calcularResumoLote` do motor financeiro central (`calculo-financeiro.ts`), que considera o baseline. Resultado: o relatório gerencial mostra dezenas de parcelas "em atraso" para lotes que estão em dia.
+### Módulos Centrais
 
-Além disso, o relatório usa `new Date()` como data de referência ao invés da data da última atualização monetária, e calcula o valor da parcela dividindo o saldo pela quantidade a pagar sem usar o motor central.
+#### 1. Motor Financeiro (`src/lib/calculo-financeiro.ts`)
+- **Ponto único** para cálculos de saldo, parcelas e reforços
+- Funções: `calcularResumoLote`, `calcularTotaisFluxo`, `contarPagamentos`, `calcularValorProximo`
+- Consumido via `useResumoLoteConsulta` em todas as telas
 
-### Sobre a coluna numérica `parcela`
+#### 2. Motor de Mora (`src/lib/calculo-mora.ts`)
+- **Ponto único** para juros e multa de mora
+- Funções: `calcularEncargosParcela`, `calcularMesesAtraso`, `isParcelaVencida`, `calcularDataInicioJuros`
+- Consumido por `useParcelasEmAtraso` e `useRelatorioInadimplencia`
 
-O usuário sugere adicionar uma coluna numérica `numero_parcela` à tabela `conta_corrente_lote` para evitar o parsing de "xx de yy" no campo `referencia`. Isso simplificaria a contagem de pagamentos e eliminaria ambiguidades.
+#### 3. Constantes (`src/constants/`)
+- `movimento.ts`: Tipos de movimento, natureza (débito/crédito), tipos de atualização
+- `status.ts`: Status de lotes e vendas com labels e cores (design tokens)
 
-## Plano de Implementação
+#### 4. Tipos (`src/types/`)
+- `lote.types.ts`: Lote, LoteInsert, LoteUpdate, LoteMinimal
+- `venda.types.ts`: Venda, VendaComRelacionamentos, VendaFormData, emptyVenda
+- `conta-corrente.types.ts`: ContaCorrente, ResumoFluxo, ResumoLote, ContaCorrenteComSaldo
 
-### 1. Migração de banco: adicionar coluna `numero_parcela`
+### Hooks de Domínio
 
-Adicionar coluna `numero_parcela` (integer, nullable) à tabela `conta_corrente_lote`. Isso permite identificar diretamente qual parcela foi paga sem depender de regex no campo `referencia`.
+| Hook | Responsabilidade |
+|------|-----------------|
+| `useConsultaLote` | Consulta completa + PIX + atualização auto (usa motor central) |
+| `useParcelasEmAtraso` | Parcelas vencidas com encargos (usa calculo-mora) |
+| `useRelatorioInadimplencia` | Relatório consolidado por comprador (usa calculo-mora) |
+| `useContaCorrente` | CRUD da conta corrente |
+| `useParcelasControle` | Baseline de parcelas pagas |
+| `usePermissions` | Permissões de menu por usuário |
+| `useTableSort` | Ordenação genérica de tabelas |
 
-```sql
-ALTER TABLE public.conta_corrente_lote
-  ADD COLUMN numero_parcela integer DEFAULT NULL;
+### Utilitários
+
+| Módulo | Responsabilidade |
+|--------|-----------------|
+| `lib/formatters.ts` | Formatação de moeda, datas, documentos, parsing BR |
+| `lib/pix.ts` | Geração de payloads PIX |
+| `lib/date.ts` | Parsing de datas |
+| `lib/qr-utils.ts` | Utilitários de QR Code |
+| `lib/consulta-lote-pdf.ts` | Exportação PDF da consulta |
+
+### Estrutura do Projeto
+
+```
+src/
+├── lib/                          ← Regras de negócio (sem dependência de React)
+│   ├── calculo-financeiro.ts     ← Motor financeiro (Bases Correntes)
+│   ├── calculo-mora.ts           ← Motor de juros/multa
+│   ├── formatters.ts             ← Formatação unificada
+│   ├── pix.ts                    ← PIX payload
+│   ├── date.ts                   ← Parsing de datas
+│   ├── qr-utils.ts               ← QR Code
+│   └── consulta-lote-pdf.ts      ← PDF export
+├── constants/
+│   ├── movimento.ts              ← Tipos de movimento e atualização
+│   └── status.ts                 ← Status com labels e cores
+├── types/
+│   ├── lote.types.ts
+│   ├── venda.types.ts
+│   └── conta-corrente.types.ts
+├── hooks/
+│   ├── useConsultaLote.ts        ← Consulta + PIX + auto-atualização
+│   ├── useParcelasEmAtraso.ts    ← Parcelas em atraso
+│   ├── useRelatorioInadimplencia.ts
+│   ├── useContaCorrente.ts       ← CRUD conta corrente
+│   ├── useParcelasControle.ts    ← Baseline parcelas
+│   ├── usePermissions.tsx        ← Menus permitidos
+│   └── useTableSort.ts           ← Ordenação genérica
+├── pages/
+│   ├── Dashboard.tsx             ← KPIs + mapa + gráficos
+│   ├── Vendas.tsx                ← CRUD vendas (usa tipos centrais)
+│   ├── RecebimentoParcela.tsx    ← Liquidação de títulos
+│   ├── Configuracoes.tsx
+│   ├── Importacao.tsx
+│   ├── Login.tsx
+│   ├── cadastro/                 ← Lotes, Pessoas, Indicadores
+│   ├── contas-correntes/         ← ContaCorrente, Consulta, Inadimplência, etc.
+│   └── contabilidade/            ← Eventos e Contas Contábeis
+├── components/
+│   ├── layout/                   ← AppLayout, AppSidebar
+│   ├── ui/                       ← shadcn components
+│   ├── LoteSearchSelect.tsx      ← Seletor de lote reutilizável
+│   ├── SortableTableHead.tsx     ← Cabeçalho ordenável
+│   └── ParcelasEmAtrasoTable.tsx ← Tabela de parcelas em atraso
+└── contexts/
+    └── AuthContext.tsx            ← Autenticação + roles
 ```
 
-### 2. Reescrever `RelGerencialInadimplencia.tsx` para usar o motor financeiro central
+### Refatorações Realizadas
 
-Em vez de reimplementar a lógica de contagem de pagamentos, o relatório deve:
+| Ação | Resultado |
+|------|-----------|
+| Criação do motor financeiro central | Eliminou ~150 linhas duplicadas |
+| Unificação da lógica de mora | Eliminou triplicação entre hooks |
+| Dashboard usando `conta_corrente_lote` | Corrigiu inconsistência com tabela legada `parcelas` |
+| Vendas.tsx usando tipos centrais | Eliminou ~75 linhas de tipos/constantes locais |
+| Dashboard usando `vendaStatusColors` | Eliminou `getStatusBadge` local duplicado |
+| Dashboard usando design tokens | Substituiu cores hardcoded por tokens semânticos |
 
-- Para cada venda ativa, buscar **movimentos completos** e **parcelas_controle** (como faz `useResumoLoteConsulta`)
-- Chamar `calcularResumoLote()` para obter `qtdParcelasPagas`, `qtdParcelasAPagar`, `valorProximaParcela`, etc.
-- Buscar a data da última atualização monetária de cada lote e usá-la como data de referência (último dia do mês)
-- Projetar parcelas vencidas usando o primeiro vencimento + frequência + parcelas pagas (do motor central)
-- O valor por parcela vem do motor (`valorProximaParcela` / `valorProximoReforco`), garantindo consistência com a Consulta de Lote
+### Pontos para Revisão Futura
 
-### 3. Fluxo de dados revisado
-
-```text
-vendas (ATIVA)
-  ├── Para cada venda:
-  │   ├── Buscar movimentos do lote (conta_corrente_lote)
-  │   ├── Buscar parcelas_controle do lote
-  │   ├── calcularResumoLote() → qtdPagas, qtdAPagar, valorParcela, primeiroVenc
-  │   ├── Buscar última ATUALIZACAO → dataRef = último dia do mês
-  │   └── Projetar vencimentos: parcela (qtdPagas+1) até dataRef
-  │       └── Se vencimento <= dataRef → parcela em atraso (valor bruto)
-  └── Montar pivot table com competências
-```
-
-### 4. Paginação
-
-As buscas de movimentos por lote individual (dentro do loop) geralmente não excedem 1000 registros. Porém, a busca inicial de todas as vendas e o loop podem ser otimizados fazendo uma única busca paginada de todos os movimentos e agrupando por `lote_id` em memória.
-
-### 5. Arquivos afetados
-
-- **Migração SQL**: nova coluna `numero_parcela` em `conta_corrente_lote`
-- **`src/pages/contas-correntes/RelGerencialInadimplencia.tsx`**: reescrita completa da query para usar `calcularResumoLote` e data da última atualização monetária como referência
-
+- `Vendas.tsx` (~900 linhas) pode extrair formulário para componente separado
+- `AtualizacaoMonetaria.tsx` (~900 linhas) pode extrair lógica de cálculo para hook dedicado
+- `ContaCorrenteLote.tsx` pode extrair lógica de sugestões para hook dedicado
+- Tabelas `parcelas` + `planos_pagamento` são legadas e podem ser descontinuadas
+- `useAtualizacaoMonetariaAutomatica` em `useConsultaLote.ts` poderia ser hook separado

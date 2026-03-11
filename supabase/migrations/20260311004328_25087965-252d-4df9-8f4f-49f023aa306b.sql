@@ -1,0 +1,1 @@
+ALTER TABLE public.conta_corrente_lote ADD COLUMN numero_parcela integer DEFAULT NULL;
