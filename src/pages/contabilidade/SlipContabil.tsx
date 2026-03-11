@@ -182,12 +182,22 @@ export default function SlipContabil() {
       const lote = mov.lote as any;
       const venda = mov.venda as any;
 
-      const ctx = {
+      const ctx: HistoricoCtx = {
         comprador: venda?.comprador_nome_1 || null,
+        cpf_comprador: venda?.comprador_cpf_1 || null,
+        comprador_nome_2: venda?.comprador_nome_2 || null,
+        cpf_comprador_2: venda?.comprador_cpf_2 || null,
         quadra: lote?.quadra || "-",
         lote: lote?.numero_lote || "-",
+        area_m2: lote?.area_m2 ?? null,
+        matricula_ri: lote?.matricula_ri || null,
         data_venda: venda?.data_venda || null,
-        valor_venda: mov.tipo_mov === "VENDA" ? venda?.valor_venda : null,
+        valor_venda: venda?.valor_venda ?? null,
+        valor_arras: venda?.valor_arras ?? null,
+        valor_reforco: venda?.valor_reforco ?? null,
+        qtd_reforcos: venda?.qtd_reforcos ?? null,
+        valor_parcelamento: venda?.valor_parcelamento ?? null,
+        qtd_parcelas: venda?.qtd_parcelas ?? null,
         valor,
         parcela: mov.numero_parcela || null,
       };
