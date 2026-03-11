@@ -39,6 +39,7 @@ import { useMoraConfig, useUltimaAtualizacaoLote, useParcelasEmAtraso } from "@/
 import type { ParcelaEmAtraso } from "@/hooks/useParcelasEmAtraso";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ResumoLote } from "@/types/conta-corrente.types";
+import { regenerarParcelasAbertas } from "@/lib/parcelas-abertas";
 
 interface ParcelaCalculada {
   numero: number;
