@@ -111,8 +111,14 @@ export default function RelGerencialInadimplencia() {
         const vencKey = monthKeyFromValue(p.vencimento);
         if (!vencKey) continue;
 
-        // Não exibir competências futuras no relatório gerencial de referência
+        // Não exibir competências futuras
         if (vencKey > mesRefKey) continue;
+
+        // No modo "hoje", excluir parcelas que ainda não venceram (vencimento >= hoje)
+        if (tipoDataRef === "hoje") {
+          const vencStr = String(p.vencimento).slice(0, 10);
+          if (vencStr >= dataRefStr) continue;
+        }
 
         const key = p.lote_id;
         if (!lotesMap.has(key)) {
