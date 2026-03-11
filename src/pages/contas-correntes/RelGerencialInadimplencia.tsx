@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, lastDayOfMonth } from "date-fns";
@@ -60,21 +60,33 @@ function monthKeyFromValue(value: string | Date | null | undefined): string | nu
   return monthKeyFromDate(date);
 }
 
-export default function RelGerencialInadimplencia() {
-  const { data: resultado, isLoading, refetch } = useQuery({
-    queryKey: ["rel-gerencial-contas-receber-v2"],
-    queryFn: async () => {
-      // 1. Determinar data de referência: último dia do mês da última atualização monetária
-      const { data: lastUpdate } = await supabase
-        .from("conta_corrente_lote")
-        .select("data_mov")
-        .eq("tipo_mov", "ATUALIZACAO")
-        .order("data_mov", { ascending: false })
-        .limit(1)
-        .single();
+type TipoDataRef = "ultima_atualizacao" | "hoje";
 
-      const lastUpdateDate = normalizeToLocalDate(lastUpdate?.data_mov) ?? new Date();
-      const dataRef = lastDayOfMonth(lastUpdateDate);
+export default function RelGerencialInadimplencia() {
+  const [tipoDataRef, setTipoDataRef] = useState<TipoDataRef>("ultima_atualizacao");
+
+  const { data: resultado, isLoading, refetch } = useQuery({
+    queryKey: ["rel-gerencial-contas-receber-v3", tipoDataRef],
+    queryFn: async () => {
+      let dataRef: Date;
+
+      if (tipoDataRef === "hoje") {
+        const now = new Date();
+        dataRef = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
+      } else {
+        // Último dia do mês da última atualização monetária
+        const { data: lastUpdate } = await supabase
+          .from("conta_corrente_lote")
+          .select("data_mov")
+          .eq("tipo_mov", "ATUALIZACAO")
+          .order("data_mov", { ascending: false })
+          .limit(1)
+          .single();
+
+        const lastUpdateDate = normalizeToLocalDate(lastUpdate?.data_mov) ?? new Date();
+        dataRef = lastDayOfMonth(lastUpdateDate);
+      }
+
       const mesRefKey = monthKeyFromDate(dataRef);
 
       // 2. Buscar parcelas abertas
@@ -248,6 +260,17 @@ export default function RelGerencialInadimplencia() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Data de referência</label>
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                value={tipoDataRef}
+                onChange={(e) => setTipoDataRef(e.target.value as TipoDataRef)}
+              >
+                <option value="ultima_atualizacao">Última atualização monetária</option>
+                <option value="hoje">Data de hoje</option>
+              </select>
+            </div>
             <Button onClick={() => void refetch()}>
               <Search className="h-4 w-4 mr-2" />
               Consultar
