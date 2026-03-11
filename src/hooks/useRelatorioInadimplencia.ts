@@ -66,7 +66,8 @@ export function useRelatorioInadimplencia() {
     queryFn: async () => {
       // 1. Parcelas abertas
       // Somente parcelas já vencidas (vencimento < hoje)
-      const hoje = new Date().toISOString().split("T")[0];
+      const now = new Date();
+      const hoje = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const { data: parcelas, error: parcErr } = await supabase
         .from("parcelas_abertas")
         .select("*")
