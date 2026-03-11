@@ -149,8 +149,8 @@ export default function SlipContabil() {
           .from("conta_corrente_lote")
           .select(`
             data_mov, tipo_mov, debito, credito, venda_id, numero_parcela,
-            lote:lotes(quadra, numero_lote, custo_contabil),
-            venda:vendas(valor_venda, comprador_nome_1, data_venda)
+            lote:lotes(quadra, numero_lote, custo_contabil, area_m2, matricula_ri),
+            venda:vendas(valor_venda, comprador_nome_1, comprador_cpf_1, comprador_nome_2, comprador_cpf_2, data_venda, valor_arras, valor_reforco, qtd_reforcos, valor_parcelamento, qtd_parcelas)
           `)
           .gte("data_mov", startDate)
           .lte("data_mov", endDate)
