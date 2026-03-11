@@ -21,7 +21,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, ChevronDown, ChevronRight, FileText, Search, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
-import { useMoraConfig } from "@/hooks/useParcelasEmAtraso";
 import { useRelatorioInadimplencia, type CompradorInadimplente, type LoteInadimplente } from "@/hooks/useRelatorioInadimplencia";
 
 function LoadingSkeleton() {
