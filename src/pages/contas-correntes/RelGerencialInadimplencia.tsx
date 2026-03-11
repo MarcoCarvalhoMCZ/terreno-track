@@ -237,7 +237,7 @@ export default function RelGerencialInadimplencia() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-4">
-            <Button onClick={() => setConsultar(true)}>
+            <Button onClick={() => setFetchCount(c => c + 1)}>
               <Search className="h-4 w-4 mr-2" />
               Consultar
             </Button>
