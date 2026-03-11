@@ -94,7 +94,7 @@ export default function SaldoLotes() {
         const lote = v.lotes as any;
         if (!lote) continue;
         const saldo = saldoMap.get(v.lote_id) || 0;
-        const nome = v.comprador_nome_1 || "-";
+        const nome = v.comprador_nome_1 || (v.pessoas as any)?.nome_razao || "-";
         const primeiroNome = nome.split(" ")[0];
         items.push({
           quadra: lote.quadra,
