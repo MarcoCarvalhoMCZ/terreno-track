@@ -209,10 +209,12 @@ export default function ContaCorrenteLote() {
         
         return {
           valor: valorProximo > 0 ? valorProximo.toFixed(2) : "",
-          referencia: qtdTotal > 0 ? `${parcelaAtual} de ${qtdTotal}` : "",
+          referencia: "",
           vencimento: vencimentoSugerido,
           percentual: "",
           descricao: `${tipoLabel} ${loteLabel}`,
+          numero_parcela: parcelaAtual > 0 ? parcelaAtual : null,
+          sequencia_parcela: 1,
         };
       }
 
@@ -357,6 +359,8 @@ export default function ContaCorrenteLote() {
       vencimento: sugestoes.vencimento || null,
       percentual_calculo: sugestoes.percentual ? parseFloat(sugestoes.percentual) : null,
       descricao: sugestoes.descricao || "",
+      numero_parcela: sugestoes.numero_parcela ?? prev.numero_parcela ?? null,
+      sequencia_parcela: sugestoes.sequencia_parcela ?? prev.sequencia_parcela ?? null,
     }));
     
     // Desabilitar sugestões após aplicar uma vez (evita sobrescrever edições do usuário)
