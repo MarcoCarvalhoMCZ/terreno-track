@@ -359,6 +359,8 @@ export default function ContaCorrenteLote() {
       vencimento: sugestoes.vencimento || null,
       percentual_calculo: sugestoes.percentual ? parseFloat(sugestoes.percentual) : null,
       descricao: sugestoes.descricao || "",
+      numero_parcela: sugestoes.numero_parcela ?? prev.numero_parcela ?? null,
+      sequencia_parcela: sugestoes.sequencia_parcela ?? prev.sequencia_parcela ?? null,
     }));
     
     // Desabilitar sugestões após aplicar uma vez (evita sobrescrever edições do usuário)
