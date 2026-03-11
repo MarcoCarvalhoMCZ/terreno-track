@@ -39,10 +39,10 @@ function monthKeyFromDate(date: Date): string {
 }
 
 export default function RelGerencialInadimplencia() {
-  const [consultar, setConsultar] = useState(false);
+  const [fetchCount, setFetchCount] = useState(0);
 
   const { data: resultado, isLoading } = useQuery({
-    queryKey: ["rel-gerencial-inadimplencia"],
+    queryKey: ["rel-gerencial-contas-receber", fetchCount],
     queryFn: async () => {
       // 1. Determinar data de referência: último dia do mês da última atualização monetária
       const { data: lastUpdate } = await supabase
@@ -68,6 +68,14 @@ export default function RelGerencialInadimplencia() {
 
       if (error) throw error;
       if (!parcelas || parcelas.length === 0) return { lotes: [], competencias: [], dataRef: formatDateOnly(dataRef) };
+
+      // DEBUG: log reference info and sample data
+      console.log("=== REL GERENCIAL DEBUG ===");
+      console.log("mesRefKey:", mesRefKey, "dataRef:", formatDateOnly(dataRef));
+      if (parcelas.length > 0) {
+        const sample = parcelas[0];
+        console.log("Sample parcela vencimento:", sample.vencimento, "typeof:", typeof sample.vencimento, "slice(0,7):", String(sample.vencimento).slice(0, 7));
+      }
 
       // 3. Classificar parcelas por competência de vencimento
       const allCompetencias = new Set<string>();
@@ -133,7 +141,7 @@ export default function RelGerencialInadimplencia() {
 
       return { lotes, competencias, dataRef: formatDateOnly(dataRef) };
     },
-    enabled: consultar,
+    enabled: fetchCount > 0,
   });
 
   const totais = useMemo(() => {
@@ -229,7 +237,7 @@ export default function RelGerencialInadimplencia() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-4">
-            <Button onClick={() => setConsultar(true)}>
+            <Button onClick={() => setFetchCount(c => c + 1)}>
               <Search className="h-4 w-4 mr-2" />
               Consultar
             </Button>
