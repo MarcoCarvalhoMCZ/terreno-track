@@ -62,7 +62,7 @@ function monthKeyFromValue(value: string | Date | null | undefined): string | nu
 
 export default function RelGerencialInadimplencia() {
   const { data: resultado, isLoading, refetch } = useQuery({
-    queryKey: ["rel-gerencial-contas-receber"],
+    queryKey: ["rel-gerencial-contas-receber-v2"],
     queryFn: async () => {
       // 1. Determinar data de referência: último dia do mês da última atualização monetária
       const { data: lastUpdate } = await supabase
