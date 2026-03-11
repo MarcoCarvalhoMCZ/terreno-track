@@ -1025,6 +1025,38 @@ export default function ContaCorrenteLote() {
                   </div>
                 </div>
 
+                {/* Nº Parcela e Sequência */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="numero_parcela">Nº Parcela</Label>
+                    <Input
+                      id="numero_parcela"
+                      type="number"
+                      min="1"
+                      value={formData.numero_parcela ?? ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, numero_parcela: e.target.value ? parseInt(e.target.value) : null })
+                      }
+                      placeholder="Ex: 24"
+                    />
+                    <p className="text-xs text-muted-foreground">Número da parcela no plano.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sequencia_parcela">Sequência</Label>
+                    <Input
+                      id="sequencia_parcela"
+                      type="number"
+                      min="1"
+                      value={formData.sequencia_parcela ?? ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sequencia_parcela: e.target.value ? parseInt(e.target.value) : null })
+                      }
+                      placeholder="1"
+                    />
+                    <p className="text-xs text-muted-foreground">Sequência (2+ se parcela paga em partes).</p>
+                  </div>
+                </div>
+
                 {/* Percentual de Cálculo */}
                 <div className="space-y-2">
                   <Label htmlFor="percentual_calculo">Percentual de Cálculo (%)</Label>
