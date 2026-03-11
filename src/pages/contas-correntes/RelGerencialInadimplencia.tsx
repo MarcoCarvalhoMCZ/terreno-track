@@ -177,7 +177,8 @@ export default function RelGerencialInadimplencia() {
     for (const comp of resultado.competencias) {
       totPorMes[comp] = lots.reduce((s, l) => s + (l.parcelamentoPorMes[comp] || 0), 0);
     }
-    return { totReforcoMesRef, totReforcoAtrasado, totParcelaMesRef, totPorMes };
+    const totalGeral = totReforcoMesRef + totReforcoAtrasado + totParcelaMesRef + Object.values(totPorMes).reduce((s, v) => s + v, 0);
+    return { totReforcoMesRef, totReforcoAtrasado, totParcelaMesRef, totPorMes, totalGeral };
   }, [resultado]);
 
   function formatComp(comp: string) {
@@ -200,7 +201,7 @@ export default function RelGerencialInadimplencia() {
     doc.setFontSize(14);
     doc.text("Relatório Gerencial de Contas a Receber", 14, 15);
     doc.setFontSize(8);
-    doc.text(`Data referência: ${dataRefFormatted}    Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 20);
+    doc.text(`Data referência: ${dataRefFormatted}    Total Geral: ${formatCurrency(totais.totalGeral)}    Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 20);
 
     const head = [
       "Lote",
@@ -302,8 +303,12 @@ export default function RelGerencialInadimplencia() {
 
       {resultado && resultado.lotes.length > 0 && totais && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Contas a Receber por Lote e Competência</CardTitle>
+            <div className="text-right">
+              <span className="text-sm text-muted-foreground">Total Geral: </span>
+              <span className="text-lg font-bold text-foreground">{formatCurrency(totais.totalGeral)}</span>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
