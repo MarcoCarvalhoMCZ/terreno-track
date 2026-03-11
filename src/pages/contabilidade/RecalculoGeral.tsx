@@ -214,6 +214,52 @@ export default function RecalculoGeral() {
         </CardContent>
       </Card>
 
+      {/* Parcelas Abertas */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ListChecks className="h-5 w-5" />
+            Regenerar Parcelas Abertas (Contas a Receber)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Recalcula e popula a tabela de Parcelas Abertas para todos os lotes com vendas ativas,
+            usando o mesmo motor financeiro da Consulta de Lote.
+          </p>
+          {canEdit && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={popularParcelasMutation.isPending}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${popularParcelasMutation.isPending ? "animate-spin" : ""}`} />
+                  {popularParcelasMutation.isPending ? "Populando..." : "Popular Parcelas Abertas"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar Populamento</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Todas as parcelas abertas existentes serão recalculadas a partir dos movimentos da Conta Corrente. Deseja continuar?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => popularParcelasMutation.mutate()}>
+                    Confirmar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {qtdParcelasGeradas !== null && (
+            <p className="text-sm text-green-600 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              {qtdParcelasGeradas} parcela(s) aberta(s) gerada(s) com sucesso.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {resultado && (
         <Card className="border-primary/50 bg-primary/5">
           <CardHeader>
