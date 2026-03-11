@@ -62,11 +62,26 @@ export default function Balancete() {
   const [mesInicio, setMesInicio] = useState(1);
   const [mesFim, setMesFim] = useState(6);
 
-  // Fetch ALL movements up to end of selected year (paginated)
-  const { data: allMovimentos, isLoading } = useQuery({
-    queryKey: ["balancete-movimentos", ano],
+  // Fetch lot IDs with active/quitada sales
+  const { data: lotesAtivos } = useQuery({
+    queryKey: ["balancete-lotes-ativos"],
     queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vendas")
+        .select("lote_id")
+        .in("status", ["ATIVA", "QUITADA"]);
+      if (error) throw error;
+      return new Set((data || []).map((v) => v.lote_id));
+    },
+  });
+
+  // Fetch ALL movements up to end of selected year (paginated), filtered by active lots
+  const { data: allMovimentos, isLoading } = useQuery({
+    queryKey: ["balancete-movimentos", ano, lotesAtivos ? Array.from(lotesAtivos).sort().join(",") : ""],
+    queryFn: async () => {
+      if (!lotesAtivos || lotesAtivos.size === 0) return [];
       const endDate = `${ano}-12-31`;
+      const loteIds = Array.from(lotesAtivos);
       const pageSize = 1000;
       let all: MovRow[] = [];
       let from = 0;
@@ -75,6 +90,7 @@ export default function Balancete() {
         const { data, error } = await supabase
           .from("conta_corrente_lote")
           .select("data_mov, tipo_mov, debito, credito")
+          .in("lote_id", loteIds)
           .lte("data_mov", endDate)
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -84,6 +100,7 @@ export default function Balancete() {
       }
       return all;
     },
+    enabled: !!lotesAtivos && lotesAtivos.size > 0,
   });
 
   // Constrain mesFim when mesInicio changes
