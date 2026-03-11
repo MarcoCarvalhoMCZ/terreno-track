@@ -6,7 +6,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import { addMonths, isSameMonth } from "date-fns";
+import { addMonths, endOfMonth, isSameMonth } from "date-fns";
 import {
   calcularResumoLote,
   type MovimentoConta,
