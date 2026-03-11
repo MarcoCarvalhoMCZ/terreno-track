@@ -53,7 +53,7 @@ export default function SaldoLotes() {
       // Buscar todos os lotes vendidos com comprador
       const { data: vendas, error: vendasErr } = await supabase
         .from("vendas")
-        .select("lote_id, comprador_nome_1, lotes!vendas_lote_id_fkey(quadra, numero_lote)")
+        .select("lote_id, comprador_nome_1, comprador_pessoa_id, pessoas!vendas_comprador_pessoa_id_fkey(nome_razao), lotes!vendas_lote_id_fkey(quadra, numero_lote)")
         .in("status", ["ATIVA", "QUITADA"])
         .order("lote_id");
 
@@ -94,7 +94,7 @@ export default function SaldoLotes() {
         const lote = v.lotes as any;
         if (!lote) continue;
         const saldo = saldoMap.get(v.lote_id) || 0;
-        const nome = v.comprador_nome_1 || "-";
+        const nome = v.comprador_nome_1 || (v.pessoas as any)?.nome_razao || "-";
         const primeiroNome = nome.split(" ")[0];
         items.push({
           quadra: lote.quadra,
