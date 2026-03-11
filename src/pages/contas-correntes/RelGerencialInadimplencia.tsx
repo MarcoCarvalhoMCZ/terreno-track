@@ -196,7 +196,7 @@ export default function RelGerencialInadimplencia() {
       },
     });
 
-    doc.save("rel_gerencial_inadimplencia.pdf");
+    doc.save("rel_gerencial_contas_receber.pdf");
   }
 
   return (
