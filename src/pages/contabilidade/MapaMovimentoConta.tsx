@@ -167,8 +167,8 @@ export default function MapaMovimentoConta() {
     setSelected(item);
     setForm({
       tipo_movimento: item.tipo_movimento,
-      conta_debito_id: item.conta_debito_id || "",
-      conta_credito_id: item.conta_credito_id || "",
+      conta_debito_id: item.conta_debito_id || NONE,
+      conta_credito_id: item.conta_credito_id || NONE,
       historico_padrao: item.historico_padrao || "",
     });
     setIsSecondEntry(!!item.lancamento_pai_id);
