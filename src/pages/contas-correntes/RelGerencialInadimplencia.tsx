@@ -88,6 +88,8 @@ export default function RelGerencialInadimplencia() {
       }
 
       const mesRefKey = monthKeyFromDate(dataRef);
+      // Para modo "hoje", usar a data exata como corte (vencimento < hoje)
+      const dataRefStr = formatDateOnly(dataRef);
 
       // 2. Buscar parcelas abertas
       const { data: parcelas, error } = await supabase
