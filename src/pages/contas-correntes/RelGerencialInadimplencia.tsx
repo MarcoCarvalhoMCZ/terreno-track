@@ -106,21 +106,11 @@ export default function RelGerencialInadimplencia() {
         });
       }
 
-      // 5. Reference date: last day of month of last ATUALIZACAO
-      let dataRef = new Date();
-      const { data: lastAtData } = await supabase
-        .from("conta_corrente_lote")
-        .select("data_mov")
-        .eq("tipo_mov", "ATUALIZACAO")
-        .order("data_mov", { ascending: false })
-        .limit(1);
-
-      if (lastAtData && lastAtData.length > 0) {
-        dataRef = endOfMonth(new Date(lastAtData[0].data_mov));
-      }
-
+      // 5. Per-lot reference date: last day of month of last ATUALIZACAO for EACH lot
+      // (matching Consulta de Lote behavior)
       const allCompetencias = new Set<string>();
       const lotes: LoteResumo[] = [];
+      let maxDataRef: Date = new Date();
 
       for (const venda of vendas) {
         const lote = venda.lote as any;
@@ -128,6 +118,19 @@ export default function RelGerencialInadimplencia() {
 
         const movimentos = allMovimentos[venda.lote_id] || [];
         const parcelasControle = allParcControle[venda.lote_id] || [];
+
+        // Find last ATUALIZACAO for THIS specific lot (same as Consulta de Lote)
+        const lastAtMovLote = movimentos
+          .filter(m => m.tipo_mov === "ATUALIZACAO")
+          .sort((a, b) => b.data_mov.localeCompare(a.data_mov))[0];
+
+        const dataRefLote = lastAtMovLote
+          ? endOfMonth(new Date(lastAtMovLote.data_mov))
+          : endOfMonth(new Date());
+
+        if (dataRefLote > maxDataRef) {
+          maxDataRef = dataRefLote;
+        }
 
         const dadosVenda: DadosVenda = {
           qtd_parcelas: venda.qtd_parcelas,
@@ -161,11 +164,11 @@ export default function RelGerencialInadimplencia() {
 
           for (let i = 0; i < resumo.qtdReforcosAPagar; i++) {
             const venc = addMonths(resumo.primeiroVencimentoReforco, (resumo.qtdReforcosPagos + i) * freq);
-            if (venc > dataRef) break;
+            if (venc > dataRefLote) break;
 
-            const encargos = calcularEncargosParcela(valorReforco, venc, dataRef, moraConfig);
+            const encargos = calcularEncargosParcela(valorReforco, venc, dataRefLote, moraConfig);
 
-            if (isSameMonth(venc, dataRef)) {
+            if (isSameMonth(venc, dataRefLote)) {
               item.reforcoMesRef += encargos.totalParcela;
             } else {
               item.reforcoAtrasado += encargos.totalParcela;
@@ -180,11 +183,11 @@ export default function RelGerencialInadimplencia() {
 
           for (let i = 0; i < resumo.qtdParcelasAPagar; i++) {
             const venc = addMonths(resumo.primeiroVencimentoParcela, (resumo.qtdParcelasPagas + i) * freq);
-            if (venc > dataRef) break;
+            if (venc > dataRefLote) break;
 
-            const encargos = calcularEncargosParcela(valorParcela, venc, dataRef, moraConfig);
+            const encargos = calcularEncargosParcela(valorParcela, venc, dataRefLote, moraConfig);
 
-            if (isSameMonth(venc, dataRef)) {
+            if (isSameMonth(venc, dataRefLote)) {
               item.parcelamentoMesRef += encargos.totalParcela;
             } else {
               const comp = format(venc, "yyyy-MM");
@@ -210,7 +213,9 @@ export default function RelGerencialInadimplencia() {
       // Competências de parcelas atrasadas (desc = mais recente primeiro)
       const competencias = Array.from(allCompetencias).sort((a, b) => b.localeCompare(a));
 
-      return { lotes, competencias, dataRef: dataRef.toISOString() };
+      return { lotes, competencias, dataRef: maxDataRef.toISOString() };
+
+      
     },
     enabled: consultar,
   });
