@@ -69,6 +69,14 @@ export default function RelGerencialInadimplencia() {
       if (error) throw error;
       if (!parcelas || parcelas.length === 0) return { lotes: [], competencias: [], dataRef: formatDateOnly(dataRef) };
 
+      // DEBUG: log reference info and sample data
+      console.log("=== REL GERENCIAL DEBUG ===");
+      console.log("mesRefKey:", mesRefKey, "dataRef:", formatDateOnly(dataRef));
+      if (parcelas.length > 0) {
+        const sample = parcelas[0];
+        console.log("Sample parcela vencimento:", sample.vencimento, "typeof:", typeof sample.vencimento, "slice(0,7):", String(sample.vencimento).slice(0, 7));
+      }
+
       // 3. Classificar parcelas por competência de vencimento
       const allCompetencias = new Set<string>();
       const lotesMap = new Map<string, LoteResumo>();
