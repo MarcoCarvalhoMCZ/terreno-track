@@ -24,10 +24,15 @@ const MESES_LABEL = [
   { value: "10", label: "Outubro" }, { value: "11", label: "Novembro" }, { value: "12", label: "Dezembro" },
 ];
 
-interface ContaContabil {
+interface MapaEntry {
   id: string;
-  codigo: string;
-  descricao: string;
+  tipo_movimento: string;
+  conta_debito_id: string | null;
+  conta_credito_id: string | null;
+  historico_padrao: string | null;
+  lancamento_pai_id: string | null;
+  conta_debito: { id: string; codigo: string; descricao: string } | null;
+  conta_credito: { id: string; codigo: string; descricao: string } | null;
 }
 
 interface SlipRow {
@@ -38,12 +43,40 @@ interface SlipRow {
   comprador_nome: string | null;
   valor_venda: number | null;
   custo_contabil: number | null;
-  debito: number | null;
-  credito: number | null;
-  conta_codigo: string;
-  conta_descricao: string;
-  natureza_lancamento: string;
+  debito_valor: number | null;
+  credito_valor: number | null;
+  conta_debito_codigo: string;
+  conta_debito_descricao: string;
+  conta_credito_codigo: string;
+  conta_credito_descricao: string;
+  historico: string;
   valor: number;
+  is_second: boolean;
+  data_venda: string | null;
+  parcela: number | null;
+}
+
+function resolveHistorico(
+  template: string | null,
+  ctx: {
+    comprador: string | null;
+    quadra: string;
+    lote: string;
+    data_venda: string | null;
+    valor_venda: number | null;
+    valor: number;
+    parcela: number | null;
+  }
+): string {
+  if (!template) return "";
+  return template
+    .replace(/\{comprador\}/g, ctx.comprador || "—")
+    .replace(/\{quadra\}/g, ctx.quadra)
+    .replace(/\{lote\}/g, ctx.lote)
+    .replace(/\{data_venda\}/g, ctx.data_venda ? format(new Date(ctx.data_venda + "T00:00:00"), "dd/MM/yyyy") : "—")
+    .replace(/\{valor_venda\}/g, ctx.valor_venda != null ? formatCurrency(ctx.valor_venda) : "—")
+    .replace(/\{valor\}/g, formatCurrency(ctx.valor))
+    .replace(/\{parcela\}/g, ctx.parcela != null ? String(ctx.parcela) : "—");
 }
 
 export default function SlipContabil() {
@@ -60,7 +93,7 @@ export default function SlipContabil() {
         .eq("ativo", true)
         .order("codigo");
       if (error) throw error;
-      return data as ContaContabil[];
+      return data as { id: string; codigo: string; descricao: string }[];
     },
   });
 
@@ -69,14 +102,9 @@ export default function SlipContabil() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("mapa_movimento_conta" as any)
-        .select("*, conta_contabil:contas_contabeis(id, codigo, descricao)");
+        .select("*, conta_debito:contas_contabeis!mapa_movimento_conta_conta_debito_id_fkey(id, codigo, descricao), conta_credito:contas_contabeis!mapa_movimento_conta_conta_credito_id_fkey(id, codigo, descricao)");
       if (error) throw error;
-      return data as unknown as {
-        tipo_movimento: string;
-        conta_contabil_id: string;
-        natureza_lancamento: string;
-        conta_contabil: { id: string; codigo: string; descricao: string };
-      }[];
+      return data as unknown as MapaEntry[];
     },
   });
 
@@ -86,7 +114,6 @@ export default function SlipContabil() {
   const { data: movimentos, isLoading } = useQuery({
     queryKey: ["slip-contabil-movimentos", ano, mes],
     queryFn: async () => {
-      // Paginate to avoid 1000-row limit
       const pageSize = 1000;
       let allData: any[] = [];
       let from = 0;
@@ -95,9 +122,9 @@ export default function SlipContabil() {
         const { data, error } = await supabase
           .from("conta_corrente_lote")
           .select(`
-            data_mov, tipo_mov, debito, credito, venda_id,
+            data_mov, tipo_mov, debito, credito, venda_id, numero_parcela,
             lote:lotes(quadra, numero_lote, custo_contabil),
-            venda:vendas(valor_venda, comprador_nome_1)
+            venda:vendas(valor_venda, comprador_nome_1, data_venda)
           `)
           .gte("data_mov", startDate)
           .lte("data_mov", endDate)
@@ -105,46 +132,86 @@ export default function SlipContabil() {
           .range(from, from + pageSize - 1);
         if (error) throw error;
         allData = allData.concat(data || []);
-        if (!data || data.length < pageSize) {
-          hasMore = false;
-        } else {
-          from += pageSize;
-        }
+        if (!data || data.length < pageSize) hasMore = false;
+        else from += pageSize;
       }
       return allData;
     },
   });
 
-  // Build slip rows
   const slipRows = useMemo(() => {
     if (!movimentos || !mapa) return [];
+
+    // Separate parent and child mappings
+    const parentMappings = mapa.filter((m) => !m.lancamento_pai_id);
+    const childMappings = mapa.filter((m) => !!m.lancamento_pai_id);
 
     const rows: SlipRow[] = [];
 
     for (const mov of movimentos) {
-      const mappings = mapa.filter((m) => m.tipo_movimento === mov.tipo_mov);
+      const mappings = parentMappings.filter((m) => m.tipo_movimento === mov.tipo_mov);
       if (!mappings.length) continue;
 
       const valor = Number(mov.debito || 0) + Number(mov.credito || 0);
       const lote = mov.lote as any;
       const venda = mov.venda as any;
 
+      const ctx = {
+        comprador: venda?.comprador_nome_1 || null,
+        quadra: lote?.quadra || "-",
+        lote: lote?.numero_lote || "-",
+        data_venda: venda?.data_venda || null,
+        valor_venda: mov.tipo_mov === "VENDA" ? venda?.valor_venda : null,
+        valor,
+        parcela: mov.numero_parcela || null,
+      };
+
       for (const mapping of mappings) {
         rows.push({
           data_mov: mov.data_mov,
           tipo_mov: mov.tipo_mov,
-          quadra: lote?.quadra || "-",
-          numero_lote: lote?.numero_lote || "-",
-          comprador_nome: venda?.comprador_nome_1 || null,
-          valor_venda: mov.tipo_mov === "VENDA" ? venda?.valor_venda : null,
+          quadra: ctx.quadra,
+          numero_lote: ctx.lote,
+          comprador_nome: ctx.comprador,
+          valor_venda: ctx.valor_venda,
           custo_contabil: mov.tipo_mov === "VENDA" ? lote?.custo_contabil : null,
-          debito: mov.debito,
-          credito: mov.credito,
-          conta_codigo: mapping.conta_contabil.codigo,
-          conta_descricao: mapping.conta_contabil.descricao,
-          natureza_lancamento: mapping.natureza_lancamento,
+          debito_valor: mov.debito,
+          credito_valor: mov.credito,
+          conta_debito_codigo: mapping.conta_debito?.codigo || "",
+          conta_debito_descricao: mapping.conta_debito?.descricao || "",
+          conta_credito_codigo: mapping.conta_credito?.codigo || "",
+          conta_credito_descricao: mapping.conta_credito?.descricao || "",
+          historico: resolveHistorico(mapping.historico_padrao, ctx),
           valor,
+          is_second: false,
+          data_venda: ctx.data_venda,
+          parcela: ctx.parcela,
         });
+
+        // Check for linked second entry
+        const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
+        if (child) {
+          rows.push({
+            data_mov: mov.data_mov,
+            tipo_mov: mov.tipo_mov,
+            quadra: ctx.quadra,
+            numero_lote: ctx.lote,
+            comprador_nome: ctx.comprador,
+            valor_venda: ctx.valor_venda,
+            custo_contabil: mov.tipo_mov === "VENDA" ? lote?.custo_contabil : null,
+            debito_valor: mov.debito,
+            credito_valor: mov.credito,
+            conta_debito_codigo: child.conta_debito?.codigo || "",
+            conta_debito_descricao: child.conta_debito?.descricao || "",
+            conta_credito_codigo: child.conta_credito?.codigo || "",
+            conta_credito_descricao: child.conta_credito?.descricao || "",
+            historico: resolveHistorico(child.historico_padrao, ctx),
+            valor,
+            is_second: true,
+            data_venda: ctx.data_venda,
+            parcela: ctx.parcela,
+          });
+        }
       }
     }
 
@@ -153,64 +220,66 @@ export default function SlipContabil() {
 
   const filteredRows = useMemo(() => {
     if (contaFiltro === "ALL") return slipRows;
-    return slipRows.filter((r) => r.conta_codigo === contaFiltro);
+    return slipRows.filter(
+      (r) => r.conta_debito_codigo === contaFiltro || r.conta_credito_codigo === contaFiltro
+    );
   }, [slipRows, contaFiltro]);
 
-  const totalValor = filteredRows.reduce((s, r) => s + r.valor, 0);
+  const totalValor = useMemo(() => {
+    // Sum only non-second entries to avoid double counting
+    return filteredRows.filter((r) => !r.is_second).reduce((s, r) => s + r.valor, 0);
+  }, [filteredRows]);
 
   const mesLabel = MESES_LABEL.find((m) => m.value === mes)?.label || "";
 
-  // PDF export
+  const contaLabel = (codigo: string, descricao: string) => {
+    if (!codigo) return "—";
+    return `${codigo} – ${descricao}`;
+  };
+
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(16);
     doc.text(`SLIP CONTÁBIL – ${mesLabel.toUpperCase()}/${ano}`, 14, 15);
     doc.setFontSize(10);
+    let startY = 22;
     if (contaFiltro !== "ALL") {
       const contaSel = contas?.find((c) => c.codigo === contaFiltro);
       doc.text(`Conta: ${contaFiltro}${contaSel ? ` – ${contaSel.descricao}` : ""}`, 14, 22);
+      startY = 28;
     }
 
-    const isVendaPresent = filteredRows.some((r) => r.tipo_mov === "VENDA");
+    const headers = ["Data", "Débito", "Crédito", "Quadra/Lote", "Valor R$", "Histórico"];
 
-    const headers = ["Data", "Conta", "Tipo Movimento", "Quadra/Lote", "Cliente", "Valor"];
-    if (isVendaPresent) {
-      headers.splice(5, 0, "Valor Venda", "Custo Contábil");
-    }
+    const body = filteredRows.map((r) => [
+      format(new Date(r.data_mov + "T00:00:00"), "dd/MM"),
+      contaLabel(r.conta_debito_codigo, r.conta_debito_descricao),
+      contaLabel(r.conta_credito_codigo, r.conta_credito_descricao),
+      `${r.quadra}-${r.numero_lote}`,
+      formatCurrency(r.valor),
+      r.historico || "-",
+    ]);
 
-    const body = filteredRows.map((r) => {
-      const row = [
-        format(new Date(r.data_mov + "T00:00:00"), "dd/MM"),
-        `${r.conta_codigo} – ${r.conta_descricao}`,
-        getTipoMovimentoLabel(r.tipo_mov),
-        `${r.quadra}-${r.numero_lote}`,
-        r.comprador_nome || "-",
-        formatCurrency(r.valor),
-      ];
-      if (isVendaPresent) {
-        row.splice(5, 0,
-          r.valor_venda !== null ? formatCurrency(r.valor_venda) : "-",
-          r.custo_contabil !== null ? formatCurrency(r.custo_contabil) : "-"
-        );
-      }
-      return row;
-    });
-
-    const totalColSpan = headers.length - 1;
-    const footerRow = Array(headers.length).fill("");
-    footerRow[0] = "TOTAL";
-    footerRow[headers.length - 1] = formatCurrency(totalValor);
+    const footerRow = ["TOTAL", "", "", "", formatCurrency(totalValor), ""];
 
     autoTable(doc, {
       head: [headers],
       body: [...body, footerRow],
-      startY: contaFiltro !== "ALL" ? 28 : 22,
-      styles: { fontSize: 8 },
+      startY,
+      styles: { fontSize: 7 },
       headStyles: { fillColor: [34, 87, 55] },
+      columnStyles: {
+        5: { cellWidth: 60 },
+      },
       didParseCell: (data: any) => {
         if (data.row.index === body.length) {
           data.cell.styles.fontStyle = "bold";
           data.cell.styles.fillColor = [240, 240, 240];
+        }
+        // Highlight second entries
+        if (data.row.index < body.length && filteredRows[data.row.index]?.is_second) {
+          data.cell.styles.textColor = [100, 100, 100];
+          data.cell.styles.fontStyle = "italic";
         }
       },
     });
@@ -223,7 +292,7 @@ export default function SlipContabil() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Slip Contábil</h1>
-          <p className="text-muted-foreground">Detalhamento contábil dos movimentos por período</p>
+          <p className="text-muted-foreground">Partidas Dobradas — Detalhamento contábil dos movimentos por período</p>
         </div>
         <Button onClick={exportPDF} disabled={!filteredRows.length}>
           <Download className="mr-2 h-4 w-4" />
@@ -307,54 +376,53 @@ export default function SlipContabil() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Data</TableHead>
-                    <TableHead>Conta Contábil</TableHead>
-                    <TableHead>Tipo Movimento</TableHead>
+                    <TableHead>Débito</TableHead>
+                    <TableHead>Crédito</TableHead>
                     <TableHead>Quadra/Lote</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    {filteredRows.some((r) => r.tipo_mov === "VENDA") && (
-                      <>
-                        <TableHead className="text-right">Valor Venda</TableHead>
-                        <TableHead className="text-right">Custo Contábil</TableHead>
-                      </>
-                    )}
-                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="text-right">Valor R$</TableHead>
+                    <TableHead>Histórico</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredRows.map((row, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{format(new Date(row.data_mov + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
+                    <TableRow key={idx} className={row.is_second ? "bg-muted/30" : ""}>
                       <TableCell>
-                        <span className="font-mono text-xs">{row.conta_codigo}</span>
-                        <span className="ml-1 text-muted-foreground">– {row.conta_descricao}</span>
+                        {format(new Date(row.data_mov + "T00:00:00"), "dd/MM/yyyy")}
+                        {row.is_second && <span className="text-xs text-muted-foreground ml-1">(2º)</span>}
                       </TableCell>
-                      <TableCell>{getTipoMovimentoLabel(row.tipo_mov)}</TableCell>
+                      <TableCell>
+                        {row.conta_debito_codigo ? (
+                          <>
+                            <span className="font-mono text-xs">{row.conta_debito_codigo}</span>
+                            <span className="ml-1 text-muted-foreground text-xs">– {row.conta_debito_descricao}</span>
+                          </>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {row.conta_credito_codigo ? (
+                          <>
+                            <span className="font-mono text-xs">{row.conta_credito_codigo}</span>
+                            <span className="ml-1 text-muted-foreground text-xs">– {row.conta_credito_descricao}</span>
+                          </>
+                        ) : "—"}
+                      </TableCell>
                       <TableCell>{row.quadra}-{row.numero_lote}</TableCell>
-                      <TableCell>{row.comprador_nome || "-"}</TableCell>
-                      {filteredRows.some((r) => r.tipo_mov === "VENDA") && (
-                        <>
-                          <TableCell className="text-right font-mono">
-                            {row.valor_venda !== null ? formatCurrency(row.valor_venda) : "-"}
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {row.custo_contabil !== null ? formatCurrency(row.custo_contabil) : "-"}
-                          </TableCell>
-                        </>
-                      )}
                       <TableCell className="text-right font-mono font-medium">
                         {formatCurrency(row.valor)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
+                        {row.historico || "—"}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={filteredRows.some((r) => r.tipo_mov === "VENDA") ? 7 : 5} className="font-bold">
-                      TOTAL
-                    </TableCell>
+                    <TableCell colSpan={4} className="font-bold">TOTAL</TableCell>
                     <TableCell className="text-right font-mono font-bold text-primary">
                       {formatCurrency(totalValor)}
                     </TableCell>
+                    <TableCell />
                   </TableRow>
                 </TableFooter>
               </Table>
