@@ -64,10 +64,13 @@ export function useRelatorioInadimplencia() {
     queryKey: ["relatorio-inadimplencia-data"],
     queryFn: async () => {
       // 1. Parcelas abertas
+      // Somente parcelas já vencidas (vencimento < hoje)
+      const hoje = new Date().toISOString().split("T")[0];
       const { data: parcelas, error: parcErr } = await supabase
         .from("parcelas_abertas")
         .select("*")
-        .eq("status", "ABERTO");
+        .eq("status", "ABERTO")
+        .lt("vencimento", hoje);
 
       if (parcErr) throw parcErr;
       if (!parcelas?.length) return { parcelas: [], vendas: [] };
