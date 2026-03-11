@@ -30,6 +30,7 @@ import { Calculator, TrendingUp, AlertTriangle, CheckCircle2, Loader2 } from "lu
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { format, subMonths, parse, startOfMonth, addMonths } from "date-fns";
+import { regenerarParcelasAbertas } from "@/lib/parcelas-abertas";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Lote = Tables<"lotes">;
