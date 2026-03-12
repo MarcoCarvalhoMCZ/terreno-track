@@ -60,7 +60,21 @@ const initialForm: MapaForm = {
   conta_debito_id: NONE,
   conta_credito_id: NONE,
   historico_padrao: "",
+  expressao_valor_1: NONE,
+  expressao_valor_2: NONE,
 };
+
+const VARIAVEIS_VALOR = [
+  { value: "valor", label: "{valor} – Valor do Lançamento" },
+  { value: "valor_venda", label: "{valor_venda} – Valor da Venda" },
+  { value: "valor_arras", label: "{valor_arras} – Valor das Arras" },
+  { value: "valor_parcelamento", label: "{valor_parcelamento} – Valor do Parcelamento" },
+  { value: "valor_reforco", label: "{valor_reforco} – Valor do Reforço" },
+  { value: "custo_contabil", label: "{custo_contabil} – Custo Contábil (Saldo Contábil)" },
+  { value: "valor_atualizacao", label: "{valor_atualizacao} – Atualização Monetária" },
+  { value: "valor_juros", label: "{valor_juros} – Valor dos Juros" },
+  { value: "valor_multa", label: "{valor_multa} – Valor da Multa" },
+];
 
 const PLACEHOLDERS_HELP = [
   { placeholder: "{comprador}", desc: "Nome do comprador principal" },
