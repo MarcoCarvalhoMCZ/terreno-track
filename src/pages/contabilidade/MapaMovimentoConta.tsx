@@ -96,6 +96,10 @@ const PLACEHOLDERS_HELP = [
   { placeholder: "{qtd_parcelas}", desc: "Quantidade de parcelas" },
   { placeholder: "{valor}", desc: "Valor do lançamento" },
   { placeholder: "{parcela}", desc: "Nº da parcela" },
+  { placeholder: "{custo_contabil}", desc: "Custo Contábil (Saldo Contábil) do lote" },
+  { placeholder: "{valor_atualizacao}", desc: "Valor da Atualização Monetária" },
+  { placeholder: "{valor_juros}", desc: "Valor dos Juros" },
+  { placeholder: "{valor_multa}", desc: "Valor da Multa" },
 ];
 
 export default function MapaMovimentoConta() {
