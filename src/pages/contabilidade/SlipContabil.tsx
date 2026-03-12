@@ -579,8 +579,9 @@ export default function SlipContabil() {
             </div>
           ) : (
             <div className="space-y-0">
-              {filteredRows.map((row, idx) => (
-                <div key={idx}>
+              {/* Rows WITH historico - detailed view */}
+              {rowsWithHistorico.map((row, idx) => (
+                <div key={`h-${idx}`}>
                   <div className={`py-3 px-4 space-y-1 ${row.is_second ? "bg-muted/30 pl-8" : ""}`}>
                     {row.is_second && (
                       <span className="text-xs text-muted-foreground font-medium">↳ 2º lançamento vinculado</span>
@@ -620,12 +621,58 @@ export default function SlipContabil() {
                       </div>
                     )}
                   </div>
-                  {idx < filteredRows.length - 1 && <Separator />}
+                  {idx < rowsWithHistorico.length - 1 && <Separator />}
                 </div>
               ))}
-              <Separator />
+
+              {/* Rows WITHOUT historico - grouped table listing */}
+              {listingGroups.map((group, gIdx) => {
+                const groupTotal = group.rows.reduce((s, r) => s + r.valor, 0);
+                return (
+                  <div key={`g-${gIdx}`} className="mt-4">
+                    <Separator />
+                    <div className="py-3 px-4 bg-muted/40 space-y-1">
+                      <p className="font-semibold text-sm">{getTipoMovimentoLabel(group.tipo_mov)}</p>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Débito: </span>
+                        <span className="font-mono">{formatContaSlip(group.conta_debito_codigo, group.conta_debito_estruturado)}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Crédito: </span>
+                        <span className="font-mono">{formatContaSlip(group.conta_credito_codigo, group.conta_credito_estruturado)}</span>
+                      </div>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/20">
+                          <th className="text-left py-2 px-4 font-medium">Lote</th>
+                          <th className="text-left py-2 px-4 font-medium">Comprador</th>
+                          <th className="text-right py-2 px-4 font-medium">Valor R$</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.rows.map((lr, lIdx) => (
+                          <tr key={lIdx} className="border-b last:border-b-0">
+                            <td className="py-1.5 px-4 font-mono">{lr.quadra}-{lr.numero_lote}</td>
+                            <td className="py-1.5 px-4">{lr.comprador_nome}</td>
+                            <td className="py-1.5 px-4 text-right font-mono">{formatCurrency(lr.valor)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-muted/20 font-bold">
+                          <td className="py-2 px-4" colSpan={2}>TOTAL</td>
+                          <td className="py-2 px-4 text-right font-mono text-primary">{formatCurrency(groupTotal)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })}
+
+              <Separator className="mt-4" />
               <div className="py-3 px-4 flex justify-between items-center bg-muted/20">
-                <span className="font-bold">TOTAL</span>
+                <span className="font-bold">TOTAL GERAL</span>
                 <span className="font-mono font-bold text-primary text-lg">
                   {formatCurrency(totalValor)}
                 </span>
