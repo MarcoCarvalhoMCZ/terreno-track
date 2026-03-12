@@ -458,38 +458,73 @@ export default function SlipContabil() {
       startY = 28;
     }
 
-    const headers = ["Data", "Débito", "Crédito", "Valor R$", "Histórico"];
+    // Detailed rows (with historico)
+    if (rowsWithHistorico.length > 0) {
+      const headers = ["Data", "Débito", "Crédito", "Valor R$", "Histórico"];
+      const body = rowsWithHistorico.map((r) => [
+        format(new Date(r.data_mov + "T00:00:00"), "dd/MM/yyyy"),
+        formatContaSlip(r.conta_debito_codigo, r.conta_debito_estruturado),
+        formatContaSlip(r.conta_credito_codigo, r.conta_credito_estruturado),
+        formatCurrency(r.valor),
+        r.historico || "-",
+      ]);
 
-    const body = filteredRows.map((r) => [
-      format(new Date(r.data_mov + "T00:00:00"), "dd/MM/yyyy"),
-      formatContaSlip(r.conta_debito_codigo, r.conta_debito_estruturado),
-      formatContaSlip(r.conta_credito_codigo, r.conta_credito_estruturado),
-      formatCurrency(r.valor),
-      r.historico || "-",
-    ]);
+      autoTable(doc, {
+        head: [headers],
+        body,
+        startY,
+        styles: { fontSize: 7 },
+        headStyles: { fillColor: [34, 87, 55] },
+        columnStyles: { 4: { cellWidth: 80 } },
+        didParseCell: (data: any) => {
+          if (data.row.index < body.length && rowsWithHistorico[data.row.index]?.is_second) {
+            data.cell.styles.textColor = [100, 100, 100];
+            data.cell.styles.fontStyle = "italic";
+          }
+        },
+      });
+      startY = (doc as any).lastAutoTable.finalY + 8;
+    }
 
-    const footerRow = ["TOTAL", "", "", formatCurrency(totalValor), ""];
+    // Listing groups (without historico)
+    for (const group of listingGroups) {
+      const groupTotal = group.rows.reduce((s, r) => s + r.valor, 0);
+      doc.setFontSize(9);
+      doc.text(`${getTipoMovimentoLabel(group.tipo_mov)}`, 14, startY);
+      startY += 4;
+      doc.text(`Débito: ${formatContaSlip(group.conta_debito_codigo, group.conta_debito_estruturado)}`, 14, startY);
+      startY += 4;
+      doc.text(`Crédito: ${formatContaSlip(group.conta_credito_codigo, group.conta_credito_estruturado)}`, 14, startY);
+      startY += 2;
 
-    autoTable(doc, {
-      head: [headers],
-      body: [...body, footerRow],
-      startY,
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [34, 87, 55] },
-      columnStyles: {
-        4: { cellWidth: 80 },
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === body.length) {
-          data.cell.styles.fontStyle = "bold";
-          data.cell.styles.fillColor = [240, 240, 240];
-        }
-        if (data.row.index < body.length && filteredRows[data.row.index]?.is_second) {
-          data.cell.styles.textColor = [100, 100, 100];
-          data.cell.styles.fontStyle = "italic";
-        }
-      },
-    });
+      const listHeaders = ["Lote", "Comprador", "Valor R$"];
+      const listBody = group.rows.map((lr) => [
+        `${lr.quadra}-${lr.numero_lote}`,
+        lr.comprador_nome || "—",
+        formatCurrency(lr.valor),
+      ]);
+      const listFooter = ["TOTAL", "", formatCurrency(groupTotal)];
+
+      autoTable(doc, {
+        head: [listHeaders],
+        body: [...listBody, listFooter],
+        startY,
+        styles: { fontSize: 7 },
+        headStyles: { fillColor: [34, 87, 55] },
+        didParseCell: (data: any) => {
+          if (data.row.index === listBody.length) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [240, 240, 240];
+          }
+        },
+      });
+      startY = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Total geral
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL GERAL: ${formatCurrency(totalValor)}`, 14, startY);
 
     doc.save(`slip-contabil-${ano}-${mes.padStart(2, "0")}.pdf`);
   };
