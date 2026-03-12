@@ -49,6 +49,8 @@ interface MapaForm {
   conta_debito_id: string;
   conta_credito_id: string;
   historico_padrao: string;
+  expressao_valor_1: string;
+  expressao_valor_2: string;
 }
 
 const NONE = "__NONE__";
