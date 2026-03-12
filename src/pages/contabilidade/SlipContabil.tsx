@@ -302,6 +302,14 @@ export default function SlipContabil() {
     const childMappings = mapa.filter((m) => !!m.lancamento_pai_id);
     const movimentosNormalizados = normalizeMovimentosParaSlip(movimentos);
 
+    // Build lote_id -> venda lookup for movements without direct venda
+    const vendaPorLote = new Map<string, any>();
+    for (const mov of movimentos) {
+      if (mov.venda && mov.lote_id && !vendaPorLote.has(mov.lote_id)) {
+        vendaPorLote.set(mov.lote_id, mov.venda);
+      }
+    }
+
     const rows: SlipRow[] = [];
 
     for (const mov of movimentosNormalizados) {
@@ -310,7 +318,7 @@ export default function SlipContabil() {
 
       const valor = Number(mov.debito || 0) + Number(mov.credito || 0);
       const lote = mov.lote as any;
-      const venda = mov.venda as any;
+      const venda = (mov.venda || vendaPorLote.get(mov.lote_id)) as any;
       const compradores = resolveCompradores(venda);
 
       const ctx: HistoricoCtx = {
