@@ -233,12 +233,19 @@ export default function MapaMovimentoConta() {
       return;
     }
 
+    const expr1 = form.expressao_valor_1 === NONE ? null : form.expressao_valor_1;
+    const expr2 = form.expressao_valor_2 === NONE ? null : form.expressao_valor_2;
+    const expressaoValor = expr1
+      ? (expr2 ? `${expr1}+${expr2}` : expr1)
+      : null;
+
     const payload: any = {
       tipo_movimento: form.tipo_movimento,
       conta_debito_id: debitoId,
       conta_credito_id: creditoId,
       historico_padrao: form.historico_padrao || null,
       lancamento_pai_id: isSecondEntry ? parentId : null,
+      expressao_valor: expressaoValor,
     };
 
     if (selected) {
