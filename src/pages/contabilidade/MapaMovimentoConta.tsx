@@ -194,11 +194,14 @@ export default function MapaMovimentoConta() {
 
   const handleOpenEdit = (item: MapaItem) => {
     setSelected(item);
+    const parts = (item.expressao_valor || "").split("+").map(s => s.trim());
     setForm({
       tipo_movimento: item.tipo_movimento,
       conta_debito_id: item.conta_debito_id || NONE,
       conta_credito_id: item.conta_credito_id || NONE,
       historico_padrao: item.historico_padrao || "",
+      expressao_valor_1: parts[0] || NONE,
+      expressao_valor_2: parts[1] || NONE,
     });
     setIsSecondEntry(!!item.lancamento_pai_id);
     setParentId(item.lancamento_pai_id);
