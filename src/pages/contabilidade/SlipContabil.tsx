@@ -402,6 +402,13 @@ export default function SlipContabil() {
       }
     }
 
+    // Sort all rows by quadra + lote
+    rows.sort((a, b) => {
+      const cmp = a.quadra.localeCompare(b.quadra, "pt-BR", { numeric: true });
+      if (cmp !== 0) return cmp;
+      return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
+    });
+
     return rows;
   }, [movimentos, mapa]);
 
