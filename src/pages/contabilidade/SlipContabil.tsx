@@ -301,6 +301,7 @@ export default function SlipContabil() {
         lote: lote?.numero_lote || "-",
         area_m2: lote?.area_m2 ?? null,
         matricula_ri: lote?.matricula_ri || null,
+        custo_contabil: lote?.custo_contabil ?? null,
         data_venda: venda?.data_venda || null,
         valor_venda: venda?.valor_venda ?? null,
         valor_arras: venda?.valor_arras ?? null,
