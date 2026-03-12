@@ -278,7 +278,7 @@ export default function SlipContabil() {
         const { data, error } = await supabase
           .from("conta_corrente_lote")
           .select(`
-            data_mov, tipo_mov, debito, credito, venda_id, numero_parcela,
+            data_mov, tipo_mov, debito, credito, venda_id, numero_parcela, lote_id,
             lote:lotes(quadra, numero_lote, custo_contabil, area_m2, matricula_ri),
             venda:vendas(valor_venda, comprador_nome_1, comprador_cpf_1, comprador_nome_2, comprador_cpf_2, data_venda, valor_arras, valor_reforco, qtd_reforcos, valor_parcelamento, qtd_parcelas, comprador:pessoas!vendas_comprador_pessoa_id_fkey(nome_razao, cpf_cnpj))
           `)
@@ -302,6 +302,14 @@ export default function SlipContabil() {
     const childMappings = mapa.filter((m) => !!m.lancamento_pai_id);
     const movimentosNormalizados = normalizeMovimentosParaSlip(movimentos);
 
+    // Build lote_id -> venda lookup for movements without direct venda
+    const vendaPorLote = new Map<string, any>();
+    for (const mov of movimentos) {
+      if (mov.venda && mov.lote_id && !vendaPorLote.has(mov.lote_id)) {
+        vendaPorLote.set(mov.lote_id, mov.venda);
+      }
+    }
+
     const rows: SlipRow[] = [];
 
     for (const mov of movimentosNormalizados) {
@@ -310,7 +318,7 @@ export default function SlipContabil() {
 
       const valor = Number(mov.debito || 0) + Number(mov.credito || 0);
       const lote = mov.lote as any;
-      const venda = mov.venda as any;
+      const venda = (mov.venda || vendaPorLote.get(mov.lote_id)) as any;
       const compradores = resolveCompradores(venda);
 
       const ctx: HistoricoCtx = {
