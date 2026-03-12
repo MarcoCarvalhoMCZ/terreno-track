@@ -66,6 +66,7 @@ interface HistoricoCtx {
   lote: string;
   area_m2: number | null;
   matricula_ri: string | null;
+  custo_contabil: number | null;
   data_venda: string | null;
   valor_venda: number | null;
   valor_arras: number | null;
