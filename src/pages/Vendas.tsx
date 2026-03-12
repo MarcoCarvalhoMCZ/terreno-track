@@ -280,7 +280,7 @@ export default function Vendas() {
     setEditingVenda(venda);
     
     // Find pessoa ID from name if it exists (comprador solidário)
-    const comprador2 = pessoas?.find(p => p.nome_razao === venda.comprador_nome_2);
+    const comprador2 = pessoas?.find(p => p.nome_razao.toUpperCase() === (venda.comprador_nome_2 || "").toUpperCase());
     
     setFormData({
       lote_id: venda.lote_id,
