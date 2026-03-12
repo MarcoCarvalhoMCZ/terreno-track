@@ -215,6 +215,8 @@ export default function MapaMovimentoConta() {
       conta_debito_id: NONE,
       conta_credito_id: NONE,
       historico_padrao: "",
+      expressao_valor_1: NONE,
+      expressao_valor_2: NONE,
     });
     setIsSecondEntry(true);
     setParentId(parent.id);
