@@ -659,6 +659,7 @@ export type Database = {
           conta_debito_id: string | null
           created_at: string | null
           created_by: string | null
+          expressao_valor: string | null
           historico_padrao: string | null
           id: string
           lancamento_pai_id: string | null
@@ -671,6 +672,7 @@ export type Database = {
           conta_debito_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          expressao_valor?: string | null
           historico_padrao?: string | null
           id?: string
           lancamento_pai_id?: string | null
@@ -683,6 +685,7 @@ export type Database = {
           conta_debito_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          expressao_valor?: string | null
           historico_padrao?: string | null
           id?: string
           lancamento_pai_id?: string | null

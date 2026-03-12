@@ -33,6 +33,7 @@ interface MapaItem {
   conta_credito_id: string | null;
   historico_padrao: string | null;
   lancamento_pai_id: string | null;
+  expressao_valor: string | null;
   conta_debito?: { id: string; codigo: string; descricao: string } | null;
   conta_credito?: { id: string; codigo: string; descricao: string } | null;
 }
@@ -48,6 +49,8 @@ interface MapaForm {
   conta_debito_id: string;
   conta_credito_id: string;
   historico_padrao: string;
+  expressao_valor_1: string;
+  expressao_valor_2: string;
 }
 
 const NONE = "__NONE__";
@@ -57,7 +60,21 @@ const initialForm: MapaForm = {
   conta_debito_id: NONE,
   conta_credito_id: NONE,
   historico_padrao: "",
+  expressao_valor_1: NONE,
+  expressao_valor_2: NONE,
 };
+
+const VARIAVEIS_VALOR = [
+  { value: "valor", label: "{valor} – Valor do Lançamento" },
+  { value: "valor_venda", label: "{valor_venda} – Valor da Venda" },
+  { value: "valor_arras", label: "{valor_arras} – Valor das Arras" },
+  { value: "valor_parcelamento", label: "{valor_parcelamento} – Valor do Parcelamento" },
+  { value: "valor_reforco", label: "{valor_reforco} – Valor do Reforço" },
+  { value: "custo_contabil", label: "{custo_contabil} – Custo Contábil (Saldo Contábil)" },
+  { value: "valor_atualizacao", label: "{valor_atualizacao} – Atualização Monetária" },
+  { value: "valor_juros", label: "{valor_juros} – Valor dos Juros" },
+  { value: "valor_multa", label: "{valor_multa} – Valor da Multa" },
+];
 
 const PLACEHOLDERS_HELP = [
   { placeholder: "{comprador}", desc: "Nome do comprador principal" },
@@ -79,6 +96,10 @@ const PLACEHOLDERS_HELP = [
   { placeholder: "{qtd_parcelas}", desc: "Quantidade de parcelas" },
   { placeholder: "{valor}", desc: "Valor do lançamento" },
   { placeholder: "{parcela}", desc: "Nº da parcela" },
+  { placeholder: "{custo_contabil}", desc: "Custo Contábil (Saldo Contábil) do lote" },
+  { placeholder: "{valor_atualizacao}", desc: "Valor da Atualização Monetária" },
+  { placeholder: "{valor_juros}", desc: "Valor dos Juros" },
+  { placeholder: "{valor_multa}", desc: "Valor da Multa" },
 ];
 
 export default function MapaMovimentoConta() {
@@ -177,11 +198,14 @@ export default function MapaMovimentoConta() {
 
   const handleOpenEdit = (item: MapaItem) => {
     setSelected(item);
+    const parts = (item.expressao_valor || "").split("+").map(s => s.trim());
     setForm({
       tipo_movimento: item.tipo_movimento,
       conta_debito_id: item.conta_debito_id || NONE,
       conta_credito_id: item.conta_credito_id || NONE,
       historico_padrao: item.historico_padrao || "",
+      expressao_valor_1: parts[0] || NONE,
+      expressao_valor_2: parts[1] || NONE,
     });
     setIsSecondEntry(!!item.lancamento_pai_id);
     setParentId(item.lancamento_pai_id);
@@ -195,6 +219,8 @@ export default function MapaMovimentoConta() {
       conta_debito_id: NONE,
       conta_credito_id: NONE,
       historico_padrao: "",
+      expressao_valor_1: NONE,
+      expressao_valor_2: NONE,
     });
     setIsSecondEntry(true);
     setParentId(parent.id);
@@ -211,12 +237,19 @@ export default function MapaMovimentoConta() {
       return;
     }
 
+    const expr1 = form.expressao_valor_1 === NONE ? null : form.expressao_valor_1;
+    const expr2 = form.expressao_valor_2 === NONE ? null : form.expressao_valor_2;
+    const expressaoValor = expr1
+      ? (expr2 ? `${expr1}+${expr2}` : expr1)
+      : null;
+
     const payload: any = {
       tipo_movimento: form.tipo_movimento,
       conta_debito_id: debitoId,
       conta_credito_id: creditoId,
       historico_padrao: form.historico_padrao || null,
       lancamento_pai_id: isSecondEntry ? parentId : null,
+      expressao_valor: expressaoValor,
     };
 
     if (selected) {
@@ -395,6 +428,30 @@ export default function MapaMovimentoConta() {
                   <SelectItem value={NONE}>Nenhuma</SelectItem>
                   {contas?.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.codigo} – {c.descricao}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Variável de Valor (1ª)</Label>
+              <Select value={form.expressao_valor_1} onValueChange={(v) => setForm({ ...form, expressao_valor_1: v })}>
+                <SelectTrigger><SelectValue placeholder="Nenhuma (usa valor do lançamento)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Nenhuma (usa valor do lançamento)</SelectItem>
+                  {VARIAVEIS_VALOR.map((v) => (
+                    <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Somar com (2ª variável, opcional)</Label>
+              <Select value={form.expressao_valor_2} onValueChange={(v) => setForm({ ...form, expressao_valor_2: v })}>
+                <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Nenhuma</SelectItem>
+                  {VARIAVEIS_VALOR.map((v) => (
+                    <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

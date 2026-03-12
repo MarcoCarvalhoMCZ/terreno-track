@@ -29,6 +29,7 @@ interface MapaEntry {
   conta_credito_id: string | null;
   historico_padrao: string | null;
   lancamento_pai_id: string | null;
+  expressao_valor: string | null;
   conta_debito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
   conta_credito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
 }
@@ -65,6 +66,7 @@ interface HistoricoCtx {
   lote: string;
   area_m2: number | null;
   matricula_ri: string | null;
+  custo_contabil: number | null;
   data_venda: string | null;
   valor_venda: number | null;
   valor_arras: number | null;
@@ -107,7 +109,59 @@ function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
   result = r(result, "qtd_parcelas", ctx.qtd_parcelas != null ? String(ctx.qtd_parcelas) : "—");
   result = r(result, "valor", formatCurrency(ctx.valor));
   result = r(result, "parcela", ctx.parcela != null ? String(ctx.parcela) : "—");
+  result = r(result, "custo_contabil", ctx.custo_contabil != null ? formatCurrency(ctx.custo_contabil) : "—");
+  result = r(result, "valor_atualizacao", formatCurrency(ctx.valor));
+  result = r(result, "valor_juros", formatCurrency(ctx.valor));
+  result = r(result, "valor_multa", formatCurrency(ctx.valor));
   return result;
+}
+
+function resolveExpressaoValor(
+  expressao: string | null,
+  mov: any,
+  lote: any,
+  venda: any
+): number | null {
+  if (!expressao) return null;
+
+  const parts = expressao.split("+").map(s => s.trim());
+  let total = 0;
+
+  for (const part of parts) {
+    switch (part) {
+      case "valor":
+        total += Number(mov.debito || 0) + Number(mov.credito || 0);
+        break;
+      case "valor_venda":
+        total += Number(venda?.valor_venda || 0);
+        break;
+      case "valor_arras":
+        total += Number(venda?.valor_arras || 0);
+        break;
+      case "valor_parcelamento":
+        total += Number(venda?.valor_parcelamento || 0);
+        break;
+      case "valor_reforco":
+        total += Number(venda?.valor_reforco || 0);
+        break;
+      case "custo_contabil":
+        total += Number(lote?.custo_contabil || 0);
+        break;
+      case "valor_atualizacao":
+        total += Number(mov.debito || 0) + Number(mov.credito || 0);
+        break;
+      case "valor_juros":
+        total += Number(mov.debito || 0);
+        break;
+      case "valor_multa":
+        total += Number(mov.debito || 0);
+        break;
+      default:
+        total += Number(mov.debito || 0) + Number(mov.credito || 0);
+    }
+  }
+
+  return total;
 }
 
 function formatContaSlip(codigo: string, estruturado: string): string {
@@ -251,6 +305,7 @@ export default function SlipContabil() {
         lote: lote?.numero_lote || "-",
         area_m2: lote?.area_m2 ?? null,
         matricula_ri: lote?.matricula_ri || null,
+        custo_contabil: lote?.custo_contabil ?? null,
         data_venda: venda?.data_venda || null,
         valor_venda: venda?.valor_venda ?? null,
         valor_arras: venda?.valor_arras ?? null,
@@ -263,6 +318,9 @@ export default function SlipContabil() {
       };
 
       for (const mapping of mappings) {
+        const valorResolv = resolveExpressaoValor(mapping.expressao_valor, mov, lote, venda) ?? valor;
+        const ctxComValor = { ...ctx, valor: valorResolv };
+
         rows.push({
           data_mov: mov.data_mov,
           tipo_mov: mov.tipo_mov,
@@ -279,8 +337,8 @@ export default function SlipContabil() {
           conta_credito_codigo: mapping.conta_credito?.codigo || "",
           conta_credito_estruturado: mapping.conta_credito?.codigo_estruturado || "",
           conta_credito_descricao: mapping.conta_credito?.descricao || "",
-          historico: resolveHistorico(mapping.historico_padrao, ctx),
-          valor,
+          historico: resolveHistorico(mapping.historico_padrao, ctxComValor),
+          valor: valorResolv,
           is_second: false,
           data_venda: ctx.data_venda,
           parcela: ctx.parcela,
@@ -288,6 +346,9 @@ export default function SlipContabil() {
 
         const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
         if (child) {
+          const valorChild = resolveExpressaoValor(child.expressao_valor, mov, lote, venda) ?? valor;
+          const ctxChild = { ...ctx, valor: valorChild };
+
           rows.push({
             data_mov: mov.data_mov,
             tipo_mov: mov.tipo_mov,
@@ -304,8 +365,8 @@ export default function SlipContabil() {
             conta_credito_codigo: child.conta_credito?.codigo || "",
             conta_credito_estruturado: child.conta_credito?.codigo_estruturado || "",
             conta_credito_descricao: child.conta_credito?.descricao || "",
-            historico: resolveHistorico(child.historico_padrao, ctx),
-            valor,
+            historico: resolveHistorico(child.historico_padrao, ctxChild),
+            valor: valorChild,
             is_second: true,
             data_venda: ctx.data_venda,
             parcela: ctx.parcela,
