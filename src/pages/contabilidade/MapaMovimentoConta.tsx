@@ -429,6 +429,30 @@ export default function MapaMovimentoConta() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>Variável de Valor (1ª)</Label>
+              <Select value={form.expressao_valor_1} onValueChange={(v) => setForm({ ...form, expressao_valor_1: v })}>
+                <SelectTrigger><SelectValue placeholder="Nenhuma (usa valor do lançamento)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Nenhuma (usa valor do lançamento)</SelectItem>
+                  {VARIAVEIS_VALOR.map((v) => (
+                    <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Somar com (2ª variável, opcional)</Label>
+              <Select value={form.expressao_valor_2} onValueChange={(v) => setForm({ ...form, expressao_valor_2: v })}>
+                <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Nenhuma</SelectItem>
+                  {VARIAVEIS_VALOR.map((v) => (
+                    <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Label>Histórico Padrão</Label>
                 <TooltipProvider>
