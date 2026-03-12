@@ -1,0 +1,1 @@
+ALTER TABLE public.mapa_movimento_conta ADD COLUMN expressao_valor text NULL DEFAULT NULL;
