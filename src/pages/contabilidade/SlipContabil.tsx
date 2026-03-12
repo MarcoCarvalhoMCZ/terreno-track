@@ -438,7 +438,15 @@ export default function SlipContabil() {
         valor: row.valor,
       });
     }
-    return Array.from(groupMap.values());
+    // Sort rows within each group by quadra + lote
+    const sortFn = (a: ListingRow, b: ListingRow) => {
+      const cmp = a.quadra.localeCompare(b.quadra, "pt-BR", { numeric: true });
+      if (cmp !== 0) return cmp;
+      return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
+    };
+    const groups = Array.from(groupMap.values());
+    for (const g of groups) g.rows.sort(sortFn);
+    return groups;
   }, [rowsWithoutHistorico]);
 
   const totalValor = useMemo(() => {
