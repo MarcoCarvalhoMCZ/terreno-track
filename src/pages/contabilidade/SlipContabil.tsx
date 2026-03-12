@@ -55,6 +55,23 @@ interface SlipRow {
   is_second: boolean;
   data_venda: string | null;
   parcela: number | null;
+  has_historico: boolean;
+}
+
+interface ListingGroup {
+  conta_debito_codigo: string;
+  conta_debito_estruturado: string;
+  conta_credito_codigo: string;
+  conta_credito_estruturado: string;
+  tipo_mov: string;
+  rows: ListingRow[];
+}
+
+interface ListingRow {
+  quadra: string;
+  numero_lote: string;
+  comprador_nome: string | null;
+  valor: number;
 }
 
 interface HistoricoCtx {
