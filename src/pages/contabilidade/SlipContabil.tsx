@@ -55,6 +55,23 @@ interface SlipRow {
   is_second: boolean;
   data_venda: string | null;
   parcela: number | null;
+  has_historico: boolean;
+}
+
+interface ListingGroup {
+  conta_debito_codigo: string;
+  conta_debito_estruturado: string;
+  conta_credito_codigo: string;
+  conta_credito_estruturado: string;
+  tipo_mov: string;
+  rows: ListingRow[];
+}
+
+interface ListingRow {
+  quadra: string;
+  numero_lote: string;
+  comprador_nome: string | null;
+  valor: number;
 }
 
 interface HistoricoCtx {
@@ -342,6 +359,7 @@ export default function SlipContabil() {
           is_second: false,
           data_venda: ctx.data_venda,
           parcela: ctx.parcela,
+          has_historico: !!mapping.historico_padrao,
         });
 
         const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
@@ -365,11 +383,12 @@ export default function SlipContabil() {
             conta_credito_codigo: child.conta_credito?.codigo || "",
             conta_credito_estruturado: child.conta_credito?.codigo_estruturado || "",
             conta_credito_descricao: child.conta_credito?.descricao || "",
-            historico: resolveHistorico(child.historico_padrao, ctxChild),
+          historico: resolveHistorico(child.historico_padrao, ctxChild),
             valor: valorChild,
             is_second: true,
             data_venda: ctx.data_venda,
             parcela: ctx.parcela,
+            has_historico: !!child.historico_padrao,
           });
         }
       }
@@ -382,6 +401,37 @@ export default function SlipContabil() {
     if (tipoMovFiltro === "ALL") return slipRows;
     return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
   }, [slipRows, tipoMovFiltro]);
+
+  // Split into rows with historico (detailed) and without (listing)
+  const rowsWithHistorico = useMemo(() => filteredRows.filter((r) => r.has_historico), [filteredRows]);
+  const rowsWithoutHistorico = useMemo(() => filteredRows.filter((r) => !r.has_historico && !r.is_second), [filteredRows]);
+
+  // Group rows without historico by account pair + tipo_mov
+  const listingGroups = useMemo((): ListingGroup[] => {
+    if (!rowsWithoutHistorico.length) return [];
+    const groupMap = new Map<string, ListingGroup>();
+    for (const row of rowsWithoutHistorico) {
+      const key = `${row.conta_debito_codigo}|${row.conta_credito_codigo}|${row.tipo_mov}`;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          conta_debito_codigo: row.conta_debito_codigo,
+          conta_debito_estruturado: row.conta_debito_estruturado,
+          conta_credito_codigo: row.conta_credito_codigo,
+          conta_credito_estruturado: row.conta_credito_estruturado,
+          tipo_mov: row.tipo_mov,
+          rows: [],
+        });
+      }
+      const firstName = row.comprador_nome?.split(" ")[0] || "—";
+      groupMap.get(key)!.rows.push({
+        quadra: row.quadra,
+        numero_lote: row.numero_lote,
+        comprador_nome: firstName,
+        valor: row.valor,
+      });
+    }
+    return Array.from(groupMap.values());
+  }, [rowsWithoutHistorico]);
 
   const totalValor = useMemo(() => {
     return filteredRows.filter((r) => !r.is_second).reduce((s, r) => s + r.valor, 0);
@@ -408,38 +458,73 @@ export default function SlipContabil() {
       startY = 28;
     }
 
-    const headers = ["Data", "Débito", "Crédito", "Valor R$", "Histórico"];
+    // Detailed rows (with historico)
+    if (rowsWithHistorico.length > 0) {
+      const headers = ["Data", "Débito", "Crédito", "Valor R$", "Histórico"];
+      const body = rowsWithHistorico.map((r) => [
+        format(new Date(r.data_mov + "T00:00:00"), "dd/MM/yyyy"),
+        formatContaSlip(r.conta_debito_codigo, r.conta_debito_estruturado),
+        formatContaSlip(r.conta_credito_codigo, r.conta_credito_estruturado),
+        formatCurrency(r.valor),
+        r.historico || "-",
+      ]);
 
-    const body = filteredRows.map((r) => [
-      format(new Date(r.data_mov + "T00:00:00"), "dd/MM/yyyy"),
-      formatContaSlip(r.conta_debito_codigo, r.conta_debito_estruturado),
-      formatContaSlip(r.conta_credito_codigo, r.conta_credito_estruturado),
-      formatCurrency(r.valor),
-      r.historico || "-",
-    ]);
+      autoTable(doc, {
+        head: [headers],
+        body,
+        startY,
+        styles: { fontSize: 7 },
+        headStyles: { fillColor: [34, 87, 55] },
+        columnStyles: { 4: { cellWidth: 80 } },
+        didParseCell: (data: any) => {
+          if (data.row.index < body.length && rowsWithHistorico[data.row.index]?.is_second) {
+            data.cell.styles.textColor = [100, 100, 100];
+            data.cell.styles.fontStyle = "italic";
+          }
+        },
+      });
+      startY = (doc as any).lastAutoTable.finalY + 8;
+    }
 
-    const footerRow = ["TOTAL", "", "", formatCurrency(totalValor), ""];
+    // Listing groups (without historico)
+    for (const group of listingGroups) {
+      const groupTotal = group.rows.reduce((s, r) => s + r.valor, 0);
+      doc.setFontSize(9);
+      doc.text(`${getTipoMovimentoLabel(group.tipo_mov)}`, 14, startY);
+      startY += 4;
+      doc.text(`Débito: ${formatContaSlip(group.conta_debito_codigo, group.conta_debito_estruturado)}`, 14, startY);
+      startY += 4;
+      doc.text(`Crédito: ${formatContaSlip(group.conta_credito_codigo, group.conta_credito_estruturado)}`, 14, startY);
+      startY += 2;
 
-    autoTable(doc, {
-      head: [headers],
-      body: [...body, footerRow],
-      startY,
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [34, 87, 55] },
-      columnStyles: {
-        4: { cellWidth: 80 },
-      },
-      didParseCell: (data: any) => {
-        if (data.row.index === body.length) {
-          data.cell.styles.fontStyle = "bold";
-          data.cell.styles.fillColor = [240, 240, 240];
-        }
-        if (data.row.index < body.length && filteredRows[data.row.index]?.is_second) {
-          data.cell.styles.textColor = [100, 100, 100];
-          data.cell.styles.fontStyle = "italic";
-        }
-      },
-    });
+      const listHeaders = ["Lote", "Comprador", "Valor R$"];
+      const listBody = group.rows.map((lr) => [
+        `${lr.quadra}-${lr.numero_lote}`,
+        lr.comprador_nome || "—",
+        formatCurrency(lr.valor),
+      ]);
+      const listFooter = ["TOTAL", "", formatCurrency(groupTotal)];
+
+      autoTable(doc, {
+        head: [listHeaders],
+        body: [...listBody, listFooter],
+        startY,
+        styles: { fontSize: 7 },
+        headStyles: { fillColor: [34, 87, 55] },
+        didParseCell: (data: any) => {
+          if (data.row.index === listBody.length) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [240, 240, 240];
+          }
+        },
+      });
+      startY = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Total geral
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL GERAL: ${formatCurrency(totalValor)}`, 14, startY);
 
     doc.save(`slip-contabil-${ano}-${mes.padStart(2, "0")}.pdf`);
   };
@@ -529,8 +614,9 @@ export default function SlipContabil() {
             </div>
           ) : (
             <div className="space-y-0">
-              {filteredRows.map((row, idx) => (
-                <div key={idx}>
+              {/* Rows WITH historico - detailed view */}
+              {rowsWithHistorico.map((row, idx) => (
+                <div key={`h-${idx}`}>
                   <div className={`py-3 px-4 space-y-1 ${row.is_second ? "bg-muted/30 pl-8" : ""}`}>
                     {row.is_second && (
                       <span className="text-xs text-muted-foreground font-medium">↳ 2º lançamento vinculado</span>
@@ -570,12 +656,58 @@ export default function SlipContabil() {
                       </div>
                     )}
                   </div>
-                  {idx < filteredRows.length - 1 && <Separator />}
+                  {idx < rowsWithHistorico.length - 1 && <Separator />}
                 </div>
               ))}
-              <Separator />
+
+              {/* Rows WITHOUT historico - grouped table listing */}
+              {listingGroups.map((group, gIdx) => {
+                const groupTotal = group.rows.reduce((s, r) => s + r.valor, 0);
+                return (
+                  <div key={`g-${gIdx}`} className="mt-4">
+                    <Separator />
+                    <div className="py-3 px-4 bg-muted/40 space-y-1">
+                      <p className="font-semibold text-sm">{getTipoMovimentoLabel(group.tipo_mov)}</p>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Débito: </span>
+                        <span className="font-mono">{formatContaSlip(group.conta_debito_codigo, group.conta_debito_estruturado)}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Crédito: </span>
+                        <span className="font-mono">{formatContaSlip(group.conta_credito_codigo, group.conta_credito_estruturado)}</span>
+                      </div>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/20">
+                          <th className="text-left py-2 px-4 font-medium">Lote</th>
+                          <th className="text-left py-2 px-4 font-medium">Comprador</th>
+                          <th className="text-right py-2 px-4 font-medium">Valor R$</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.rows.map((lr, lIdx) => (
+                          <tr key={lIdx} className="border-b last:border-b-0">
+                            <td className="py-1.5 px-4 font-mono">{lr.quadra}-{lr.numero_lote}</td>
+                            <td className="py-1.5 px-4">{lr.comprador_nome}</td>
+                            <td className="py-1.5 px-4 text-right font-mono">{formatCurrency(lr.valor)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-muted/20 font-bold">
+                          <td className="py-2 px-4" colSpan={2}>TOTAL</td>
+                          <td className="py-2 px-4 text-right font-mono text-primary">{formatCurrency(groupTotal)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })}
+
+              <Separator className="mt-4" />
               <div className="py-3 px-4 flex justify-between items-center bg-muted/20">
-                <span className="font-bold">TOTAL</span>
+                <span className="font-bold">TOTAL GERAL</span>
                 <span className="font-mono font-bold text-primary text-lg">
                   {formatCurrency(totalValor)}
                 </span>
