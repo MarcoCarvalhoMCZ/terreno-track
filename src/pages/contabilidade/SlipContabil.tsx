@@ -111,6 +111,54 @@ function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
   return result;
 }
 
+function resolveExpressaoValor(
+  expressao: string | null,
+  mov: any,
+  lote: any,
+  venda: any
+): number | null {
+  if (!expressao) return null;
+
+  const parts = expressao.split("+").map(s => s.trim());
+  let total = 0;
+
+  for (const part of parts) {
+    switch (part) {
+      case "valor":
+        total += Number(mov.debito || 0) + Number(mov.credito || 0);
+        break;
+      case "valor_venda":
+        total += Number(venda?.valor_venda || 0);
+        break;
+      case "valor_arras":
+        total += Number(venda?.valor_arras || 0);
+        break;
+      case "valor_parcelamento":
+        total += Number(venda?.valor_parcelamento || 0);
+        break;
+      case "valor_reforco":
+        total += Number(venda?.valor_reforco || 0);
+        break;
+      case "custo_contabil":
+        total += Number(lote?.custo_contabil || 0);
+        break;
+      case "valor_atualizacao":
+        total += Number(mov.debito || 0) + Number(mov.credito || 0);
+        break;
+      case "valor_juros":
+        total += Number(mov.debito || 0);
+        break;
+      case "valor_multa":
+        total += Number(mov.debito || 0);
+        break;
+      default:
+        total += Number(mov.debito || 0) + Number(mov.credito || 0);
+    }
+  }
+
+  return total;
+}
+
 function formatContaSlip(codigo: string, estruturado: string): string {
   if (!codigo) return "—";
   if (estruturado) return `${codigo} / ${estruturado}`;
