@@ -312,6 +312,9 @@ export default function SlipContabil() {
       };
 
       for (const mapping of mappings) {
+        const valorResolv = resolveExpressaoValor(mapping.expressao_valor, mov, lote, venda) ?? valor;
+        const ctxComValor = { ...ctx, valor: valorResolv };
+
         rows.push({
           data_mov: mov.data_mov,
           tipo_mov: mov.tipo_mov,
@@ -328,8 +331,8 @@ export default function SlipContabil() {
           conta_credito_codigo: mapping.conta_credito?.codigo || "",
           conta_credito_estruturado: mapping.conta_credito?.codigo_estruturado || "",
           conta_credito_descricao: mapping.conta_credito?.descricao || "",
-          historico: resolveHistorico(mapping.historico_padrao, ctx),
-          valor,
+          historico: resolveHistorico(mapping.historico_padrao, ctxComValor),
+          valor: valorResolv,
           is_second: false,
           data_venda: ctx.data_venda,
           parcela: ctx.parcela,
@@ -337,6 +340,9 @@ export default function SlipContabil() {
 
         const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
         if (child) {
+          const valorChild = resolveExpressaoValor(child.expressao_valor, mov, lote, venda) ?? valor;
+          const ctxChild = { ...ctx, valor: valorChild };
+
           rows.push({
             data_mov: mov.data_mov,
             tipo_mov: mov.tipo_mov,
@@ -353,8 +359,8 @@ export default function SlipContabil() {
             conta_credito_codigo: child.conta_credito?.codigo || "",
             conta_credito_estruturado: child.conta_credito?.codigo_estruturado || "",
             conta_credito_descricao: child.conta_credito?.descricao || "",
-            historico: resolveHistorico(child.historico_padrao, ctx),
-            valor,
+            historico: resolveHistorico(child.historico_padrao, ctxChild),
+            valor: valorChild,
             is_second: true,
             data_venda: ctx.data_venda,
             parcela: ctx.parcela,
