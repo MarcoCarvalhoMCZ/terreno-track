@@ -33,6 +33,7 @@ interface MapaItem {
   conta_credito_id: string | null;
   historico_padrao: string | null;
   lancamento_pai_id: string | null;
+  expressao_valor: string | null;
   conta_debito?: { id: string; codigo: string; descricao: string } | null;
   conta_credito?: { id: string; codigo: string; descricao: string } | null;
 }
