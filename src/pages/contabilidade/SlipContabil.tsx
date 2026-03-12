@@ -402,6 +402,37 @@ export default function SlipContabil() {
     return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
   }, [slipRows, tipoMovFiltro]);
 
+  // Split into rows with historico (detailed) and without (listing)
+  const rowsWithHistorico = useMemo(() => filteredRows.filter((r) => r.has_historico), [filteredRows]);
+  const rowsWithoutHistorico = useMemo(() => filteredRows.filter((r) => !r.has_historico && !r.is_second), [filteredRows]);
+
+  // Group rows without historico by account pair + tipo_mov
+  const listingGroups = useMemo((): ListingGroup[] => {
+    if (!rowsWithoutHistorico.length) return [];
+    const groupMap = new Map<string, ListingGroup>();
+    for (const row of rowsWithoutHistorico) {
+      const key = `${row.conta_debito_codigo}|${row.conta_credito_codigo}|${row.tipo_mov}`;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          conta_debito_codigo: row.conta_debito_codigo,
+          conta_debito_estruturado: row.conta_debito_estruturado,
+          conta_credito_codigo: row.conta_credito_codigo,
+          conta_credito_estruturado: row.conta_credito_estruturado,
+          tipo_mov: row.tipo_mov,
+          rows: [],
+        });
+      }
+      const firstName = row.comprador_nome?.split(" ")[0] || "—";
+      groupMap.get(key)!.rows.push({
+        quadra: row.quadra,
+        numero_lote: row.numero_lote,
+        comprador_nome: firstName,
+        valor: row.valor,
+      });
+    }
+    return Array.from(groupMap.values());
+  }, [rowsWithoutHistorico]);
+
   const totalValor = useMemo(() => {
     return filteredRows.filter((r) => !r.is_second).reduce((s, r) => s + r.valor, 0);
   }, [filteredRows]);
