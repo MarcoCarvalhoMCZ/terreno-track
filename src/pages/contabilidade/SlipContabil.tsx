@@ -359,6 +359,7 @@ export default function SlipContabil() {
           is_second: false,
           data_venda: ctx.data_venda,
           parcela: ctx.parcela,
+          has_historico: !!mapping.historico_padrao,
         });
 
         const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
