@@ -109,6 +109,10 @@ function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
   result = r(result, "qtd_parcelas", ctx.qtd_parcelas != null ? String(ctx.qtd_parcelas) : "—");
   result = r(result, "valor", formatCurrency(ctx.valor));
   result = r(result, "parcela", ctx.parcela != null ? String(ctx.parcela) : "—");
+  result = r(result, "custo_contabil", ctx.custo_contabil != null ? formatCurrency(ctx.custo_contabil) : "—");
+  result = r(result, "valor_atualizacao", formatCurrency(ctx.valor));
+  result = r(result, "valor_juros", formatCurrency(ctx.valor));
+  result = r(result, "valor_multa", formatCurrency(ctx.valor));
   return result;
 }
 
