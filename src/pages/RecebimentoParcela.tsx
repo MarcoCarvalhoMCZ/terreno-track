@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, addMonths, startOfMonth } from "date-fns";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -162,100 +162,125 @@ export default function RecebimentoParcela() {
     setDialogOpen(true);
   };
 
-  // Mutation para registrar recebimento
+  // Função compartilhada para construir e inserir registros
+  const executarRecebimento = useCallback(async () => {
+    if (!parcelaSelecionada || !loteId || !venda) throw new Error("Dados inválidos");
+    const valor = parseFloat(valorRecebido);
+    if (isNaN(valor) || valor <= 0) throw new Error("Valor inválido");
+
+    const tipoLabel = parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "Parcela" : "Reforço";
+    const referencia = `${tipoLabel} ${parcelaSelecionada.numero} de ${parcelaSelecionada.totalParcelas}`;
+    const numeroParcela = parcelaSelecionada.numero;
+
+    let seq = 1;
+    const registros: any[] = [
+      {
+        lote_id: loteId,
+        venda_id: venda.id,
+        data_mov: dataPagamento,
+        tipo_mov: parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "PARCELA" : "REFORCO",
+        tipo_fluxo: parcelaSelecionada.tipoFluxo,
+        descricao: descricao || `${tipoLabel} Recebida`,
+        credito: valor,
+        debito: 0,
+        referencia,
+        vencimento: format(parcelaSelecionada.vencimento, "yyyy-MM-dd"),
+        modo_pagamento: modoPagamento || null,
+        banco_origem: bancoOrigem || null,
+        cpf_cnpj_pagador: cpfCnpjPagador || null,
+        numero_parcela: numeroParcela,
+        sequencia_parcela: seq++,
+      },
+    ];
+
+    if (parcelaSelecionada.valorJuros > 0) {
+      registros.push({
+        lote_id: loteId,
+        venda_id: venda.id,
+        data_mov: dataPagamento,
+        tipo_mov: "JUROS",
+        tipo_fluxo: parcelaSelecionada.tipoFluxo,
+        descricao: `Juros ${parcelaSelecionada.jurosPercentual.toFixed(0)}% - ${tipoLabel} ${numeroParcela}`,
+        debito: parcelaSelecionada.valorJuros,
+        credito: 0,
+        referencia,
+        percentual_calculo: parcelaSelecionada.jurosPercentual,
+        numero_parcela: numeroParcela,
+        sequencia_parcela: seq++,
+      });
+    }
+
+    if (parcelaSelecionada.valorMulta > 0) {
+      registros.push({
+        lote_id: loteId,
+        venda_id: venda.id,
+        data_mov: dataPagamento,
+        tipo_mov: "MULTA",
+        tipo_fluxo: parcelaSelecionada.tipoFluxo,
+        descricao: `Multa ${moraConfig?.multa_mora_percentual || 2}% - ${tipoLabel} ${numeroParcela}`,
+        debito: parcelaSelecionada.valorMulta,
+        credito: 0,
+        referencia,
+        numero_parcela: numeroParcela,
+        sequencia_parcela: seq++,
+      });
+    }
+
+    const { error } = await supabase
+      .from("conta_corrente_lote")
+      .insert(registros);
+    if (error) throw error;
+  }, [parcelaSelecionada, loteId, venda, valorRecebido, dataPagamento, descricao, modoPagamento, bancoOrigem, cpfCnpjPagador, moraConfig]);
+
+  const finalizarRecebimento = useCallback(async () => {
+    queryClient.invalidateQueries({ queryKey: ["recebimentos-parcela", loteId] });
+    queryClient.invalidateQueries({ queryKey: ["resumo-lote-consulta", loteId] });
+    queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
+    queryClient.invalidateQueries({ queryKey: ["venda-lote", loteId] });
+    if (loteId) {
+      try { await regenerarParcelasAbertas(loteId); } catch (e) { console.error("Erro ao regenerar parcelas_abertas:", e); }
+      queryClient.invalidateQueries({ queryKey: ["parcelas-abertas"] });
+    }
+  }, [loteId, queryClient]);
+
+  // Mutation simples
   const registrarMutation = useMutation({
-    mutationFn: async () => {
-      if (!parcelaSelecionada || !loteId || !venda) throw new Error("Dados inválidos");
-      const valor = parseFloat(valorRecebido);
-      if (isNaN(valor) || valor <= 0) throw new Error("Valor inválido");
-
-      const tipoLabel = parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "Parcela" : "Reforço";
-      const referencia = `${tipoLabel} ${parcelaSelecionada.numero} de ${parcelaSelecionada.totalParcelas}`;
-
-      const numeroParcela = parcelaSelecionada.numero;
-
-      // Build all records to insert atomically
-      let seq = 1;
-      const registros: any[] = [
-        // 1) Main payment (credit) - valor total
-        {
-          lote_id: loteId,
-          venda_id: venda.id,
-          data_mov: dataPagamento,
-          tipo_mov: parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "PARCELA" : "REFORCO",
-          tipo_fluxo: parcelaSelecionada.tipoFluxo,
-          descricao: descricao || `${tipoLabel} Recebida`,
-          credito: valor,
-          debito: 0,
-          referencia,
-          vencimento: format(parcelaSelecionada.vencimento, "yyyy-MM-dd"),
-          modo_pagamento: modoPagamento || null,
-          banco_origem: bancoOrigem || null,
-          cpf_cnpj_pagador: cpfCnpjPagador || null,
-          numero_parcela: numeroParcela,
-          sequencia_parcela: seq++,
-        },
-      ];
-
-      // 2) Interest (debit) linked via numero_parcela
-      if (parcelaSelecionada.valorJuros > 0) {
-        registros.push({
-          lote_id: loteId,
-          venda_id: venda.id,
-          data_mov: dataPagamento,
-          tipo_mov: "JUROS",
-          tipo_fluxo: parcelaSelecionada.tipoFluxo,
-          descricao: `Juros ${parcelaSelecionada.jurosPercentual.toFixed(0)}% - ${tipoLabel} ${numeroParcela}`,
-          debito: parcelaSelecionada.valorJuros,
-          credito: 0,
-          referencia,
-          percentual_calculo: parcelaSelecionada.jurosPercentual,
-          numero_parcela: numeroParcela,
-          sequencia_parcela: seq++,
-        });
-      }
-
-      // 3) Penalty (debit) linked via numero_parcela
-      if (parcelaSelecionada.valorMulta > 0) {
-        registros.push({
-          lote_id: loteId,
-          venda_id: venda.id,
-          data_mov: dataPagamento,
-          tipo_mov: "MULTA",
-          tipo_fluxo: parcelaSelecionada.tipoFluxo,
-          descricao: `Multa ${moraConfig?.multa_mora_percentual || 2}% - ${tipoLabel} ${numeroParcela}`,
-          debito: parcelaSelecionada.valorMulta,
-          credito: 0,
-          referencia,
-          numero_parcela: numeroParcela,
-          sequencia_parcela: seq++,
-        });
-      }
-
-      // Single atomic insert for all records
-      const { error } = await supabase
-        .from("conta_corrente_lote")
-        .insert(registros);
-      if (error) throw error;
-    },
+    mutationFn: executarRecebimento,
     onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ["recebimentos-parcela", loteId] });
-      queryClient.invalidateQueries({ queryKey: ["resumo-lote-consulta", loteId] });
-      queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
-      queryClient.invalidateQueries({ queryKey: ["venda-lote", loteId] });
-      
-      // Regenerar parcelas_abertas após recebimento
-      if (loteId) {
-        try { await regenerarParcelasAbertas(loteId); } catch (e) { console.error("Erro ao regenerar parcelas_abertas:", e); }
-        queryClient.invalidateQueries({ queryKey: ["parcelas-abertas"] });
-      }
-      
+      await finalizarRecebimento();
       toast.success("Recebimento registrado com sucesso!");
       setDialogOpen(false);
       setLoteId("");
     },
     onError: (error: any) => {
       toast.error("Erro ao registrar: " + error.message);
+    },
+  });
+
+  // Mutation com atualização monetária
+  const registrarComAtualizacaoMutation = useMutation({
+    mutationFn: async () => {
+      await executarRecebimento();
+
+      // Calcular competência: mês do pagamento
+      const dataPgto = new Date(dataPagamento + "T12:00:00");
+      const competencia = format(startOfMonth(dataPgto), "yyyy-MM-dd");
+
+      // Executar atualização monetária para o lote nesta competência
+      const { error } = await supabase.rpc("executar_atualizacao_monetaria", {
+        p_competencia: competencia,
+        p_lote_id: loteId,
+      });
+      if (error) throw new Error("Recebimento OK, mas erro na atualização monetária: " + error.message);
+    },
+    onSuccess: async () => {
+      await finalizarRecebimento();
+      toast.success("Recebimento e Atualização Monetária registrados com sucesso!");
+      setDialogOpen(false);
+      setLoteId("");
+    },
+    onError: (error: any) => {
+      toast.error(error.message);
     },
   });
 
