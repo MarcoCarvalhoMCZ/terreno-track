@@ -67,13 +67,13 @@ export default function SaldoLotes() {
 
       // Buscar movimentos até a data limite para calcular saldo (paginado)
       const pageSize = 1000;
-      let allMovimentos: { lote_id: string; debito: number | null; credito: number | null }[] = [];
+      let allMovimentos: { lote_id: string; debito: number | null; credito: number | null; tipo_fluxo: string | null }[] = [];
       let from = 0;
       let hasMore = true;
       while (hasMore) {
         const { data: page, error: movErr } = await supabase
           .from("conta_corrente_lote")
-          .select("lote_id, debito, credito")
+          .select("lote_id, debito, credito, tipo_fluxo")
           .in("lote_id", loteIds)
           .lte("data_mov", dataLimite)
           .range(from, from + pageSize - 1);
@@ -83,11 +83,19 @@ export default function SaldoLotes() {
         from += pageSize;
       }
 
-      // Agrupar saldos por lote
-      const saldoMap = new Map<string, number>();
+      // Agrupar saldos por lote e tipo_fluxo
+      const saldoMap = new Map<string, { parcelamento: number; reforco: number }>();
       for (const mov of allMovimentos) {
-        const prev = saldoMap.get(mov.lote_id) || 0;
-        saldoMap.set(mov.lote_id, prev + (mov.debito || 0) - (mov.credito || 0));
+        if (!saldoMap.has(mov.lote_id)) {
+          saldoMap.set(mov.lote_id, { parcelamento: 0, reforco: 0 });
+        }
+        const entry = saldoMap.get(mov.lote_id)!;
+        const valor = (mov.debito || 0) - (mov.credito || 0);
+        if (mov.tipo_fluxo === "REFORCO") {
+          entry.reforco += valor;
+        } else {
+          entry.parcelamento += valor;
+        }
       }
 
       // Montar resultado
