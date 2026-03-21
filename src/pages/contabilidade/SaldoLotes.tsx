@@ -25,7 +25,9 @@ interface LoteSaldo {
   quadra: string;
   numero_lote: string;
   comprador_nome: string;
-  saldo: number;
+  saldoParcelamento: number;
+  saldoReforco: number;
+  saldoTotal: number;
 }
 
 export default function SaldoLotes() {
