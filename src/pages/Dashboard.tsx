@@ -338,14 +338,50 @@ export default function Dashboard() {
   }, [todosRecebimentos]);
 
 
+  // Saldo dos Lotes (parcelamento + reforço)
+  const { data: saldoLotes } = useQuery({
+    queryKey: ["dashboard-saldo-lotes"],
+    queryFn: async () => {
+      // Buscar lotes com vendas ativas/quitadas
+      const { data: vendas, error: vErr } = await supabase
+        .from("vendas")
+        .select("lote_id")
+        .in("status", ["ATIVA", "QUITADA"]);
+      if (vErr) throw vErr;
+      const loteIds = Array.from(new Set((vendas || []).map(v => v.lote_id)));
+      if (loteIds.length === 0) return { parcelamento: 0, reforco: 0, total: 0 };
 
+      // Buscar todos os movimentos (paginado)
+      const pageSize = 1000;
+      let all: { lote_id: string; debito: number | null; credito: number | null; tipo_fluxo: string | null }[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: page, error } = await supabase
+          .from("conta_corrente_lote")
+          .select("lote_id, debito, credito, tipo_fluxo")
+          .in("lote_id", loteIds)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        all = all.concat(page || []);
+        hasMore = (page?.length || 0) === pageSize;
+        from += pageSize;
+      }
+
+      let parcelamento = 0;
+      let reforco = 0;
+      for (const m of all) {
+        const v = (m.debito || 0) - (m.credito || 0);
+        if (m.tipo_fluxo === "REFORCO") reforco += v;
+        else parcelamento += v;
+      }
+      return { parcelamento, reforco, total: parcelamento + reforco };
+    },
+  });
 
   const competenciaAtual = format(new Date(), "MMMM 'de' yyyy", {
     locale: ptBR,
   });
-
-  const saldoAReceber =
-    (vendasStats?.totalVendido || 0) - (recebidoStats?.total || 0);
 
   return (
     <div className="space-y-6">
