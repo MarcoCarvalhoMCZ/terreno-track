@@ -168,7 +168,9 @@ export default function RecebimentoParcela() {
       const tipoLabel = parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "Parcela" : "Reforço";
       const referencia = `${tipoLabel} ${parcelaSelecionada.numero} de ${parcelaSelecionada.totalParcelas}`;
 
-      // 1) Insert the main payment (credit)
+      const numeroParcela = parcelaSelecionada.numero;
+
+      // 1) Insert the main payment (credit) - valor total
       const { error: errParcela } = await supabase
         .from("conta_corrente_lote")
         .insert({
@@ -185,10 +187,12 @@ export default function RecebimentoParcela() {
           modo_pagamento: modoPagamento || null,
           banco_origem: bancoOrigem || null,
           cpf_cnpj_pagador: cpfCnpjPagador || null,
+          numero_parcela: numeroParcela,
+          sequencia_parcela: 1,
         });
       if (errParcela) throw errParcela;
 
-      // 2) Insert interest if applicable
+      // 2) Insert interest if applicable (linked via numero_parcela)
       if (parcelaSelecionada.valorJuros > 0) {
         const { error: errJuros } = await supabase
           .from("conta_corrente_lote")
@@ -198,16 +202,17 @@ export default function RecebimentoParcela() {
             data_mov: dataPagamento,
             tipo_mov: "JUROS_MORA",
             tipo_fluxo: parcelaSelecionada.tipoFluxo,
-            descricao: `Juros ${parcelaSelecionada.jurosPercentual.toFixed(0)}%`,
+            descricao: `Juros ${parcelaSelecionada.jurosPercentual.toFixed(0)}% - ${tipoLabel} ${numeroParcela}`,
             debito: parcelaSelecionada.valorJuros,
             credito: 0,
             referencia,
             percentual_calculo: parcelaSelecionada.jurosPercentual,
+            numero_parcela: numeroParcela,
           });
         if (errJuros) throw errJuros;
       }
 
-      // 3) Insert penalty if applicable
+      // 3) Insert penalty if applicable (linked via numero_parcela)
       if (parcelaSelecionada.valorMulta > 0) {
         const { error: errMulta } = await supabase
           .from("conta_corrente_lote")
@@ -217,10 +222,11 @@ export default function RecebimentoParcela() {
             data_mov: dataPagamento,
             tipo_mov: "MULTA_MORA",
             tipo_fluxo: parcelaSelecionada.tipoFluxo,
-            descricao: `Multa ${moraConfig?.multa_mora_percentual || 2}%`,
+            descricao: `Multa ${moraConfig?.multa_mora_percentual || 2}% - ${tipoLabel} ${numeroParcela}`,
             debito: parcelaSelecionada.valorMulta,
             credito: 0,
             referencia,
+            numero_parcela: numeroParcela,
           });
         if (errMulta) throw errMulta;
       }
