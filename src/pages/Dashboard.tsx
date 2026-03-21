@@ -338,14 +338,50 @@ export default function Dashboard() {
   }, [todosRecebimentos]);
 
 
+  // Saldo dos Lotes (parcelamento + reforço)
+  const { data: saldoLotes } = useQuery({
+    queryKey: ["dashboard-saldo-lotes"],
+    queryFn: async () => {
+      // Buscar lotes com vendas ativas/quitadas
+      const { data: vendas, error: vErr } = await supabase
+        .from("vendas")
+        .select("lote_id")
+        .in("status", ["ATIVA", "QUITADA"]);
+      if (vErr) throw vErr;
+      const loteIds = Array.from(new Set((vendas || []).map(v => v.lote_id)));
+      if (loteIds.length === 0) return { parcelamento: 0, reforco: 0, total: 0 };
 
+      // Buscar todos os movimentos (paginado)
+      const pageSize = 1000;
+      let all: { lote_id: string; debito: number | null; credito: number | null; tipo_fluxo: string | null }[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: page, error } = await supabase
+          .from("conta_corrente_lote")
+          .select("lote_id, debito, credito, tipo_fluxo")
+          .in("lote_id", loteIds)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        all = all.concat(page || []);
+        hasMore = (page?.length || 0) === pageSize;
+        from += pageSize;
+      }
+
+      let parcelamento = 0;
+      let reforco = 0;
+      for (const m of all) {
+        const v = (m.debito || 0) - (m.credito || 0);
+        if (m.tipo_fluxo === "REFORCO") reforco += v;
+        else parcelamento += v;
+      }
+      return { parcelamento, reforco, total: parcelamento + reforco };
+    },
+  });
 
   const competenciaAtual = format(new Date(), "MMMM 'de' yyyy", {
     locale: ptBR,
   });
-
-  const saldoAReceber =
-    (vendasStats?.totalVendido || 0) - (recebidoStats?.total || 0);
 
   return (
     <div className="space-y-6">
@@ -449,18 +485,19 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Saldo a Receber */}
+        {/* Saldo dos Lotes */}
         <Card className="border-t-4 border-t-primary bg-white shadow-sm">
           <CardContent className="pt-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Saldo a Receber</p>
+                <p className="text-sm text-muted-foreground">Saldo dos Lotes</p>
                 <p className="text-2xl font-bold">
-                  {formatCompactCurrency(saldoAReceber > 0 ? saldoAReceber : 0)}
+                  {formatCompactCurrency(saldoLotes?.total || 0)}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Últimos 12 meses
-                </p>
+                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                  <p>Parc: {formatCompactCurrency(saldoLotes?.parcelamento || 0)}</p>
+                  <p>Ref: {formatCompactCurrency(saldoLotes?.reforco || 0)}</p>
+                </div>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-primary" />
