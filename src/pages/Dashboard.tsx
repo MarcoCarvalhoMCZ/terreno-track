@@ -485,18 +485,19 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Saldo a Receber */}
+        {/* Saldo dos Lotes */}
         <Card className="border-t-4 border-t-primary bg-white shadow-sm">
           <CardContent className="pt-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Saldo a Receber</p>
+                <p className="text-sm text-muted-foreground">Saldo dos Lotes</p>
                 <p className="text-2xl font-bold">
-                  {formatCompactCurrency(saldoAReceber > 0 ? saldoAReceber : 0)}
+                  {formatCompactCurrency(saldoLotes?.total || 0)}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Últimos 12 meses
-                </p>
+                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                  <p>Parc: {formatCompactCurrency(saldoLotes?.parcelamento || 0)}</p>
+                  <p>Ref: {formatCompactCurrency(saldoLotes?.reforco || 0)}</p>
+                </div>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-primary" />
