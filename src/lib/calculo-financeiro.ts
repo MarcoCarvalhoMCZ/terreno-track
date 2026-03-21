@@ -120,10 +120,10 @@ export function contarPagamentos(
   baseline: ParcelasControleRow | null,
 ): number {
   const pagamentos = movimentos.filter(m => {
-    const isPagamento = (m.credito || 0) > 0 &&
-      !isArrasSinal(m.referencia) &&
-      ["PARCELA", "REFORCO"].includes(m.tipo_mov);
-    if (!isPagamento) return false;
+    if ((m.credito || 0) <= 0) return false;
+    if (TIPOS_EXCLUIDOS_CONTAGEM.includes(m.tipo_mov)) return false;
+    if (isArrasSinal(m.referencia)) return false;
+    if (!["PARCELA", "REFORCO"].includes(m.tipo_mov)) return false;
     if (baseline && m.data_mov <= baseline.data_base) return false;
     return true;
   });
