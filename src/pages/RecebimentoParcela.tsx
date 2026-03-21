@@ -171,6 +171,7 @@ export default function RecebimentoParcela() {
       const numeroParcela = parcelaSelecionada.numero;
 
       // Build all records to insert atomically
+      let seq = 1;
       const registros: any[] = [
         // 1) Main payment (credit) - valor total
         {
@@ -188,7 +189,7 @@ export default function RecebimentoParcela() {
           banco_origem: bancoOrigem || null,
           cpf_cnpj_pagador: cpfCnpjPagador || null,
           numero_parcela: numeroParcela,
-          sequencia_parcela: 1,
+          sequencia_parcela: seq++,
         },
       ];
 
@@ -206,6 +207,7 @@ export default function RecebimentoParcela() {
           referencia,
           percentual_calculo: parcelaSelecionada.jurosPercentual,
           numero_parcela: numeroParcela,
+          sequencia_parcela: seq++,
         });
       }
 
@@ -222,6 +224,7 @@ export default function RecebimentoParcela() {
           credito: 0,
           referencia,
           numero_parcela: numeroParcela,
+          sequencia_parcela: seq++,
         });
       }
 
