@@ -170,10 +170,10 @@ export default function RecebimentoParcela() {
 
       const numeroParcela = parcelaSelecionada.numero;
 
-      // 1) Insert the main payment (credit) - valor total
-      const { error: errParcela } = await supabase
-        .from("conta_corrente_lote")
-        .insert({
+      // Build all records to insert atomically
+      const registros: any[] = [
+        // 1) Main payment (credit) - valor total
+        {
           lote_id: loteId,
           venda_id: venda.id,
           data_mov: dataPagamento,
@@ -189,47 +189,47 @@ export default function RecebimentoParcela() {
           cpf_cnpj_pagador: cpfCnpjPagador || null,
           numero_parcela: numeroParcela,
           sequencia_parcela: 1,
-        });
-      if (errParcela) throw errParcela;
+        },
+      ];
 
-      // 2) Insert interest if applicable (linked via numero_parcela)
+      // 2) Interest (debit) linked via numero_parcela
       if (parcelaSelecionada.valorJuros > 0) {
-        const { error: errJuros } = await supabase
-          .from("conta_corrente_lote")
-          .insert({
-            lote_id: loteId,
-            venda_id: venda.id,
-            data_mov: dataPagamento,
-            tipo_mov: "JUROS_MORA",
-            tipo_fluxo: parcelaSelecionada.tipoFluxo,
-            descricao: `Juros ${parcelaSelecionada.jurosPercentual.toFixed(0)}% - ${tipoLabel} ${numeroParcela}`,
-            debito: parcelaSelecionada.valorJuros,
-            credito: 0,
-            referencia,
-            percentual_calculo: parcelaSelecionada.jurosPercentual,
-            numero_parcela: numeroParcela,
-          });
-        if (errJuros) throw errJuros;
+        registros.push({
+          lote_id: loteId,
+          venda_id: venda.id,
+          data_mov: dataPagamento,
+          tipo_mov: "JUROS_MORA",
+          tipo_fluxo: parcelaSelecionada.tipoFluxo,
+          descricao: `Juros ${parcelaSelecionada.jurosPercentual.toFixed(0)}% - ${tipoLabel} ${numeroParcela}`,
+          debito: parcelaSelecionada.valorJuros,
+          credito: 0,
+          referencia,
+          percentual_calculo: parcelaSelecionada.jurosPercentual,
+          numero_parcela: numeroParcela,
+        });
       }
 
-      // 3) Insert penalty if applicable (linked via numero_parcela)
+      // 3) Penalty (debit) linked via numero_parcela
       if (parcelaSelecionada.valorMulta > 0) {
-        const { error: errMulta } = await supabase
-          .from("conta_corrente_lote")
-          .insert({
-            lote_id: loteId,
-            venda_id: venda.id,
-            data_mov: dataPagamento,
-            tipo_mov: "MULTA_MORA",
-            tipo_fluxo: parcelaSelecionada.tipoFluxo,
-            descricao: `Multa ${moraConfig?.multa_mora_percentual || 2}% - ${tipoLabel} ${numeroParcela}`,
-            debito: parcelaSelecionada.valorMulta,
-            credito: 0,
-            referencia,
-            numero_parcela: numeroParcela,
-          });
-        if (errMulta) throw errMulta;
+        registros.push({
+          lote_id: loteId,
+          venda_id: venda.id,
+          data_mov: dataPagamento,
+          tipo_mov: "MULTA_MORA",
+          tipo_fluxo: parcelaSelecionada.tipoFluxo,
+          descricao: `Multa ${moraConfig?.multa_mora_percentual || 2}% - ${tipoLabel} ${numeroParcela}`,
+          debito: parcelaSelecionada.valorMulta,
+          credito: 0,
+          referencia,
+          numero_parcela: numeroParcela,
+        });
       }
+
+      // Single atomic insert for all records
+      const { error } = await supabase
+        .from("conta_corrente_lote")
+        .insert(registros);
+      if (error) throw error;
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["recebimentos-parcela", loteId] });
