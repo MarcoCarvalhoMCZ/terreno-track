@@ -72,6 +72,11 @@ export interface ResumoLoteCalc {
 
 // ── Helpers ─────────────────────────────────────────────────────
 
+/** Tipos de movimento que NUNCA contam como parcela paga (quantidade). */
+const TIPOS_EXCLUIDOS_CONTAGEM: string[] = [
+  "SINAL", "ENTRADA_PARCELA", "AMORTIZACAO_ESPECIAL",
+];
+
 const isArrasSinal = (referencia: string | null): boolean => {
   if (!referencia) return false;
   const lower = referencia.toLowerCase();
