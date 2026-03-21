@@ -148,12 +148,16 @@ export default function RecebimentoParcela() {
 
   const abrirDialog = (parcela: ParcelaCalculada) => {
     registrarMutation.reset();
+    registrarComAtualizacaoMutation.reset();
     setParcelaSelecionada(parcela);
     setValorRecebido(parcela.totalParcela.toFixed(2));
     setDataPagamento(format(parcela.vencimento, "yyyy-MM-dd"));
-    setModoPagamento("");
+    setModoPagamento("PIX");
     setBancoOrigem("");
-    setCpfCnpjPagador("");
+    // Preencher CPF/CNPJ e nome do comprador principal
+    const nomeComprador = (venda as any)?.comprador?.nome_razao || venda?.comprador_nome_1 || "";
+    const cpfComprador = (venda as any)?.comprador?.cpf_cnpj || venda?.comprador_cpf_1 || "";
+    setCpfCnpjPagador(cpfComprador ? `${cpfComprador} - ${nomeComprador}` : nomeComprador);
     setDescricao("");
     setDialogOpen(true);
   };
@@ -531,15 +535,23 @@ export default function RecebimentoParcela() {
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
             <Button
               onClick={() => registrarMutation.mutate()}
-              disabled={registrarMutation.isPending || registrarMutation.isSuccess}
+              disabled={registrarMutation.isPending || registrarMutation.isSuccess || registrarComAtualizacaoMutation.isPending || registrarComAtualizacaoMutation.isSuccess}
             >
-              {registrarMutation.isPending ? "Registrando..." : registrarMutation.isSuccess ? "Registrado ✓" : "Cadastrar"}
+              {registrarMutation.isPending ? "Registrando..." : registrarMutation.isSuccess ? "Registrado ✓" : "Registrar"}
+            </Button>
+            <Button
+              variant="secondary"
+              className="bg-accent text-accent-foreground hover:bg-accent/80"
+              onClick={() => registrarComAtualizacaoMutation.mutate()}
+              disabled={registrarMutation.isPending || registrarMutation.isSuccess || registrarComAtualizacaoMutation.isPending || registrarComAtualizacaoMutation.isSuccess}
+            >
+              {registrarComAtualizacaoMutation.isPending ? "Processando..." : registrarComAtualizacaoMutation.isSuccess ? "Registrado ✓" : "Registrar + Atualiz Monetária"}
             </Button>
           </DialogFooter>
         </DialogContent>
