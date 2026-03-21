@@ -128,7 +128,8 @@ export function contarPagamentos(
   if (comNumeroParcela.length > 0) {
     const parcelasDistintas = new Set(comNumeroParcela.map(m => m.numero_parcela!));
     // Somar também pagamentos sem numero_parcela (legados não parseados)
-    const semNumeroParcela = pagamentos.filter(m => m.numero_parcela == null).length;
+    // mas APENAS os que possuem vencimento (exclui arras/sinal sem vencimento)
+    const semNumeroParcela = pagamentos.filter(m => m.numero_parcela == null && m.vencimento).length;
     return parcelasDistintas.size + semNumeroParcela;
   }
 
