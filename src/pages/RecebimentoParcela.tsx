@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addMonths, startOfMonth } from "date-fns";
+import { format, addMonths } from "date-fns";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -148,7 +148,7 @@ export default function RecebimentoParcela() {
 
   const abrirDialog = (parcela: ParcelaCalculada) => {
     registrarMutation.reset();
-    registrarComAtualizacaoMutation.reset();
+    
     setParcelaSelecionada(parcela);
     setValorRecebido(parcela.totalParcela.toFixed(2));
     setDataPagamento(format(parcela.vencimento, "yyyy-MM-dd"));
@@ -257,32 +257,6 @@ export default function RecebimentoParcela() {
     },
   });
 
-  // Mutation com atualização monetária
-  const registrarComAtualizacaoMutation = useMutation({
-    mutationFn: async () => {
-      await executarRecebimento();
-
-      // Calcular competência: mês do pagamento
-      const dataPgto = new Date(dataPagamento + "T12:00:00");
-      const competencia = format(startOfMonth(dataPgto), "yyyy-MM-dd");
-
-      // Executar atualização monetária para o lote nesta competência
-      const { error } = await supabase.rpc("executar_atualizacao_monetaria", {
-        p_competencia: competencia,
-        p_lote_id: loteId,
-      });
-      if (error) throw new Error("Recebimento OK, mas erro na atualização monetária: " + error.message);
-    },
-    onSuccess: async () => {
-      await finalizarRecebimento();
-      toast.success("Recebimento e Atualização Monetária registrados com sucesso!");
-      setDialogOpen(false);
-      setLoteId("");
-    },
-    onError: (error: any) => {
-      toast.error(error.message);
-    },
-  });
 
   return (
     <div className="space-y-6">
@@ -566,17 +540,9 @@ export default function RecebimentoParcela() {
             </Button>
             <Button
               onClick={() => registrarMutation.mutate()}
-              disabled={registrarMutation.isPending || registrarMutation.isSuccess || registrarComAtualizacaoMutation.isPending || registrarComAtualizacaoMutation.isSuccess}
+              disabled={registrarMutation.isPending || registrarMutation.isSuccess}
             >
               {registrarMutation.isPending ? "Registrando..." : registrarMutation.isSuccess ? "Registrado ✓" : "Registrar"}
-            </Button>
-            <Button
-              variant="secondary"
-              className="bg-accent text-accent-foreground hover:bg-accent/80"
-              onClick={() => registrarComAtualizacaoMutation.mutate()}
-              disabled={registrarMutation.isPending || registrarMutation.isSuccess || registrarComAtualizacaoMutation.isPending || registrarComAtualizacaoMutation.isSuccess}
-            >
-              {registrarComAtualizacaoMutation.isPending ? "Processando..." : registrarComAtualizacaoMutation.isSuccess ? "Registrado ✓" : "Registrar + Atualiz Monetária"}
             </Button>
           </DialogFooter>
         </DialogContent>
