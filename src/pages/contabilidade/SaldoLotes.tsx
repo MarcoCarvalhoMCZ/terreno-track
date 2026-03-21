@@ -103,14 +103,16 @@ export default function SaldoLotes() {
       for (const v of vendas || []) {
         const lote = v.lotes as any;
         if (!lote) continue;
-        const saldo = saldoMap.get(v.lote_id) || 0;
+        const entry = saldoMap.get(v.lote_id) || { parcelamento: 0, reforco: 0 };
         const nome = v.comprador_nome_1 || (v.pessoas as any)?.nome_razao || "-";
         const primeiroNome = nome.split(" ")[0];
         items.push({
           quadra: lote.quadra,
           numero_lote: lote.numero_lote,
           comprador_nome: primeiroNome,
-          saldo,
+          saldoParcelamento: entry.parcelamento,
+          saldoReforco: entry.reforco,
+          saldoTotal: entry.parcelamento + entry.reforco,
         });
       }
 
@@ -126,9 +128,13 @@ export default function SaldoLotes() {
     enabled: consultar,
   });
 
-  const totalGeral = useMemo(() => {
-    if (!resultado) return 0;
-    return resultado.reduce((sum, r) => sum + r.saldo, 0);
+  const totais = useMemo(() => {
+    if (!resultado) return { parcelamento: 0, reforco: 0, total: 0 };
+    return {
+      parcelamento: resultado.reduce((s, r) => s + r.saldoParcelamento, 0),
+      reforco: resultado.reduce((s, r) => s + r.saldoReforco, 0),
+      total: resultado.reduce((s, r) => s + r.saldoTotal, 0),
+    };
   }, [resultado]);
 
   const mesLabel = MESES.find(m => m.value === mes)?.label || mes;
@@ -146,22 +152,26 @@ export default function SaldoLotes() {
 
     autoTable(doc, {
       startY: 30,
-      head: [["Quadra", "Lote", "Comprador", "Saldo (R$)"]],
+      head: [["Quadra", "Lote", "Comprador", "Parcelamento (R$)", "Reforços (R$)", "Total (R$)"]],
       body: resultado.map(r => [
         r.quadra,
         r.numero_lote,
         r.comprador_nome,
-        formatCurrency(r.saldo),
+        formatCurrency(r.saldoParcelamento),
+        formatCurrency(r.saldoReforco),
+        formatCurrency(r.saldoTotal),
       ]),
-      foot: [["", "", "TOTAL GERAL", formatCurrency(totalGeral)]],
-      styles: { fontSize: 9, cellPadding: 2 },
+      foot: [["", "", "TOTAL GERAL", formatCurrency(totais.parcelamento), formatCurrency(totais.reforco), formatCurrency(totais.total)]],
+      styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: "bold" },
       footStyles: { fillColor: [229, 231, 235], textColor: [0, 0, 0], fontStyle: "bold" },
       columnStyles: {
         3: { halign: "right" },
+        4: { halign: "right" },
+        5: { halign: "right" },
       },
       didParseCell: (data) => {
-        if (data.section === "foot" && data.column.index === 3) {
+        if (data.section === "foot" && data.column.index >= 3) {
           data.cell.styles.halign = "right";
         }
       },
@@ -247,7 +257,9 @@ export default function SaldoLotes() {
                     <TableHead>Quadra</TableHead>
                     <TableHead>Lote</TableHead>
                     <TableHead>Comprador</TableHead>
-                    <TableHead className="text-right">Saldo (R$)</TableHead>
+                    <TableHead className="text-right">Parcelamento (R$)</TableHead>
+                    <TableHead className="text-right">Reforços (R$)</TableHead>
+                    <TableHead className="text-right">Total (R$)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -257,14 +269,22 @@ export default function SaldoLotes() {
                       <TableCell>{r.numero_lote}</TableCell>
                       <TableCell>{r.comprador_nome}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatCurrency(r.saldo)}
+                        {formatCurrency(r.saldoParcelamento)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(r.saldoReforco)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold">
+                        {formatCurrency(r.saldoTotal)}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
                 <TableRow className="bg-muted/50 font-bold">
                   <TableCell colSpan={3} className="text-right">TOTAL GERAL</TableCell>
-                  <TableCell className="text-right font-mono">{formatCurrency(totalGeral)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(totais.parcelamento)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(totais.reforco)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(totais.total)}</TableCell>
                 </TableRow>
               </Table>
             </div>
