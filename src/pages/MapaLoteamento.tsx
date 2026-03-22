@@ -29,7 +29,7 @@ export default function MapaLoteamento() {
 
       return (lotesData || []).map(l => ({
         ...l,
-        comprador_nome: vendaMap.get(l.id) || null,
+        comprador_nome: vendaLookup.get(l.id) || null,
       }));
     },
     staleTime: 0,
