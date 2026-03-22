@@ -680,9 +680,12 @@ export default function SlipContabil() {
           ) : (
             <div className="space-y-0">
               {/* Rows WITH historico - detailed view */}
-              {rowsWithHistorico.map((row, idx) => (
-                <div key={`h-${idx}`}>
-                  <div className={`py-3 px-4 space-y-1 ${row.is_second ? "bg-muted/30 pl-8" : ""}`}>
+              {rowsWithHistorico.map((row, idx) => {
+                const checkKey = `h-${idx}`;
+                const isChecked = checkedSlips.has(checkKey);
+                return (
+                <div key={checkKey}>
+                  <div className={`py-3 px-4 space-y-1 ${row.is_second ? "bg-muted/30 pl-8" : ""} ${isChecked ? "opacity-50" : ""}`}>
                     {row.is_second && (
                       <span className="text-xs text-muted-foreground font-medium">↳ 2º lançamento vinculado</span>
                     )}
@@ -706,12 +709,24 @@ export default function SlipContabil() {
                             {formatContaSlip(row.conta_credito_codigo, row.conta_credito_estruturado)}
                           </span>
                         </div>
+                        <div className="mt-0.5">
+                          <span className="text-xs text-muted-foreground">Valor R$: </span>
+                          <span className="font-mono font-bold text-sm text-primary">
+                            {formatCurrency(row.valor)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs text-muted-foreground">Valor R$</span>
-                        <p className="font-mono font-bold text-sm text-primary">
-                          {formatCurrency(row.valor)}
-                        </p>
+                      <div className="flex items-center justify-end">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={checkKey}
+                            checked={isChecked}
+                            onCheckedChange={() => toggleChecked(checkKey)}
+                          />
+                          <label htmlFor={checkKey} className="text-xs text-muted-foreground cursor-pointer select-none">
+                            Contabilizado
+                          </label>
+                        </div>
                       </div>
                     </div>
                     {row.historico && (
@@ -723,7 +738,8 @@ export default function SlipContabil() {
                   </div>
                   {idx < rowsWithHistorico.length - 1 && <Separator />}
                 </div>
-              ))}
+                );
+              })}
 
               {/* Rows WITHOUT historico - grouped table listing */}
               {listingGroups.map((group, gIdx) => {
