@@ -262,6 +262,7 @@ export default function MapaMovimentoConta() {
       lancamento_pai_id: isSecondEntry ? parentId : null,
       expressao_valor: expressaoValor,
       partida_mensal: form.partida_mensal,
+      dia_lancamento: form.partida_mensal ? form.dia_lancamento : "ultimo",
     };
 
     if (selected) {
