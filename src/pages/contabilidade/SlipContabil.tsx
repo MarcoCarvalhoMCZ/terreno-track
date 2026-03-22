@@ -800,7 +800,117 @@ export default function SlipContabil() {
                 );
               })}
 
-              {/* Rows WITHOUT historico - grouped table listing */}
+              {/* Partida Mensal entries - aggregated monthly with supporting listing */}
+              {rowsPartidaMensal.map((row, pmIdx) => {
+                const checkKey = `pm-${pmIdx}`;
+                const isChecked = checkedSlips.has(checkKey);
+                const secondEntry = rowsPartidaMensalSecond.find(
+                  (s) => s.conta_debito_codigo === row.conta_debito_codigo || s.tipo_mov === row.tipo_mov
+                );
+                return (
+                  <div key={checkKey} className="mt-4">
+                    <Separator />
+                    <div className={`py-3 px-4 space-y-1 ${isChecked ? "opacity-50" : ""}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded">PARTIDA MENSAL</span>
+                        <span className="text-sm font-semibold">{getTipoMovimentoLabel(row.tipo_mov)}</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_auto] gap-x-4 gap-y-1">
+                        <div>
+                          <span className="text-xs text-muted-foreground">Competência</span>
+                          <p className="font-medium text-sm">{mesLabel}/{ano}</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div>
+                            <span className="text-xs text-muted-foreground">Débito: </span>
+                            <span className="font-mono text-sm">
+                              {formatContaSlip(row.conta_debito_codigo, row.conta_debito_estruturado)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Crédito: </span>
+                            <span className="font-mono text-sm">
+                              {formatContaSlip(row.conta_credito_codigo, row.conta_credito_estruturado)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5">
+                            <span className="text-xs text-muted-foreground">Valor R$: </span>
+                            <span className="font-mono font-bold text-sm text-primary">
+                              {formatCurrency(row.valor)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-end">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={checkKey}
+                              checked={isChecked}
+                              onCheckedChange={() => toggleChecked(checkKey)}
+                            />
+                            <label htmlFor={checkKey} className="text-xs text-muted-foreground cursor-pointer select-none">
+                              Contabilizado
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                      {row.historico && (
+                        <div className="mt-1">
+                          <span className="text-xs text-muted-foreground">Histórico: </span>
+                          <span className="text-sm">{row.historico}</span>
+                        </div>
+                      )}
+                      {secondEntry && (
+                        <div className="mt-2 pl-4 border-l-2 border-muted space-y-0.5">
+                          <span className="text-xs text-muted-foreground font-medium">↳ 2º lançamento vinculado</span>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Débito: </span>
+                            <span className="font-mono text-sm">{formatContaSlip(secondEntry.conta_debito_codigo, secondEntry.conta_debito_estruturado)}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Crédito: </span>
+                            <span className="font-mono text-sm">{formatContaSlip(secondEntry.conta_credito_codigo, secondEntry.conta_credito_estruturado)}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Valor R$: </span>
+                            <span className="font-mono font-bold text-sm text-primary">{formatCurrency(secondEntry.valor)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Supporting listing */}
+                    {row.detail_rows && row.detail_rows.length > 0 && (
+                      <div className="px-4 pb-3">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1 mt-2">LISTAGEM DE SUPORTE ({row.detail_rows.length} operações)</p>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/20">
+                              <th className="text-left py-1.5 px-3 font-medium text-xs">Lote</th>
+                              <th className="text-left py-1.5 px-3 font-medium text-xs">Comprador</th>
+                              <th className="text-right py-1.5 px-3 font-medium text-xs">Valor R$</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {row.detail_rows.map((dr, drIdx) => (
+                              <tr key={drIdx} className="border-b last:border-b-0">
+                                <td className="py-1 px-3 font-mono text-xs">{dr.quadra}-{dr.numero_lote}</td>
+                                <td className="py-1 px-3 text-xs">{dr.comprador_nome}</td>
+                                <td className="py-1 px-3 text-right font-mono text-xs">{formatCurrency(dr.valor)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-muted/20 font-bold">
+                              <td className="py-1.5 px-3 text-xs" colSpan={2}>TOTAL</td>
+                              <td className="py-1.5 px-3 text-right font-mono text-xs text-primary">{formatCurrency(row.valor)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
               {listingGroups.map((group, gIdx) => {
                 const groupTotal = group.rows.reduce((s, r) => s + r.valor, 0);
                 return (
