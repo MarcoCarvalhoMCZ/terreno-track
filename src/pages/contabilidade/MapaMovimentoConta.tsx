@@ -516,6 +516,18 @@ export default function MapaMovimentoConta() {
                 </Tooltip>
               </TooltipProvider>
             </div>
+            {form.partida_mensal && (
+              <div className="space-y-2 pl-6">
+                <Label>Dia do Lançamento</Label>
+                <Select value={form.dia_lancamento} onValueChange={(v) => setForm({ ...form, dia_lancamento: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="primeiro">Primeiro dia do mês</SelectItem>
+                    <SelectItem value="ultimo">Último dia do mês</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
               <Button type="submit">{selected ? "Salvar" : "Criar"}</Button>
