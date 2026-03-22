@@ -295,6 +295,35 @@ export default function SlipContabil() {
     },
   });
 
+  // Fallback: load all active vendas with buyer data for placeholder resolution
+  const { data: vendasAtivas } = useQuery({
+    queryKey: ["vendas-ativas-slip"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vendas")
+        .select(`
+          lote_id, data_venda, valor_venda, valor_arras, valor_reforco, qtd_reforcos,
+          valor_parcelamento, qtd_parcelas,
+          comprador_nome_1, comprador_cpf_1, comprador_nome_2, comprador_cpf_2,
+          comprador:pessoas!vendas_comprador_pessoa_id_fkey(nome_razao, cpf_cnpj)
+        `)
+        .eq("status", "ATIVA");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const vendasAtivasPorLote = useMemo(() => {
+    if (!vendasAtivas) return new Map<string, any>();
+    const map = new Map<string, any>();
+    for (const v of vendasAtivas) {
+      if (v.lote_id && !map.has(v.lote_id)) {
+        map.set(v.lote_id, v);
+      }
+    }
+    return map;
+  }, [vendasAtivas]);
+
   const slipRows = useMemo(() => {
     if (!movimentos || !mapa) return [];
 
@@ -318,7 +347,7 @@ export default function SlipContabil() {
 
       const valor = Number(mov.debito || 0) + Number(mov.credito || 0);
       const lote = mov.lote as any;
-      const venda = (mov.venda || vendaPorLote.get(mov.lote_id)) as any;
+      const venda = (mov.venda || vendaPorLote.get(mov.lote_id) || vendasAtivasPorLote.get(mov.lote_id)) as any;
       const compradores = resolveCompradores(venda);
 
       const ctx: HistoricoCtx = {
