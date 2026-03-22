@@ -233,6 +233,11 @@ export default function Dashboard() {
     },
   });
 
+  // Total recebido geral (all time) para gráfico de evolução
+  const recebidoTotalGeral = useMemo(() => {
+    return (todosRecebimentos || []).reduce((s, r) => s + Number(r.credito || 0), 0);
+  }, [todosRecebimentos]);
+
   const vendasPorAno = useMemo(() => {
     const anos: Record<string, { valor: number; lotes: Set<string> }> = {};
     (todasVendas || []).forEach((v) => {
@@ -367,7 +372,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Charts + Pie chart */}
+      {/* Row 2: Charts */}
       <div className="grid gap-3 lg:grid-cols-3">
         {/* Vendas por Ano */}
         <Card className="border-t-4 border-t-primary bg-white shadow-sm">
@@ -433,6 +438,138 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
+        {/* Evolução do Loteamento - Total Vendido vs Saldo a Receber */}
+        <Card className="border-t-4 border-t-primary bg-white shadow-sm">
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm">Evolução do Loteamento</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            {(() => {
+              const totalVendido = saldoLotes?.total
+                ? (saldoLotes.total + (recebidoTotalGeral || 0))
+                : 0;
+              const totalRecebido = recebidoTotalGeral || 0;
+              const saldoDevedor = saldoLotes?.total || 0;
+              const pctRecebido = totalVendido > 0 ? (totalRecebido / totalVendido) * 100 : 0;
+
+              return (
+                <div className="flex flex-col items-center">
+                  <div className="h-[150px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Recebido", value: totalRecebido, fill: "hsl(142, 70%, 45%)" },
+                            { name: "A Receber", value: saldoDevedor, fill: "#ef4444" },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={65}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          <Cell fill="hsl(142, 70%, 45%)" />
+                          <Cell fill="#ef4444" />
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null;
+                            const d = payload[0].payload;
+                            return (
+                              <div className="rounded-lg border bg-background p-2 shadow-sm text-xs">
+                                <p className="font-medium">{d.name}</p>
+                                <p>{formatCurrency(d.value)}</p>
+                              </div>
+                            );
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-full space-y-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: "hsl(142, 70%, 45%)" }} />
+                        <span>Recebido</span>
+                      </div>
+                      <span className="font-bold text-success">{formatCompactCurrency(totalRecebido)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-sm bg-destructive" />
+                        <span>A Receber</span>
+                      </div>
+                      <span className="font-bold text-destructive">{formatCompactCurrency(saldoDevedor)}</span>
+                    </div>
+                    <div className="border-t pt-1 flex justify-between font-semibold">
+                      <span>Progresso</span>
+                      <span>{pctRecebido.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Row 3: Contratos Recentes + Distribuição dos Lotes */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        {/* Contratos Recentes */}
+        <Card className="border-t-4 border-t-primary bg-white shadow-sm lg:col-span-2">
+          <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm">Contratos Recentes</CardTitle>
+            <button onClick={() => navigate("/vendas")} className="text-xs text-primary hover:underline flex items-center gap-1">
+              Ver todos <ChevronRight className="h-3 w-3" />
+            </button>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs py-1">DATA</TableHead>
+                  <TableHead className="text-xs py-1">LOTE</TableHead>
+                  <TableHead className="text-xs py-1">COMPRADOR</TableHead>
+                  <TableHead className="text-xs py-1">VALOR</TableHead>
+                  <TableHead className="text-xs py-1">STATUS</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {contratosRecentes && contratosRecentes.length > 0 ? (
+                  contratosRecentes.map((contrato) => (
+                    <TableRow key={contrato.id}>
+                      <TableCell className="text-xs py-1.5">
+                        {contrato.data_venda ? new Date(contrato.data_venda + "T00:00:00").toLocaleDateString("pt-BR") : "-"}
+                      </TableCell>
+                      <TableCell className="text-xs py-1.5 font-medium">
+                        {contrato.lote ? `Q${contrato.lote.quadra}-L${contrato.lote.numero_lote}` : "N/A"}
+                      </TableCell>
+                      <TableCell className="text-xs py-1.5 truncate max-w-[180px]">
+                        {contrato.comprador?.nome_razao || "N/A"}
+                      </TableCell>
+                      <TableCell className="text-xs py-1.5">
+                        {formatCurrency(Number(contrato.valor_venda))}
+                      </TableCell>
+                      <TableCell className="py-1.5">
+                        <Badge className={`text-[10px] px-1.5 py-0 ${vendaStatusColors[contrato.status || "ATIVA"]}`}>
+                          {vendaStatusLabels[contrato.status || "ATIVA"]}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
+                      Nenhum contrato
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
         {/* Distribuição dos Lotes - Pie Chart */}
         <Card className="border-t-4 border-t-primary bg-white shadow-sm">
           <CardHeader className="py-3 px-4">
@@ -440,15 +577,15 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-3">
             <div className="flex flex-col items-center">
-              <div className="h-[150px] w-full">
+              <div className="h-[130px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={pieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={40}
-                      outerRadius={65}
+                      innerRadius={35}
+                      outerRadius={55}
                       dataKey="value"
                       stroke="none"
                     >
@@ -485,60 +622,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Contratos Recentes - full width */}
-      <Card className="border-t-4 border-t-primary bg-white shadow-sm">
-        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Contratos Recentes</CardTitle>
-          <button onClick={() => navigate("/vendas")} className="text-xs text-primary hover:underline flex items-center gap-1">
-            Ver todos <ChevronRight className="h-3 w-3" />
-          </button>
-        </CardHeader>
-        <CardContent className="px-4 pb-3">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs py-1">DATA VENDA</TableHead>
-                <TableHead className="text-xs py-1">LOTE</TableHead>
-                <TableHead className="text-xs py-1">COMPRADOR</TableHead>
-                <TableHead className="text-xs py-1">VALOR</TableHead>
-                <TableHead className="text-xs py-1">STATUS</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {contratosRecentes && contratosRecentes.length > 0 ? (
-                contratosRecentes.map((contrato) => (
-                  <TableRow key={contrato.id}>
-                    <TableCell className="text-xs py-1.5">
-                      {contrato.data_venda ? new Date(contrato.data_venda + "T00:00:00").toLocaleDateString("pt-BR") : "-"}
-                    </TableCell>
-                    <TableCell className="text-xs py-1.5 font-medium">
-                      {contrato.lote ? `Q${contrato.lote.quadra}-L${contrato.lote.numero_lote}` : "N/A"}
-                    </TableCell>
-                    <TableCell className="text-xs py-1.5">
-                      {contrato.comprador?.nome_razao || "N/A"}
-                    </TableCell>
-                    <TableCell className="text-xs py-1.5">
-                      {formatCurrency(Number(contrato.valor_venda))}
-                    </TableCell>
-                    <TableCell className="py-1.5">
-                      <Badge className={`text-[10px] px-1.5 py-0 ${vendaStatusColors[contrato.status || "ATIVA"]}`}>
-                        {vendaStatusLabels[contrato.status || "ATIVA"]}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
-                    Nenhum contrato
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   );
 }
