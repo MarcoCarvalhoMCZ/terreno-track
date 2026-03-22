@@ -1,33 +1,33 @@
 
 
-## Problema Identificado
+## Adicionar placeholder `[mes_ano]` ao histórico do Slip Contábil
 
-O Slip Contábil busca movimentos do mês e tenta resolver os placeholders do histórico usando dados da venda vinculada ao movimento (`venda_id`). Porém, muitos movimentos de crédito (pagamentos de REFORCO, PARCELA, etc.) **não possuem `venda_id` preenchido**, e o fallback `vendaPorLote` só funciona se outro movimento do mesmo lote **no mesmo mês** tiver uma venda associada.
+### O que será feito
 
-Quando nenhuma venda é encontrada, todos os placeholders dependentes da venda (`{comprador}`, `{cpf_comprador}`, `{data_venda}`, `{qtd_reforcos}`, `{solidario}`) resolvem para "—".
+Adicionar uma nova variável `[mes_ano]` (ou `{mes_ano}`) disponível nos templates de histórico, que resolve para o mês/ano da data do movimento no formato "MARÇO/2025" (mês por extenso em português, maiúsculo).
 
-## Solução
+### Implementação
 
-Carregar separadamente **todas as vendas ativas** e construir um lookup `lote_id -> venda`. Usar esse lookup como fallback definitivo quando o movimento não tiver `venda_id` ou quando o join não retornar dados.
+**Arquivo:** `src/pages/contabilidade/SlipContabil.tsx`
 
-## Plano de Implementação
-
-### Arquivo: `src/pages/contabilidade/SlipContabil.tsx`
-
-1. **Adicionar query de vendas ativas** -- Nova `useQuery` buscando todas as vendas ativas com os campos necessários (comprador, CPF, data_venda, qtd_parcelas, qtd_reforcos, valor_arras, etc.) e join com `pessoas` para nome/CPF do comprador.
-
-2. **Construir lookup `vendaAtivasPorLote`** -- Um `Map<lote_id, venda>` com todas as vendas ativas, independente do mês.
-
-3. **Alterar resolução no `useMemo` de `slipRows`** -- Na linha onde se define `venda` (linha 321), adicionar o fallback:
-   ```
-   const venda = mov.venda || vendaPorLote.get(mov.lote_id) || vendasAtivasPorLote?.get(mov.lote_id) || null;
+1. **Adicionar `data_mov` à interface `HistoricoCtx`** (linha ~97):
+   ```typescript
+   data_mov: string | null;
    ```
 
-Isso garante que mesmo movimentos sem `venda_id` terão acesso aos dados do comprador, data da venda, quantidades, etc.
+2. **Adicionar resolução do placeholder na função `resolveHistorico`** (após linha 130):
+   ```typescript
+   result = r(result, "mes_ano", ctx.data_mov 
+     ? format(new Date(ctx.data_mov + "T00:00:00"), "MMMM/yyyy", { locale: ptBR }).toUpperCase() 
+     : "—");
+   ```
+
+3. **Passar `data_mov` ao construir o contexto** onde `resolveHistorico` é chamado — incluir `data_mov: mov.data_mov` no objeto `HistoricoCtx`.
+
+4. **Importar `ptBR`** do `date-fns/locale` se ainda não importado.
 
 ### Escopo
-
-- Apenas um arquivo modificado (`SlipContabil.tsx`)
-- Sem alteração de backend/banco
-- Sem alteração de rotas ou permissões
+- 1 arquivo modificado
+- Sem alteração de backend
+- Novo placeholder disponível imediatamente em qualquer template de histórico
 
