@@ -214,6 +214,7 @@ export default function MapaMovimentoConta() {
       expressao_valor_1: parts[0] || NONE,
       expressao_valor_2: parts[1] || NONE,
       partida_mensal: item.partida_mensal ?? false,
+      dia_lancamento: item.dia_lancamento || "ultimo",
     });
     setIsSecondEntry(!!item.lancamento_pai_id);
     setParentId(item.lancamento_pai_id);
@@ -230,6 +231,7 @@ export default function MapaMovimentoConta() {
       expressao_valor_1: NONE,
       expressao_valor_2: NONE,
       partida_mensal: false,
+      dia_lancamento: "ultimo",
     });
     setIsSecondEntry(true);
     setParentId(parent.id);
