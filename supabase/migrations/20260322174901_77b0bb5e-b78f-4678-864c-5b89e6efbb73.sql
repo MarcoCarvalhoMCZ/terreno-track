@@ -1,0 +1,1 @@
+ALTER TABLE public.mapa_movimento_conta ADD COLUMN partida_mensal boolean NOT NULL DEFAULT false;
