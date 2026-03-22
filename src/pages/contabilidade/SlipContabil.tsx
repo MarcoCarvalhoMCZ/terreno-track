@@ -462,17 +462,65 @@ export default function SlipContabil() {
       return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
     });
 
-    return rows;
-  }, [movimentos, mapa, vendasAtivasPorLote]);
+    // Aggregate partida_mensal rows: group by mapping key, produce single entry + detail_rows
+    const dailyRows: SlipRow[] = [];
+    const mensalMap = new Map<string, { aggregated: SlipRow; details: ListingRow[] }>();
+
+    for (const row of rows) {
+      if (!row.is_partida_mensal) {
+        dailyRows.push(row);
+        continue;
+      }
+      const key = `${row.conta_debito_codigo}|${row.conta_credito_codigo}|${row.tipo_mov}|${row.is_second ? "2" : "1"}`;
+      const existing = mensalMap.get(key);
+      const firstName = row.comprador_nome?.split(" ")[0] || "—";
+      if (!existing) {
+        mensalMap.set(key, {
+          aggregated: { ...row, detail_rows: [] },
+          details: [{ quadra: row.quadra, numero_lote: row.numero_lote, comprador_nome: firstName, valor: row.valor }],
+        });
+      } else {
+        existing.aggregated.valor += row.valor;
+        existing.details.push({ quadra: row.quadra, numero_lote: row.numero_lote, comprador_nome: firstName, valor: row.valor });
+      }
+    }
+
+    // Sort detail rows within each mensal group
+    const sortFn = (a: ListingRow, b: ListingRow) => {
+      const cmp = a.quadra.localeCompare(b.quadra, "pt-BR", { numeric: true });
+      if (cmp !== 0) return cmp;
+      return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
+    };
+    for (const entry of mensalMap.values()) {
+      entry.details.sort(sortFn);
+      entry.aggregated.detail_rows = entry.details;
+      // Use last day of month as the date for monthly entries
+      entry.aggregated.data_mov = endDate;
+      dailyRows.push(entry.aggregated);
+    }
+
+    // Re-sort after adding monthly entries
+    dailyRows.sort((a, b) => {
+      const dateCmp = a.data_mov.localeCompare(b.data_mov);
+      if (dateCmp !== 0) return dateCmp;
+      const cmp = a.quadra.localeCompare(b.quadra, "pt-BR", { numeric: true });
+      if (cmp !== 0) return cmp;
+      return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
+    });
+
+    return dailyRows;
+  }, [movimentos, mapa, vendasAtivasPorLote, endDate]);
 
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL") return slipRows;
     return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
   }, [slipRows, tipoMovFiltro]);
 
-  // Split into rows with historico (detailed) and without (listing)
-  const rowsWithHistorico = useMemo(() => filteredRows.filter((r) => r.has_historico), [filteredRows]);
-  const rowsWithoutHistorico = useMemo(() => filteredRows.filter((r) => !r.has_historico && !r.is_second), [filteredRows]);
+  // Split: rows with historico AND not partida_mensal = detailed; partida_mensal = monthly with listing
+  const rowsWithHistorico = useMemo(() => filteredRows.filter((r) => r.has_historico && !r.is_partida_mensal), [filteredRows]);
+  const rowsPartidaMensal = useMemo(() => filteredRows.filter((r) => r.is_partida_mensal && !r.is_second), [filteredRows]);
+  const rowsPartidaMensalSecond = useMemo(() => filteredRows.filter((r) => r.is_partida_mensal && r.is_second), [filteredRows]);
+  const rowsWithoutHistorico = useMemo(() => filteredRows.filter((r) => !r.has_historico && !r.is_second && !r.is_partida_mensal), [filteredRows]);
 
   // Group rows without historico by account pair + tipo_mov
   const listingGroups = useMemo((): ListingGroup[] => {
