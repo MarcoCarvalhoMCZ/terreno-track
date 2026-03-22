@@ -36,6 +36,7 @@ interface MapaItem {
   lancamento_pai_id: string | null;
   expressao_valor: string | null;
   partida_mensal: boolean;
+  dia_lancamento: string;
   conta_debito?: { id: string; codigo: string; descricao: string } | null;
   conta_credito?: { id: string; codigo: string; descricao: string } | null;
 }
@@ -54,6 +55,7 @@ interface MapaForm {
   expressao_valor_1: string;
   expressao_valor_2: string;
   partida_mensal: boolean;
+  dia_lancamento: string;
 }
 
 const NONE = "__NONE__";
@@ -66,6 +68,7 @@ const initialForm: MapaForm = {
   expressao_valor_1: NONE,
   expressao_valor_2: NONE,
   partida_mensal: false,
+  dia_lancamento: "ultimo",
 };
 
 const VARIAVEIS_VALOR = [
