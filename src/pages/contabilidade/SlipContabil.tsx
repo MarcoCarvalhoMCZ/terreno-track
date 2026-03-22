@@ -421,6 +421,7 @@ export default function SlipContabil() {
           parcela: ctx.parcela,
           has_historico: !!mapping.historico_padrao,
           is_partida_mensal: !!mapping.partida_mensal,
+          dia_lancamento: mapping.dia_lancamento || "ultimo",
         });
 
         const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
@@ -451,6 +452,7 @@ export default function SlipContabil() {
             parcela: ctx.parcela,
             has_historico: !!child.historico_padrao,
             is_partida_mensal: !!mapping.partida_mensal,
+            dia_lancamento: mapping.dia_lancamento || "ultimo",
           });
         }
       }
