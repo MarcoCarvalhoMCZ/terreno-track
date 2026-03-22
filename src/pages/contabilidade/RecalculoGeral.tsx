@@ -5,8 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { RefreshCw, Calculator, CheckCircle2, AlertTriangle, ListChecks } from "lucide-react";
-import { formatCurrency } from "@/lib/formatters";
+import { RefreshCw, Calculator, CheckCircle2, AlertTriangle, ListChecks, Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { regenerarTodasParcelasAbertas } from "@/lib/parcelas-abertas";
 import {
   AlertDialog,
@@ -31,35 +31,34 @@ export default function RecalculoGeral() {
   const { canEdit } = useAuth();
   const [resultado, setResultado] = useState<ResultadoRecalculo | null>(null);
   const [qtdParcelasGeradas, setQtdParcelasGeradas] = useState<number | null>(null);
+  const [progressLabel, setProgressLabel] = useState("");
+  const [progressValue, setProgressValue] = useState(0);
 
   const popularParcelasMutation = useMutation({
-    mutationFn: () => regenerarTodasParcelasAbertas(),
+    mutationFn: () => {
+      setProgressLabel("Regenerando parcelas abertas...");
+      setProgressValue(50);
+      return regenerarTodasParcelasAbertas();
+    },
     onSuccess: (count) => {
       setQtdParcelasGeradas(count);
+      setProgressLabel("");
+      setProgressValue(0);
       toast.success(`${count} parcela(s) aberta(s) gerada(s) com sucesso!`);
     },
-    onError: (error) => toast.error("Erro: " + error.message),
+    onError: (error) => {
+      setProgressLabel("");
+      setProgressValue(0);
+      toast.error("Erro: " + error.message);
+    },
   });
 
   const { data: mapa } = useQuery({
     queryKey: ["mapa-movimento-conta"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("mapa_movimento_conta" as any)
+        .from("mapa_movimento_conta")
         .select("*");
-      if (error) throw error;
-      return data as unknown as { tipo_movimento: string; conta_contabil_id: string; natureza_lancamento: string }[];
-    },
-  });
-
-  const { data: contas } = useQuery({
-    queryKey: ["contas-contabeis-ativas"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contas_contabeis")
-        .select("id, codigo, descricao")
-        .eq("ativo", true)
-        .order("codigo");
       if (error) throw error;
       return data;
     },
@@ -69,7 +68,8 @@ export default function RecalculoGeral() {
     mutationFn: async (): Promise<ResultadoRecalculo> => {
       if (!mapa?.length) throw new Error("Configure o Mapa de Movimentos antes de recalcular.");
 
-      // 1. Fetch ALL movements (paginated)
+      setProgressLabel("Lendo movimentos da Conta Corrente...");
+      setProgressValue(10);
       const pageSize = 1000;
       let allMovimentos: any[] = [];
       let from = 0;
@@ -88,7 +88,10 @@ export default function RecalculoGeral() {
 
       if (allMovimentos.length === 0) throw new Error("Nenhum movimento encontrado na Conta Corrente.");
 
-      // 2. Build consolidation map
+      setProgressLabel(`Processando ${allMovimentos.length} movimentos...`);
+      setProgressValue(30);
+
+      // Build consolidation map using conta_debito_id / conta_credito_id
       const consolidationMap = new Map<string, { ano: number; mes: number; conta_contabil_id: string; valor_debito: number; valor_credito: number }>();
 
       for (const mov of allMovimentos) {
@@ -96,27 +99,34 @@ export default function RecalculoGeral() {
         const ano = dt.getFullYear();
         const mes = dt.getMonth() + 1;
         const mappings = mapa.filter((m) => m.tipo_movimento === mov.tipo_mov);
+        const valor = Number(mov.debito || 0) + Number(mov.credito || 0);
 
         for (const mapping of mappings) {
-          const key = `${ano}-${mes}-${mapping.conta_contabil_id}`;
-          if (!consolidationMap.has(key)) {
-            consolidationMap.set(key, { ano, mes, conta_contabil_id: mapping.conta_contabil_id, valor_debito: 0, valor_credito: 0 });
+          // Lançamento a débito
+          if (mapping.conta_debito_id) {
+            const keyD = `${ano}-${mes}-${mapping.conta_debito_id}`;
+            if (!consolidationMap.has(keyD)) {
+              consolidationMap.set(keyD, { ano, mes, conta_contabil_id: mapping.conta_debito_id, valor_debito: 0, valor_credito: 0 });
+            }
+            consolidationMap.get(keyD)!.valor_debito += valor;
           }
-          const entry = consolidationMap.get(key)!;
-          const valor = Number(mov.debito || 0) + Number(mov.credito || 0);
 
-          if (mapping.natureza_lancamento === "D") {
-            entry.valor_debito += valor;
-          } else {
-            entry.valor_credito += valor;
+          // Lançamento a crédito
+          if (mapping.conta_credito_id) {
+            const keyC = `${ano}-${mes}-${mapping.conta_credito_id}`;
+            if (!consolidationMap.has(keyC)) {
+              consolidationMap.set(keyC, { ano, mes, conta_contabil_id: mapping.conta_credito_id, valor_debito: 0, valor_credito: 0 });
+            }
+            consolidationMap.get(keyC)!.valor_credito += valor;
           }
         }
       }
 
-      // 3. Delete ALL existing consolidation
-      // Delete in chunks by year to avoid issues
+      setProgressLabel("Apagando consolidação anterior...");
+      setProgressValue(50);
+
+      // Delete ALL existing consolidation
       const anos = new Set(Array.from(consolidationMap.values()).map(r => r.ano));
-      // Also get years from existing consolidation
       const { data: existingYears } = await supabase
         .from("consolidacao_contabil" as any)
         .select("ano");
@@ -129,16 +139,22 @@ export default function RecalculoGeral() {
         await supabase.from("consolidacao_contabil" as any).delete().eq("ano", a);
       }
 
-      // 4. Insert new consolidation in batches
-      const rows = Array.from(consolidationMap.values());
+      setProgressLabel("Inserindo novos registros...");
+      setProgressValue(70);
+
+      // Insert new consolidation in batches (skip entries without conta_contabil_id)
+      const rows = Array.from(consolidationMap.values()).filter(r => r.conta_contabil_id);
       const batchSize = 500;
       for (let i = 0; i < rows.length; i += batchSize) {
         const batch = rows.slice(i, i + batchSize);
         const { error: insertError } = await supabase.from("consolidacao_contabil" as any).insert(batch as any);
         if (insertError) throw insertError;
+        setProgressValue(70 + Math.round((i / rows.length) * 25));
       }
 
-      // 5. Determine period
+      setProgressLabel("Finalizando...");
+      setProgressValue(95);
+
       const dates = allMovimentos.map(m => m.data_mov).sort();
       const mesesSet = new Set(rows.map(r => `${r.ano}-${r.mes}`));
 
@@ -151,15 +167,23 @@ export default function RecalculoGeral() {
     },
     onSuccess: (res) => {
       setResultado(res);
+      setProgressLabel("");
+      setProgressValue(0);
       toast.success(`Recálculo concluído: ${res.totalRegistros} registros gerados para ${res.mesesProcessados} meses.`);
     },
-    onError: (error) => toast.error("Erro: " + error.message),
+    onError: (error) => {
+      setProgressLabel("");
+      setProgressValue(0);
+      toast.error("Erro: " + error.message);
+    },
   });
 
   const formatDate = (d: string) => {
     const [y, m, dd] = d.split("-");
     return `${dd}/${m}/${y}`;
   };
+
+  const isRunning = recalcularMutation.isPending || popularParcelasMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -171,6 +195,19 @@ export default function RecalculoGeral() {
           </p>
         </div>
       </div>
+
+      {/* Progress indicator */}
+      {isRunning && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6 space-y-3">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span className="text-sm font-medium">{progressLabel || "Processando..."}</span>
+            </div>
+            <Progress value={progressValue} className="h-2" />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -193,7 +230,7 @@ export default function RecalculoGeral() {
           {canEdit && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button disabled={recalcularMutation.isPending || !mapa?.length}>
+                <Button disabled={isRunning || !mapa?.length}>
                   <RefreshCw className={`mr-2 h-4 w-4 ${recalcularMutation.isPending ? "animate-spin" : ""}`} />
                   {recalcularMutation.isPending ? "Recalculando..." : "Executar Recálculo Geral"}
                 </Button>
@@ -240,7 +277,7 @@ export default function RecalculoGeral() {
           {canEdit && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" disabled={popularParcelasMutation.isPending}>
+                <Button variant="outline" disabled={isRunning}>
                   <RefreshCw className={`mr-2 h-4 w-4 ${popularParcelasMutation.isPending ? "animate-spin" : ""}`} />
                   {popularParcelasMutation.isPending ? "Populando..." : "Popular Parcelas Abertas"}
                 </Button>
