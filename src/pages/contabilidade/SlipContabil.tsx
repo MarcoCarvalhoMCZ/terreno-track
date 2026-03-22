@@ -431,8 +431,10 @@ export default function SlipContabil() {
       }
     }
 
-    // Sort all rows by quadra + lote
+    // Sort all rows chronologically (oldest first), then by quadra + lote within same date
     rows.sort((a, b) => {
+      const dateCmp = a.data_mov.localeCompare(b.data_mov);
+      if (dateCmp !== 0) return dateCmp;
       const cmp = a.quadra.localeCompare(b.quadra, "pt-BR", { numeric: true });
       if (cmp !== 0) return cmp;
       return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
