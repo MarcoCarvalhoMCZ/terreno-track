@@ -172,80 +172,37 @@ export default function Dashboard() {
     },
   });
 
-  // Inadimplência - vendas ativas com parcelas vencidas (via conta_corrente_lote)
+  // Inadimplência - parcelas abertas vencidas (fonte real: parcelas_abertas)
   const { data: inadimplencia } = useQuery({
     queryKey: ["inadimplencia-stats"],
     queryFn: async () => {
-      // Buscar vendas ativas com dados necessários
-      const { data: vendasAtivas, error: errVendas } = await supabase
-        .from("vendas")
-        .select("id, lote_id, qtd_parcelas, qtd_reforcos, primeiro_vencimento_parcela, primeiro_vencimento_reforco, frequencia_parcelas_meses, frequencia_reforcos_meses")
-        .eq("status", "ATIVA");
-      if (errVendas) throw errVendas;
+      const hoje = new Date().toISOString().split("T")[0];
 
-      // Buscar contagem de pagamentos por lote
-      const { data: pagamentos, error: errPag } = await supabase
-        .from("conta_corrente_lote")
-        .select("lote_id, tipo_fluxo")
-        .in("tipo_mov", ["PARCELA", "REFORCO"])
-        .gt("credito", 0);
-      if (errPag) throw errPag;
+      // Total de parcelas abertas
+      const { count: totalAbertas } = await supabase
+        .from("parcelas_abertas")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "ABERTO");
 
-      const pagMap: Record<string, { parc: number; ref: number }> = {};
-      (pagamentos || []).forEach(p => {
-        if (!pagMap[p.lote_id]) pagMap[p.lote_id] = { parc: 0, ref: 0 };
-        if (p.tipo_fluxo === "PARCELAMENTO") pagMap[p.lote_id].parc++;
-        else if (p.tipo_fluxo === "REFORCO") pagMap[p.lote_id].ref++;
-      });
+      // Parcelas vencidas (em atraso)
+      const { data: vencidas, error } = await supabase
+        .from("parcelas_abertas")
+        .select("total_devido")
+        .eq("status", "ABERTO")
+        .lt("vencimento", hoje);
 
-      const hoje = new Date();
-      let parcelasVencidas = 0;
-      let totalParcelas = 0;
-      const contratosInadimplentes = new Set<string>();
+      if (error) throw error;
 
-      for (const v of (vendasAtivas || [])) {
-        // Verificar PARCELAMENTO
-        if (v.primeiro_vencimento_parcela && v.qtd_parcelas) {
-          const pagas = pagMap[v.lote_id]?.parc || 0;
-          const aPagar = Math.max(0, v.qtd_parcelas - pagas);
-          totalParcelas += v.qtd_parcelas;
-          const freq = v.frequencia_parcelas_meses || 1;
-          const pv = new Date(v.primeiro_vencimento_parcela);
-          for (let i = 0; i < aPagar; i++) {
-            const venc = new Date(pv);
-            venc.setMonth(venc.getMonth() + (pagas + i) * freq);
-            if (venc < hoje) {
-              parcelasVencidas++;
-              contratosInadimplentes.add(v.id);
-            }
-          }
-        }
-        // Verificar REFORÇO
-        if (v.primeiro_vencimento_reforco && v.qtd_reforcos) {
-          const pagas = pagMap[v.lote_id]?.ref || 0;
-          const aPagar = Math.max(0, v.qtd_reforcos - pagas);
-          totalParcelas += v.qtd_reforcos;
-          const freq = v.frequencia_reforcos_meses || 12;
-          const pv = new Date(v.primeiro_vencimento_reforco);
-          for (let i = 0; i < aPagar; i++) {
-            const venc = new Date(pv);
-            venc.setMonth(venc.getMonth() + (pagas + i) * freq);
-            if (venc < hoje) {
-              parcelasVencidas++;
-              contratosInadimplentes.add(v.id);
-            }
-          }
-        }
-      }
-
-      const percentual = totalParcelas > 0
-        ? ((parcelasVencidas / totalParcelas) * 100).toFixed(1)
-        : 0;
+      const qtdVencidas = vencidas?.length || 0;
+      const valorTotal = (vencidas || []).reduce((s, p) => s + (p.total_devido || 0), 0);
+      const percentual = (totalAbertas || 0) > 0
+        ? ((qtdVencidas / (totalAbertas || 1)) * 100).toFixed(1)
+        : "0";
 
       return {
-        quantidade: parcelasVencidas,
+        qtdVencidas,
+        valorTotal,
         percentual,
-        contratos: contratosInadimplentes.size,
       };
     },
   });
@@ -474,9 +431,10 @@ export default function Dashboard() {
                 <p className="text-3xl font-bold">
                   {inadimplencia?.percentual || 0}%
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {inadimplencia?.contratos || 0} contratos (12m)
-                </p>
+                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                  <p>{formatCurrency(inadimplencia?.valorTotal || 0)}</p>
+                  <p>{inadimplencia?.qtdVencidas || 0} parcelas em atraso</p>
+                </div>
               </div>
               <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
                 <AlertTriangle className="h-5 w-5 text-warning" />
