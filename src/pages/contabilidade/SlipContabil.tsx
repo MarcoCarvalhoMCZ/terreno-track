@@ -285,7 +285,8 @@ export default function SlipContabil() {
   });
 
   const startDate = `${ano}-${mes.padStart(2, "0")}-01`;
-  const endDate = `${ano}-${mes.padStart(2, "0")}-31`;
+  const lastDay = new Date(ano, Number(mes), 0).getDate();
+  const endDate = `${ano}-${mes.padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
   const { data: movimentos, isLoading } = useQuery({
     queryKey: ["slip-contabil-movimentos", ano, mes],
