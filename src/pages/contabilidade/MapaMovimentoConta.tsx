@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -34,6 +35,7 @@ interface MapaItem {
   historico_padrao: string | null;
   lancamento_pai_id: string | null;
   expressao_valor: string | null;
+  partida_mensal: boolean;
   conta_debito?: { id: string; codigo: string; descricao: string } | null;
   conta_credito?: { id: string; codigo: string; descricao: string } | null;
 }
@@ -51,6 +53,7 @@ interface MapaForm {
   historico_padrao: string;
   expressao_valor_1: string;
   expressao_valor_2: string;
+  partida_mensal: boolean;
 }
 
 const NONE = "__NONE__";
@@ -62,6 +65,7 @@ const initialForm: MapaForm = {
   historico_padrao: "",
   expressao_valor_1: NONE,
   expressao_valor_2: NONE,
+  partida_mensal: false,
 };
 
 const VARIAVEIS_VALOR = [
@@ -206,6 +210,7 @@ export default function MapaMovimentoConta() {
       historico_padrao: item.historico_padrao || "",
       expressao_valor_1: parts[0] || NONE,
       expressao_valor_2: parts[1] || NONE,
+      partida_mensal: item.partida_mensal ?? false,
     });
     setIsSecondEntry(!!item.lancamento_pai_id);
     setParentId(item.lancamento_pai_id);
@@ -221,6 +226,7 @@ export default function MapaMovimentoConta() {
       historico_padrao: "",
       expressao_valor_1: NONE,
       expressao_valor_2: NONE,
+      partida_mensal: false,
     });
     setIsSecondEntry(true);
     setParentId(parent.id);
@@ -250,6 +256,7 @@ export default function MapaMovimentoConta() {
       historico_padrao: form.historico_padrao || null,
       lancamento_pai_id: isSecondEntry ? parentId : null,
       expressao_valor: expressaoValor,
+      partida_mensal: form.partida_mensal,
     };
 
     if (selected) {
@@ -326,6 +333,7 @@ export default function MapaMovimentoConta() {
                           <TableCell className="font-medium">
                             {getTipoLabel(item.tipo_movimento)}
                             {child && <span className="text-xs text-muted-foreground ml-1">(1º)</span>}
+                            {item.partida_mensal && <span className="text-xs text-primary ml-1">[Mensal]</span>}
                           </TableCell>
                           <TableCell>{getContaLabel(item.conta_debito)}</TableCell>
                           <TableCell>{getContaLabel(item.conta_credito)}</TableCell>
@@ -481,6 +489,26 @@ export default function MapaMovimentoConta() {
                 placeholder="Ex: Venda do lote {quadra}-{lote} para {comprador}"
                 rows={3}
               />
+            </div>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                id="partida_mensal"
+                checked={form.partida_mensal}
+                onCheckedChange={(checked) => setForm({ ...form, partida_mensal: !!checked })}
+              />
+              <Label htmlFor="partida_mensal" className="cursor-pointer">
+                Partida Mensal?
+              </Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs">
+                    <p className="text-xs">Quando marcado, o slip agrupa todas as operações do mês em um único lançamento com o valor total, acompanhado de uma listagem de suporte.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>

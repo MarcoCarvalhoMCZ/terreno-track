@@ -32,6 +32,7 @@ interface MapaEntry {
   historico_padrao: string | null;
   lancamento_pai_id: string | null;
   expressao_valor: string | null;
+  partida_mensal: boolean;
   conta_debito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
   conta_credito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
 }
@@ -58,6 +59,8 @@ interface SlipRow {
   data_venda: string | null;
   parcela: number | null;
   has_historico: boolean;
+  is_partida_mensal: boolean;
+  detail_rows?: ListingRow[];
 }
 
 interface ListingGroup {
@@ -414,6 +417,7 @@ export default function SlipContabil() {
           data_venda: ctx.data_venda,
           parcela: ctx.parcela,
           has_historico: !!mapping.historico_padrao,
+          is_partida_mensal: !!mapping.partida_mensal,
         });
 
         const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
@@ -437,12 +441,13 @@ export default function SlipContabil() {
             conta_credito_codigo: child.conta_credito?.codigo || "",
             conta_credito_estruturado: child.conta_credito?.codigo_estruturado || "",
             conta_credito_descricao: child.conta_credito?.descricao || "",
-          historico: resolveHistorico(child.historico_padrao, ctxChild),
+            historico: resolveHistorico(child.historico_padrao, ctxChild),
             valor: valorChild,
             is_second: true,
             data_venda: ctx.data_venda,
             parcela: ctx.parcela,
             has_historico: !!child.historico_padrao,
+            is_partida_mensal: !!mapping.partida_mensal,
           });
         }
       }
@@ -457,17 +462,65 @@ export default function SlipContabil() {
       return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
     });
 
-    return rows;
-  }, [movimentos, mapa, vendasAtivasPorLote]);
+    // Aggregate partida_mensal rows: group by mapping key, produce single entry + detail_rows
+    const dailyRows: SlipRow[] = [];
+    const mensalMap = new Map<string, { aggregated: SlipRow; details: ListingRow[] }>();
+
+    for (const row of rows) {
+      if (!row.is_partida_mensal) {
+        dailyRows.push(row);
+        continue;
+      }
+      const key = `${row.conta_debito_codigo}|${row.conta_credito_codigo}|${row.tipo_mov}|${row.is_second ? "2" : "1"}`;
+      const existing = mensalMap.get(key);
+      const firstName = row.comprador_nome?.split(" ")[0] || "—";
+      if (!existing) {
+        mensalMap.set(key, {
+          aggregated: { ...row, detail_rows: [] },
+          details: [{ quadra: row.quadra, numero_lote: row.numero_lote, comprador_nome: firstName, valor: row.valor }],
+        });
+      } else {
+        existing.aggregated.valor += row.valor;
+        existing.details.push({ quadra: row.quadra, numero_lote: row.numero_lote, comprador_nome: firstName, valor: row.valor });
+      }
+    }
+
+    // Sort detail rows within each mensal group
+    const sortFn = (a: ListingRow, b: ListingRow) => {
+      const cmp = a.quadra.localeCompare(b.quadra, "pt-BR", { numeric: true });
+      if (cmp !== 0) return cmp;
+      return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
+    };
+    for (const entry of mensalMap.values()) {
+      entry.details.sort(sortFn);
+      entry.aggregated.detail_rows = entry.details;
+      // Use last day of month as the date for monthly entries
+      entry.aggregated.data_mov = endDate;
+      dailyRows.push(entry.aggregated);
+    }
+
+    // Re-sort after adding monthly entries
+    dailyRows.sort((a, b) => {
+      const dateCmp = a.data_mov.localeCompare(b.data_mov);
+      if (dateCmp !== 0) return dateCmp;
+      const cmp = a.quadra.localeCompare(b.quadra, "pt-BR", { numeric: true });
+      if (cmp !== 0) return cmp;
+      return a.numero_lote.localeCompare(b.numero_lote, "pt-BR", { numeric: true });
+    });
+
+    return dailyRows;
+  }, [movimentos, mapa, vendasAtivasPorLote, endDate]);
 
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL") return slipRows;
     return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
   }, [slipRows, tipoMovFiltro]);
 
-  // Split into rows with historico (detailed) and without (listing)
-  const rowsWithHistorico = useMemo(() => filteredRows.filter((r) => r.has_historico), [filteredRows]);
-  const rowsWithoutHistorico = useMemo(() => filteredRows.filter((r) => !r.has_historico && !r.is_second), [filteredRows]);
+  // Split: rows with historico AND not partida_mensal = detailed; partida_mensal = monthly with listing
+  const rowsWithHistorico = useMemo(() => filteredRows.filter((r) => r.has_historico && !r.is_partida_mensal), [filteredRows]);
+  const rowsPartidaMensal = useMemo(() => filteredRows.filter((r) => r.is_partida_mensal && !r.is_second), [filteredRows]);
+  const rowsPartidaMensalSecond = useMemo(() => filteredRows.filter((r) => r.is_partida_mensal && r.is_second), [filteredRows]);
+  const rowsWithoutHistorico = useMemo(() => filteredRows.filter((r) => !r.has_historico && !r.is_second && !r.is_partida_mensal), [filteredRows]);
 
   // Group rows without historico by account pair + tipo_mov
   const listingGroups = useMemo((): ListingGroup[] => {
@@ -555,6 +608,48 @@ export default function SlipContabil() {
         },
       });
       startY = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Partida Mensal entries
+    for (const pmRow of rowsPartidaMensal) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(`PARTIDA MENSAL – ${getTipoMovimentoLabel(pmRow.tipo_mov)}`, 14, startY);
+      doc.setFont("helvetica", "normal");
+      startY += 4;
+      doc.text(`Débito: ${formatContaSlip(pmRow.conta_debito_codigo, pmRow.conta_debito_estruturado)}`, 14, startY);
+      startY += 4;
+      doc.text(`Crédito: ${formatContaSlip(pmRow.conta_credito_codigo, pmRow.conta_credito_estruturado)}`, 14, startY);
+      startY += 4;
+      doc.text(`Valor: ${formatCurrency(pmRow.valor)}`, 14, startY);
+      startY += 6;
+
+      if (pmRow.detail_rows && pmRow.detail_rows.length > 0) {
+        doc.text(`Listagem de suporte (${pmRow.detail_rows.length} operações):`, 14, startY);
+        startY += 2;
+        const listHeaders = ["Lote", "Comprador", "Valor R$"];
+        const listBody = pmRow.detail_rows.map((dr) => [
+          `${dr.quadra}-${dr.numero_lote}`,
+          dr.comprador_nome || "—",
+          formatCurrency(dr.valor),
+        ]);
+        const listFooter = ["TOTAL", "", formatCurrency(pmRow.valor)];
+
+        autoTable(doc, {
+          head: [listHeaders],
+          body: [...listBody, listFooter],
+          startY,
+          styles: { fontSize: 7 },
+          headStyles: { fillColor: [34, 87, 55] },
+          didParseCell: (data: any) => {
+            if (data.row.index === listBody.length) {
+              data.cell.styles.fontStyle = "bold";
+              data.cell.styles.fillColor = [240, 240, 240];
+            }
+          },
+        });
+        startY = (doc as any).lastAutoTable.finalY + 8;
+      }
     }
 
     // Listing groups (without historico)
@@ -747,7 +842,117 @@ export default function SlipContabil() {
                 );
               })}
 
-              {/* Rows WITHOUT historico - grouped table listing */}
+              {/* Partida Mensal entries - aggregated monthly with supporting listing */}
+              {rowsPartidaMensal.map((row, pmIdx) => {
+                const checkKey = `pm-${pmIdx}`;
+                const isChecked = checkedSlips.has(checkKey);
+                const secondEntry = rowsPartidaMensalSecond.find(
+                  (s) => s.conta_debito_codigo === row.conta_debito_codigo || s.tipo_mov === row.tipo_mov
+                );
+                return (
+                  <div key={checkKey} className="mt-4">
+                    <Separator />
+                    <div className={`py-3 px-4 space-y-1 ${isChecked ? "opacity-50" : ""}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded">PARTIDA MENSAL</span>
+                        <span className="text-sm font-semibold">{getTipoMovimentoLabel(row.tipo_mov)}</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_auto] gap-x-4 gap-y-1">
+                        <div>
+                          <span className="text-xs text-muted-foreground">Competência</span>
+                          <p className="font-medium text-sm">{mesLabel}/{ano}</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div>
+                            <span className="text-xs text-muted-foreground">Débito: </span>
+                            <span className="font-mono text-sm">
+                              {formatContaSlip(row.conta_debito_codigo, row.conta_debito_estruturado)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Crédito: </span>
+                            <span className="font-mono text-sm">
+                              {formatContaSlip(row.conta_credito_codigo, row.conta_credito_estruturado)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5">
+                            <span className="text-xs text-muted-foreground">Valor R$: </span>
+                            <span className="font-mono font-bold text-sm text-primary">
+                              {formatCurrency(row.valor)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-end">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={checkKey}
+                              checked={isChecked}
+                              onCheckedChange={() => toggleChecked(checkKey)}
+                            />
+                            <label htmlFor={checkKey} className="text-xs text-muted-foreground cursor-pointer select-none">
+                              Contabilizado
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                      {row.historico && (
+                        <div className="mt-1">
+                          <span className="text-xs text-muted-foreground">Histórico: </span>
+                          <span className="text-sm">{row.historico}</span>
+                        </div>
+                      )}
+                      {secondEntry && (
+                        <div className="mt-2 pl-4 border-l-2 border-muted space-y-0.5">
+                          <span className="text-xs text-muted-foreground font-medium">↳ 2º lançamento vinculado</span>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Débito: </span>
+                            <span className="font-mono text-sm">{formatContaSlip(secondEntry.conta_debito_codigo, secondEntry.conta_debito_estruturado)}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Crédito: </span>
+                            <span className="font-mono text-sm">{formatContaSlip(secondEntry.conta_credito_codigo, secondEntry.conta_credito_estruturado)}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Valor R$: </span>
+                            <span className="font-mono font-bold text-sm text-primary">{formatCurrency(secondEntry.valor)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Supporting listing */}
+                    {row.detail_rows && row.detail_rows.length > 0 && (
+                      <div className="px-4 pb-3">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1 mt-2">LISTAGEM DE SUPORTE ({row.detail_rows.length} operações)</p>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/20">
+                              <th className="text-left py-1.5 px-3 font-medium text-xs">Lote</th>
+                              <th className="text-left py-1.5 px-3 font-medium text-xs">Comprador</th>
+                              <th className="text-right py-1.5 px-3 font-medium text-xs">Valor R$</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {row.detail_rows.map((dr, drIdx) => (
+                              <tr key={drIdx} className="border-b last:border-b-0">
+                                <td className="py-1 px-3 font-mono text-xs">{dr.quadra}-{dr.numero_lote}</td>
+                                <td className="py-1 px-3 text-xs">{dr.comprador_nome}</td>
+                                <td className="py-1 px-3 text-right font-mono text-xs">{formatCurrency(dr.valor)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-muted/20 font-bold">
+                              <td className="py-1.5 px-3 text-xs" colSpan={2}>TOTAL</td>
+                              <td className="py-1.5 px-3 text-right font-mono text-xs text-primary">{formatCurrency(row.valor)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
               {listingGroups.map((group, gIdx) => {
                 const groupTotal = group.rows.reduce((s, r) => s + r.valor, 0);
                 return (

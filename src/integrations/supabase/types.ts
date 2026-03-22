@@ -663,6 +663,7 @@ export type Database = {
           historico_padrao: string | null
           id: string
           lancamento_pai_id: string | null
+          partida_mensal: boolean
           tipo_movimento: string
           updated_at: string | null
           updated_by: string | null
@@ -676,6 +677,7 @@ export type Database = {
           historico_padrao?: string | null
           id?: string
           lancamento_pai_id?: string | null
+          partida_mensal?: boolean
           tipo_movimento: string
           updated_at?: string | null
           updated_by?: string | null
@@ -689,6 +691,7 @@ export type Database = {
           historico_padrao?: string | null
           id?: string
           lancamento_pai_id?: string | null
+          partida_mensal?: boolean
           tipo_movimento?: string
           updated_at?: string | null
           updated_by?: string | null
