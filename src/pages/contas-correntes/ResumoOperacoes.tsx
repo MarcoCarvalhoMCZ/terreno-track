@@ -32,7 +32,7 @@ const MOV_COLUMNS = [
   { key: "OUTROS", label: "Outros", short: "Outros", nature: "X" },
 ] as const;
 
-const KNOWN_KEYS = new Set(MOV_COLUMNS.filter(c => c.key !== "OUTROS").map(c => c.key));
+const KNOWN_KEYS = new Set<string>(MOV_COLUMNS.filter(c => c.key !== "OUTROS").map(c => c.key));
 
 interface MovRow {
   data_mov: string;
