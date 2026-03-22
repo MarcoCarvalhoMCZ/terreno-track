@@ -495,8 +495,9 @@ export default function SlipContabil() {
     for (const entry of mensalMap.values()) {
       entry.details.sort(sortFn);
       entry.aggregated.detail_rows = entry.details;
-      // Use last day of month as the date for monthly entries
-      entry.aggregated.data_mov = endDate;
+      // Use first or last day of month based on user selection
+      const dataMensal = diaLancamentoMensal === "primeiro" ? startDate : endDate;
+      entry.aggregated.data_mov = dataMensal;
       dailyRows.push(entry.aggregated);
     }
 
@@ -510,7 +511,7 @@ export default function SlipContabil() {
     });
 
     return dailyRows;
-  }, [movimentos, mapa, vendasAtivasPorLote, endDate]);
+  }, [movimentos, mapa, vendasAtivasPorLote, startDate, endDate, diaLancamentoMensal]);
 
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL") return slipRows;
@@ -712,7 +713,7 @@ export default function SlipContabil() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Ano</Label>
               <div className="flex items-center gap-2">
@@ -745,6 +746,16 @@ export default function SlipContabil() {
                   {tiposPresentes.map((t) => (
                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Dia Lanc. Mensal</Label>
+              <Select value={diaLancamentoMensal} onValueChange={(v) => setDiaLancamentoMensal(v as "primeiro" | "ultimo")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="primeiro">Primeiro dia do mês</SelectItem>
+                  <SelectItem value="ultimo">Último dia do mês</SelectItem>
                 </SelectContent>
               </Select>
             </div>
