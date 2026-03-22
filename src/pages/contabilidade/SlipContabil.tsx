@@ -439,7 +439,7 @@ export default function SlipContabil() {
     });
 
     return rows;
-  }, [movimentos, mapa]);
+  }, [movimentos, mapa, vendasAtivasPorLote]);
 
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL") return slipRows;
