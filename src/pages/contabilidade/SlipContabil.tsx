@@ -499,8 +499,8 @@ export default function SlipContabil() {
     for (const entry of mensalMap.values()) {
       entry.details.sort(sortFn);
       entry.aggregated.detail_rows = entry.details;
-      // Use first or last day of month based on user selection
-      const dataMensal = diaLancamentoMensal === "primeiro" ? startDate : endDate;
+      // Use first or last day of month based on mapping config
+      const dataMensal = entry.aggregated.dia_lancamento === "primeiro" ? startDate : endDate;
       entry.aggregated.data_mov = dataMensal;
       dailyRows.push(entry.aggregated);
     }
@@ -515,7 +515,7 @@ export default function SlipContabil() {
     });
 
     return dailyRows;
-  }, [movimentos, mapa, vendasAtivasPorLote, startDate, endDate, diaLancamentoMensal]);
+  }, [movimentos, mapa, vendasAtivasPorLote, startDate, endDate]);
 
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL") return slipRows;
