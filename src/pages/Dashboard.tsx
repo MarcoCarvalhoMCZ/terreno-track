@@ -233,6 +233,11 @@ export default function Dashboard() {
     },
   });
 
+  // Total recebido geral (all time) para gráfico de evolução
+  const recebidoTotalGeral = useMemo(() => {
+    return (todosRecebimentos || []).reduce((s, r) => s + Number(r.credito || 0), 0);
+  }, [todosRecebimentos]);
+
   const vendasPorAno = useMemo(() => {
     const anos: Record<string, { valor: number; lotes: Set<string> }> = {};
     (todasVendas || []).forEach((v) => {
