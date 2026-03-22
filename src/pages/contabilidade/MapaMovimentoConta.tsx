@@ -225,6 +225,7 @@ export default function MapaMovimentoConta() {
       historico_padrao: "",
       expressao_valor_1: NONE,
       expressao_valor_2: NONE,
+      partida_mensal: false,
     });
     setIsSecondEntry(true);
     setParentId(parent.id);
