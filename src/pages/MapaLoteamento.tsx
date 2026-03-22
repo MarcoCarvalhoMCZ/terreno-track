@@ -20,7 +20,7 @@ export default function MapaLoteamento() {
         .select("lote_id, comprador_pessoa:pessoas!comprador_pessoa_id(nome_razao)")
         .in("status", ["ATIVA", "QUITADA"]);
 
-      const vendaMap = new Map(
+      const vendaLookup = new globalThis.Map(
         (vendasData || []).map(v => [
           v.lote_id,
           (v.comprador_pessoa as any)?.nome_razao || null,
