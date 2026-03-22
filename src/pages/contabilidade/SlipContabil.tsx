@@ -620,6 +620,8 @@ export default function SlipContabil() {
       doc.text(`PARTIDA MENSAL – ${getTipoMovimentoLabel(pmRow.tipo_mov)}`, 14, startY);
       doc.setFont("helvetica", "normal");
       startY += 4;
+      doc.text(`Data: ${format(new Date(pmRow.data_mov + "T00:00:00"), "dd/MM/yyyy")}`, 14, startY);
+      startY += 4;
       doc.text(`Débito: ${formatContaSlip(pmRow.conta_debito_codigo, pmRow.conta_debito_estruturado)}`, 14, startY);
       startY += 4;
       doc.text(`Crédito: ${formatContaSlip(pmRow.conta_credito_codigo, pmRow.conta_credito_estruturado)}`, 14, startY);
