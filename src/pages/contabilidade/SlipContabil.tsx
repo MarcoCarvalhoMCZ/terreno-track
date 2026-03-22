@@ -59,6 +59,8 @@ interface SlipRow {
   data_venda: string | null;
   parcela: number | null;
   has_historico: boolean;
+  is_partida_mensal: boolean;
+  detail_rows?: ListingRow[];
 }
 
 interface ListingGroup {
