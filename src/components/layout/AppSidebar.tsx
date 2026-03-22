@@ -50,6 +50,7 @@ interface MenuItem {
 
 const mainItems: MenuItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, menuKey: "dashboard" },
+  { title: "Mapa do Loteamento", url: "/mapa-loteamento", icon: MapPin, menuKey: "mapaLoteamento" },
   { title: "Configurações", url: "/configuracoes", icon: Settings, menuKey: "configuracoes" },
 ];
 

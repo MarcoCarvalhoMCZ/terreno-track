@@ -11,6 +11,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 // Lazy load pages for code splitting
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const MapaLoteamento = lazy(() => import("./pages/MapaLoteamento"));
 const Lotes = lazy(() => import("./pages/cadastro/Lotes"));
 const Pessoas = lazy(() => import("./pages/cadastro/Pessoas"));
 const Indicadores = lazy(() => import("./pages/cadastro/Indicadores"));
@@ -89,6 +90,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/mapa-loteamento" element={<ProtectedRoute><MapaLoteamento /></ProtectedRoute>} />
         <Route path="/configuracoes" element={<AdminRoute><Configuracoes /></AdminRoute>} />
         <Route path="/cadastro/lotes" element={<ProtectedRoute><Lotes /></ProtectedRoute>} />
         <Route path="/cadastro/pessoas" element={<ProtectedRoute><Pessoas /></ProtectedRoute>} />

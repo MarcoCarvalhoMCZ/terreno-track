@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 // Definição de todas as opções de menu disponíveis
 export const MENU_ITEMS = {
   dashboard: { label: "Dashboard", path: "/" },
+  mapaLoteamento: { label: "Mapa do Loteamento", path: "/mapa-loteamento" },
   configuracoes: { label: "Configurações", path: "/configuracoes" },
   lotes: { label: "Lotes (Estoque)", path: "/cadastro/lotes" },
   indicadores: { label: "Indicadores de Atualização", path: "/cadastro/indicadores" },
