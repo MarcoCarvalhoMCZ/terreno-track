@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -95,6 +96,8 @@ const INDICADORES_NOMES = ["IGPM", "INCC", "INPC", "IPCA"];
 export default function Indicadores() {
   const { canEdit } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab") || "indicadores";
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -391,7 +394,7 @@ export default function Indicadores() {
         )}
       </div>
 
-      <Tabs defaultValue="indicadores" className="space-y-4">
+      <Tabs defaultValue={tabFromUrl} className="space-y-4">
         <TabsList>
           <TabsTrigger value="indicadores">
             <TrendingUp className="mr-2 h-4 w-4" />
