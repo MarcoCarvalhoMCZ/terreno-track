@@ -367,7 +367,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Charts + Contratos side by side */}
+      {/* Charts + Pie chart */}
       <div className="grid gap-3 lg:grid-cols-3">
         {/* Vendas por Ano */}
         <Card className="border-t-4 border-t-primary bg-white shadow-sm">
@@ -433,56 +433,112 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Contratos Recentes */}
+        {/* Distribuição dos Lotes - Pie Chart */}
         <Card className="border-t-4 border-t-primary bg-white shadow-sm">
-          <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm">Contratos Recentes</CardTitle>
-            <button onClick={() => navigate("/vendas")} className="text-xs text-primary hover:underline flex items-center gap-1">
-              Ver todos <ChevronRight className="h-3 w-3" />
-            </button>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm">Distribuição dos Lotes</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-3">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs py-1">LOTE</TableHead>
-                  <TableHead className="text-xs py-1">COMPRADOR</TableHead>
-                  <TableHead className="text-xs py-1">VALOR</TableHead>
-                  <TableHead className="text-xs py-1">STATUS</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {contratosRecentes && contratosRecentes.length > 0 ? (
-                  contratosRecentes.map((contrato) => (
-                    <TableRow key={contrato.id}>
-                      <TableCell className="text-xs py-1.5 font-medium">
-                        {contrato.lote ? `Q${contrato.lote.quadra}-L${contrato.lote.numero_lote}` : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-xs py-1.5 truncate max-w-[120px]">
-                        {contrato.comprador?.nome_razao?.split(" ")[0] || "N/A"}
-                      </TableCell>
-                      <TableCell className="text-xs py-1.5">
-                        {formatCompactCurrency(Number(contrato.valor_venda))}
-                      </TableCell>
-                      <TableCell className="py-1.5">
-                        <Badge className={`text-[10px] px-1.5 py-0 ${vendaStatusColors[contrato.status || "ATIVA"]}`}>
-                          {vendaStatusLabels[contrato.status || "ATIVA"]}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground text-xs">
-                      Nenhum contrato
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <div className="flex flex-col items-center">
+              <div className="h-[150px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={65}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {pieData.map((entry, idx) => (
+                        <Cell key={idx} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const d = payload[0].payload;
+                        return (
+                          <div className="rounded-lg border bg-background p-2 shadow-sm text-xs">
+                            <p className="font-medium">{d.name}: {d.value}</p>
+                          </div>
+                        );
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-1 text-xs">
+                {pieData.map((d) => (
+                  <div key={d.name} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: d.color }} />
+                      <span>{d.name}</span>
+                    </div>
+                    <span className="font-bold">{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Contratos Recentes - full width */}
+      <Card className="border-t-4 border-t-primary bg-white shadow-sm">
+        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm">Contratos Recentes</CardTitle>
+          <button onClick={() => navigate("/vendas")} className="text-xs text-primary hover:underline flex items-center gap-1">
+            Ver todos <ChevronRight className="h-3 w-3" />
+          </button>
+        </CardHeader>
+        <CardContent className="px-4 pb-3">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs py-1">DATA VENDA</TableHead>
+                <TableHead className="text-xs py-1">LOTE</TableHead>
+                <TableHead className="text-xs py-1">COMPRADOR</TableHead>
+                <TableHead className="text-xs py-1">VALOR</TableHead>
+                <TableHead className="text-xs py-1">STATUS</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contratosRecentes && contratosRecentes.length > 0 ? (
+                contratosRecentes.map((contrato) => (
+                  <TableRow key={contrato.id}>
+                    <TableCell className="text-xs py-1.5">
+                      {contrato.data_venda ? new Date(contrato.data_venda + "T00:00:00").toLocaleDateString("pt-BR") : "-"}
+                    </TableCell>
+                    <TableCell className="text-xs py-1.5 font-medium">
+                      {contrato.lote ? `Q${contrato.lote.quadra}-L${contrato.lote.numero_lote}` : "N/A"}
+                    </TableCell>
+                    <TableCell className="text-xs py-1.5">
+                      {contrato.comprador?.nome_razao || "N/A"}
+                    </TableCell>
+                    <TableCell className="text-xs py-1.5">
+                      {formatCurrency(Number(contrato.valor_venda))}
+                    </TableCell>
+                    <TableCell className="py-1.5">
+                      <Badge className={`text-[10px] px-1.5 py-0 ${vendaStatusColors[contrato.status || "ATIVA"]}`}>
+                        {vendaStatusLabels[contrato.status || "ATIVA"]}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
+                    Nenhum contrato
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
