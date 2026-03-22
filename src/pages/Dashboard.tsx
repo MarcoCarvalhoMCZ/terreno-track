@@ -98,7 +98,7 @@ export default function Dashboard() {
 
       const total = data.length;
       const disponivel = data.filter((l) => l.status === "DISPONIVEL").length;
-      const vendido = data.filter((l) => l.status === "VENDIDO").length;
+      const vendido = data.filter((l) => l.status === "VENDIDO" || l.status === "QUITADO").length;
       const reservado = data.filter((l) => l.status === "RESERVADO").length;
       const quitado = data.filter((l) => l.status === "QUITADO").length;
 
