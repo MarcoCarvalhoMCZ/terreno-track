@@ -394,7 +394,7 @@ export default function Indicadores() {
         )}
       </div>
 
-      <Tabs defaultValue="indicadores" className="space-y-4">
+      <Tabs defaultValue={tabFromUrl} className="space-y-4">
         <TabsList>
           <TabsTrigger value="indicadores">
             <TrendingUp className="mr-2 h-4 w-4" />
