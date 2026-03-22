@@ -495,8 +495,8 @@ export default function Dashboard() {
                   {formatCompactCurrency(saldoLotes?.total || 0)}
                 </p>
                 <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                  <p>Parc: {formatCompactCurrency(saldoLotes?.parcelamento || 0)}</p>
-                  <p>Ref: {formatCompactCurrency(saldoLotes?.reforco || 0)}</p>
+                  <p>Parc: {formatCurrency(saldoLotes?.parcelamento || 0)}</p>
+                  <p>Ref: {formatCurrency(saldoLotes?.reforco || 0)}</p>
                 </div>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
