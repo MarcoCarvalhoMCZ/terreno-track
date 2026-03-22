@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  PieChart, Pie, Cell,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { format, subMonths } from "date-fns";
