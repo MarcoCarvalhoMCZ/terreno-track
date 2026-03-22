@@ -290,7 +290,7 @@ export default function Dashboard() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Lotes Vendidos</p>
-                <p className="text-2xl font-bold">{lotesStats?.vendido || 0}</p>
+                <p className="text-2xl font-bold">{lotesStats?.totalVendidos || 0}</p>
                 <p className="text-xs text-muted-foreground">{lotesStats?.percentVendido}% do total</p>
               </div>
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
