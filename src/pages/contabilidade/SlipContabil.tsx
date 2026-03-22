@@ -610,6 +610,48 @@ export default function SlipContabil() {
       startY = (doc as any).lastAutoTable.finalY + 8;
     }
 
+    // Partida Mensal entries
+    for (const pmRow of rowsPartidaMensal) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(`PARTIDA MENSAL – ${getTipoMovimentoLabel(pmRow.tipo_mov)}`, 14, startY);
+      doc.setFont("helvetica", "normal");
+      startY += 4;
+      doc.text(`Débito: ${formatContaSlip(pmRow.conta_debito_codigo, pmRow.conta_debito_estruturado)}`, 14, startY);
+      startY += 4;
+      doc.text(`Crédito: ${formatContaSlip(pmRow.conta_credito_codigo, pmRow.conta_credito_estruturado)}`, 14, startY);
+      startY += 4;
+      doc.text(`Valor: ${formatCurrency(pmRow.valor)}`, 14, startY);
+      startY += 6;
+
+      if (pmRow.detail_rows && pmRow.detail_rows.length > 0) {
+        doc.text(`Listagem de suporte (${pmRow.detail_rows.length} operações):`, 14, startY);
+        startY += 2;
+        const listHeaders = ["Lote", "Comprador", "Valor R$"];
+        const listBody = pmRow.detail_rows.map((dr) => [
+          `${dr.quadra}-${dr.numero_lote}`,
+          dr.comprador_nome || "—",
+          formatCurrency(dr.valor),
+        ]);
+        const listFooter = ["TOTAL", "", formatCurrency(pmRow.valor)];
+
+        autoTable(doc, {
+          head: [listHeaders],
+          body: [...listBody, listFooter],
+          startY,
+          styles: { fontSize: 7 },
+          headStyles: { fillColor: [34, 87, 55] },
+          didParseCell: (data: any) => {
+            if (data.row.index === listBody.length) {
+              data.cell.styles.fontStyle = "bold";
+              data.cell.styles.fillColor = [240, 240, 240];
+            }
+          },
+        });
+        startY = (doc as any).lastAutoTable.finalY + 8;
+      }
+    }
+
     // Listing groups (without historico)
     for (const group of listingGroups) {
       const groupTotal = group.rows.reduce((s, r) => s + r.valor, 0);
