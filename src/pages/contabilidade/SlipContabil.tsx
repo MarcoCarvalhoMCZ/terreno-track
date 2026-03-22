@@ -32,6 +32,7 @@ interface MapaEntry {
   historico_padrao: string | null;
   lancamento_pai_id: string | null;
   expressao_valor: string | null;
+  partida_mensal: boolean;
   conta_debito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
   conta_credito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
 }
