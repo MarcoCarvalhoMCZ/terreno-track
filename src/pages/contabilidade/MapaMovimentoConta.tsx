@@ -489,6 +489,26 @@ export default function MapaMovimentoConta() {
                 rows={3}
               />
             </div>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                id="partida_mensal"
+                checked={form.partida_mensal}
+                onCheckedChange={(checked) => setForm({ ...form, partida_mensal: !!checked })}
+              />
+              <Label htmlFor="partida_mensal" className="cursor-pointer">
+                Partida Mensal?
+              </Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs">
+                    <p className="text-xs">Quando marcado, o slip agrupa todas as operações do mês em um único lançamento com o valor total, acompanhado de uma listagem de suporte.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
               <Button type="submit">{selected ? "Salvar" : "Criar"}</Button>
