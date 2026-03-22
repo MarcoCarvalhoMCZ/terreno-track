@@ -178,30 +178,63 @@ export default function Dashboard() {
     queryFn: async () => {
       const hoje = new Date().toISOString().split("T")[0];
 
-      // Total de parcelas abertas
-      const { count: totalAbertas } = await supabase
-        .from("parcelas_abertas")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "ABERTO");
-
       // Parcelas vencidas (em atraso)
       const { data: vencidas, error } = await supabase
         .from("parcelas_abertas")
-        .select("total_devido")
+        .select("total_devido, vencimento, lote_id")
         .eq("status", "ABERTO")
         .lt("vencimento", hoje);
 
       if (error) throw error;
 
       const qtdVencidas = vencidas?.length || 0;
-      const valorTotal = (vencidas || []).reduce((s, p) => s + (p.total_devido || 0), 0);
-      const percentual = (totalAbertas || 0) > 0
-        ? ((qtdVencidas / (totalAbertas || 1)) * 100).toFixed(1)
+      const valorTotalAtraso = (vencidas || []).reduce((s, p) => s + (p.total_devido || 0), 0);
+
+      // Coletar competências (YYYY-MM) das parcelas vencidas para buscar faturamento
+      const competenciasSet = new Set<string>();
+      for (const p of (vencidas || [])) {
+        if (p.vencimento) {
+          competenciasSet.add(p.vencimento.substring(0, 7)); // YYYY-MM
+        }
+      }
+
+      let totalFaturado = 0;
+      if (competenciasSet.size > 0) {
+        // Buscar débitos (faturamento) nos meses das parcelas vencidas
+        const competencias = Array.from(competenciasSet);
+        // Para cada competência, buscar débitos do mês
+        const pageSize = 1000;
+        let allDebitos: { debito: number | null; data_mov: string }[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data: page, error: errD } = await supabase
+            .from("conta_corrente_lote")
+            .select("debito, data_mov")
+            .gt("debito", 0)
+            .range(from, from + pageSize - 1);
+          if (errD) throw errD;
+          allDebitos = allDebitos.concat(page || []);
+          hasMore = (page?.length || 0) === pageSize;
+          from += pageSize;
+        }
+
+        // Filtrar apenas os meses correspondentes às parcelas vencidas
+        for (const d of allDebitos) {
+          const comp = d.data_mov?.substring(0, 7);
+          if (comp && competenciasSet.has(comp)) {
+            totalFaturado += d.debito || 0;
+          }
+        }
+      }
+
+      const percentual = totalFaturado > 0
+        ? ((valorTotalAtraso / totalFaturado) * 100).toFixed(1)
         : "0";
 
       return {
         qtdVencidas,
-        valorTotal,
+        valorTotal: valorTotalAtraso,
         percentual,
       };
     },
