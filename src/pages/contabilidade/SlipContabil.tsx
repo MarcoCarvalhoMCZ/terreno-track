@@ -13,6 +13,7 @@ import { FileText, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { formatCurrency, formatDocument } from "@/lib/formatters";
 import { tiposMovimentoTodos, getTipoMovimentoLabel } from "@/constants/movimento";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -94,6 +95,7 @@ interface HistoricoCtx {
   qtd_parcelas: number | null;
   valor: number;
   parcela: number | null;
+  data_mov: string | null;
 }
 
 function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
@@ -131,6 +133,9 @@ function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
   result = r(result, "valor_atualizacao", formatCurrency(ctx.valor));
   result = r(result, "valor_juros", formatCurrency(ctx.valor));
   result = r(result, "valor_multa", formatCurrency(ctx.valor));
+  result = r(result, "mes_ano", ctx.data_mov
+    ? format(new Date(ctx.data_mov + "T00:00:00"), "MMMM/yyyy", { locale: ptBR }).toUpperCase()
+    : "—");
   return result;
 }
 
@@ -380,6 +385,7 @@ export default function SlipContabil() {
         qtd_parcelas: venda?.qtd_parcelas ?? null,
         valor,
         parcela: mov.numero_parcela || null,
+        data_mov: mov.data_mov || null,
       };
 
       for (const mapping of mappings) {
