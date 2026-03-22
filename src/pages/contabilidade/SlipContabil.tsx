@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FileText, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { formatCurrency, formatDocument } from "@/lib/formatters";
 import { tiposMovimentoTodos, getTipoMovimentoLabel } from "@/constants/movimento";
@@ -252,6 +253,16 @@ export default function SlipContabil() {
   const [ano, setAno] = useState(new Date().getFullYear());
   const [mes, setMes] = useState(String(new Date().getMonth() + 1));
   const [tipoMovFiltro, setTipoMovFiltro] = useState<string>("ALL");
+  const [checkedSlips, setCheckedSlips] = useState<Set<string>>(new Set());
+
+  const toggleChecked = useCallback((key: string) => {
+    setCheckedSlips((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   const { data: mapa } = useQuery({
     queryKey: ["mapa-movimento-conta"],
@@ -669,9 +680,12 @@ export default function SlipContabil() {
           ) : (
             <div className="space-y-0">
               {/* Rows WITH historico - detailed view */}
-              {rowsWithHistorico.map((row, idx) => (
-                <div key={`h-${idx}`}>
-                  <div className={`py-3 px-4 space-y-1 ${row.is_second ? "bg-muted/30 pl-8" : ""}`}>
+              {rowsWithHistorico.map((row, idx) => {
+                const checkKey = `h-${idx}`;
+                const isChecked = checkedSlips.has(checkKey);
+                return (
+                <div key={checkKey}>
+                  <div className={`py-3 px-4 space-y-1 ${row.is_second ? "bg-muted/30 pl-8" : ""} ${isChecked ? "opacity-50" : ""}`}>
                     {row.is_second && (
                       <span className="text-xs text-muted-foreground font-medium">↳ 2º lançamento vinculado</span>
                     )}
@@ -695,12 +709,24 @@ export default function SlipContabil() {
                             {formatContaSlip(row.conta_credito_codigo, row.conta_credito_estruturado)}
                           </span>
                         </div>
+                        <div className="mt-0.5">
+                          <span className="text-xs text-muted-foreground">Valor R$: </span>
+                          <span className="font-mono font-bold text-sm text-primary">
+                            {formatCurrency(row.valor)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs text-muted-foreground">Valor R$</span>
-                        <p className="font-mono font-bold text-sm text-primary">
-                          {formatCurrency(row.valor)}
-                        </p>
+                      <div className="flex items-center justify-end">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={checkKey}
+                            checked={isChecked}
+                            onCheckedChange={() => toggleChecked(checkKey)}
+                          />
+                          <label htmlFor={checkKey} className="text-xs text-muted-foreground cursor-pointer select-none">
+                            Contabilizado
+                          </label>
+                        </div>
                       </div>
                     </div>
                     {row.historico && (
@@ -712,7 +738,8 @@ export default function SlipContabil() {
                   </div>
                   {idx < rowsWithHistorico.length - 1 && <Separator />}
                 </div>
-              ))}
+                );
+              })}
 
               {/* Rows WITHOUT historico - grouped table listing */}
               {listingGroups.map((group, gIdx) => {
@@ -737,21 +764,34 @@ export default function SlipContabil() {
                           <th className="text-left py-2 px-4 font-medium">Lote</th>
                           <th className="text-left py-2 px-4 font-medium">Comprador</th>
                           <th className="text-right py-2 px-4 font-medium">Valor R$</th>
+                          <th className="text-center py-2 px-4 font-medium w-[100px]">Contab.</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {group.rows.map((lr, lIdx) => (
-                          <tr key={lIdx} className="border-b last:border-b-0">
+                        {group.rows.map((lr, lIdx) => {
+                          const checkKey = `g-${gIdx}-${lIdx}`;
+                          const isChecked = checkedSlips.has(checkKey);
+                          return (
+                          <tr key={lIdx} className={`border-b last:border-b-0 ${isChecked ? "opacity-50" : ""}`}>
                             <td className="py-1.5 px-4 font-mono">{lr.quadra}-{lr.numero_lote}</td>
                             <td className="py-1.5 px-4">{lr.comprador_nome}</td>
                             <td className="py-1.5 px-4 text-right font-mono">{formatCurrency(lr.valor)}</td>
+                            <td className="py-1.5 px-4 text-center">
+                              <Checkbox
+                                id={checkKey}
+                                checked={isChecked}
+                                onCheckedChange={() => toggleChecked(checkKey)}
+                              />
+                            </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                       <tfoot>
                         <tr className="bg-muted/20 font-bold">
                           <td className="py-2 px-4" colSpan={2}>TOTAL</td>
                           <td className="py-2 px-4 text-right font-mono text-primary">{formatCurrency(groupTotal)}</td>
+                          <td></td>
                         </tr>
                       </tfoot>
                     </table>
