@@ -764,21 +764,34 @@ export default function SlipContabil() {
                           <th className="text-left py-2 px-4 font-medium">Lote</th>
                           <th className="text-left py-2 px-4 font-medium">Comprador</th>
                           <th className="text-right py-2 px-4 font-medium">Valor R$</th>
+                          <th className="text-center py-2 px-4 font-medium w-[100px]">Contab.</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {group.rows.map((lr, lIdx) => (
-                          <tr key={lIdx} className="border-b last:border-b-0">
+                        {group.rows.map((lr, lIdx) => {
+                          const checkKey = `g-${gIdx}-${lIdx}`;
+                          const isChecked = checkedSlips.has(checkKey);
+                          return (
+                          <tr key={lIdx} className={`border-b last:border-b-0 ${isChecked ? "opacity-50" : ""}`}>
                             <td className="py-1.5 px-4 font-mono">{lr.quadra}-{lr.numero_lote}</td>
                             <td className="py-1.5 px-4">{lr.comprador_nome}</td>
                             <td className="py-1.5 px-4 text-right font-mono">{formatCurrency(lr.valor)}</td>
+                            <td className="py-1.5 px-4 text-center">
+                              <Checkbox
+                                id={checkKey}
+                                checked={isChecked}
+                                onCheckedChange={() => toggleChecked(checkKey)}
+                              />
+                            </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                       <tfoot>
                         <tr className="bg-muted/20 font-bold">
                           <td className="py-2 px-4" colSpan={2}>TOTAL</td>
                           <td className="py-2 px-4 text-right font-mono text-primary">{formatCurrency(groupTotal)}</td>
+                          <td></td>
                         </tr>
                       </tfoot>
                     </table>
