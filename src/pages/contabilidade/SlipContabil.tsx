@@ -61,6 +61,7 @@ interface SlipRow {
   parcela: number | null;
   has_historico: boolean;
   is_partida_mensal: boolean;
+  dia_lancamento: string;
   detail_rows?: ListingRow[];
 }
 
