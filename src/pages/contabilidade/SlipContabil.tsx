@@ -33,6 +33,7 @@ interface MapaEntry {
   lancamento_pai_id: string | null;
   expressao_valor: string | null;
   partida_mensal: boolean;
+  dia_lancamento: string;
   conta_debito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
   conta_credito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
 }
@@ -261,7 +262,6 @@ export default function SlipContabil() {
   const [ano, setAno] = useState(new Date().getFullYear());
   const [mes, setMes] = useState(String(new Date().getMonth() + 1));
   const [tipoMovFiltro, setTipoMovFiltro] = useState<string>("ALL");
-  const [diaLancamentoMensal, setDiaLancamentoMensal] = useState<"primeiro" | "ultimo">("ultimo");
   const [checkedSlips, setCheckedSlips] = useState<Set<string>>(new Set());
 
   const toggleChecked = useCallback((key: string) => {
