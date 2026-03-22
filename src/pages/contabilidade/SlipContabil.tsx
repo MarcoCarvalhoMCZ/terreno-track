@@ -253,6 +253,16 @@ export default function SlipContabil() {
   const [ano, setAno] = useState(new Date().getFullYear());
   const [mes, setMes] = useState(String(new Date().getMonth() + 1));
   const [tipoMovFiltro, setTipoMovFiltro] = useState<string>("ALL");
+  const [checkedSlips, setCheckedSlips] = useState<Set<string>>(new Set());
+
+  const toggleChecked = useCallback((key: string) => {
+    setCheckedSlips((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   const { data: mapa } = useQuery({
     queryKey: ["mapa-movimento-conta"],
