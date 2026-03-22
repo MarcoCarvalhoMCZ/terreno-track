@@ -36,6 +36,7 @@ interface MapaItem {
   lancamento_pai_id: string | null;
   expressao_valor: string | null;
   partida_mensal: boolean;
+  dia_lancamento: string;
   conta_debito?: { id: string; codigo: string; descricao: string } | null;
   conta_credito?: { id: string; codigo: string; descricao: string } | null;
 }
@@ -54,6 +55,7 @@ interface MapaForm {
   expressao_valor_1: string;
   expressao_valor_2: string;
   partida_mensal: boolean;
+  dia_lancamento: string;
 }
 
 const NONE = "__NONE__";
@@ -66,6 +68,7 @@ const initialForm: MapaForm = {
   expressao_valor_1: NONE,
   expressao_valor_2: NONE,
   partida_mensal: false,
+  dia_lancamento: "ultimo",
 };
 
 const VARIAVEIS_VALOR = [
@@ -211,6 +214,7 @@ export default function MapaMovimentoConta() {
       expressao_valor_1: parts[0] || NONE,
       expressao_valor_2: parts[1] || NONE,
       partida_mensal: item.partida_mensal ?? false,
+      dia_lancamento: item.dia_lancamento || "ultimo",
     });
     setIsSecondEntry(!!item.lancamento_pai_id);
     setParentId(item.lancamento_pai_id);
@@ -227,6 +231,7 @@ export default function MapaMovimentoConta() {
       expressao_valor_1: NONE,
       expressao_valor_2: NONE,
       partida_mensal: false,
+      dia_lancamento: "ultimo",
     });
     setIsSecondEntry(true);
     setParentId(parent.id);
@@ -257,6 +262,7 @@ export default function MapaMovimentoConta() {
       lancamento_pai_id: isSecondEntry ? parentId : null,
       expressao_valor: expressaoValor,
       partida_mensal: form.partida_mensal,
+      dia_lancamento: form.partida_mensal ? form.dia_lancamento : "ultimo",
     };
 
     if (selected) {
@@ -510,6 +516,18 @@ export default function MapaMovimentoConta() {
                 </Tooltip>
               </TooltipProvider>
             </div>
+            {form.partida_mensal && (
+              <div className="space-y-2 pl-6">
+                <Label>Dia do Lançamento</Label>
+                <Select value={form.dia_lancamento} onValueChange={(v) => setForm({ ...form, dia_lancamento: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="primeiro">Primeiro dia do mês</SelectItem>
+                    <SelectItem value="ultimo">Último dia do mês</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
               <Button type="submit">{selected ? "Salvar" : "Criar"}</Button>

@@ -1,0 +1,1 @@
+ALTER TABLE public.mapa_movimento_conta ADD COLUMN dia_lancamento text NOT NULL DEFAULT 'ultimo';

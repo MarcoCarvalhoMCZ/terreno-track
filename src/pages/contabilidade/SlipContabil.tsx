@@ -33,6 +33,7 @@ interface MapaEntry {
   lancamento_pai_id: string | null;
   expressao_valor: string | null;
   partida_mensal: boolean;
+  dia_lancamento: string;
   conta_debito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
   conta_credito: { id: string; codigo: string; descricao: string; codigo_estruturado: string | null } | null;
 }
@@ -60,6 +61,7 @@ interface SlipRow {
   parcela: number | null;
   has_historico: boolean;
   is_partida_mensal: boolean;
+  dia_lancamento: string;
   detail_rows?: ListingRow[];
 }
 
@@ -261,7 +263,6 @@ export default function SlipContabil() {
   const [ano, setAno] = useState(new Date().getFullYear());
   const [mes, setMes] = useState(String(new Date().getMonth() + 1));
   const [tipoMovFiltro, setTipoMovFiltro] = useState<string>("ALL");
-  const [diaLancamentoMensal, setDiaLancamentoMensal] = useState<"primeiro" | "ultimo">("ultimo");
   const [checkedSlips, setCheckedSlips] = useState<Set<string>>(new Set());
 
   const toggleChecked = useCallback((key: string) => {
@@ -420,6 +421,7 @@ export default function SlipContabil() {
           parcela: ctx.parcela,
           has_historico: !!mapping.historico_padrao,
           is_partida_mensal: !!mapping.partida_mensal,
+          dia_lancamento: mapping.dia_lancamento || "ultimo",
         });
 
         const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
@@ -450,6 +452,7 @@ export default function SlipContabil() {
             parcela: ctx.parcela,
             has_historico: !!child.historico_padrao,
             is_partida_mensal: !!mapping.partida_mensal,
+            dia_lancamento: mapping.dia_lancamento || "ultimo",
           });
         }
       }
@@ -496,8 +499,8 @@ export default function SlipContabil() {
     for (const entry of mensalMap.values()) {
       entry.details.sort(sortFn);
       entry.aggregated.detail_rows = entry.details;
-      // Use first or last day of month based on user selection
-      const dataMensal = diaLancamentoMensal === "primeiro" ? startDate : endDate;
+      // Use first or last day of month based on mapping config
+      const dataMensal = entry.aggregated.dia_lancamento === "primeiro" ? startDate : endDate;
       entry.aggregated.data_mov = dataMensal;
       dailyRows.push(entry.aggregated);
     }
@@ -512,7 +515,7 @@ export default function SlipContabil() {
     });
 
     return dailyRows;
-  }, [movimentos, mapa, vendasAtivasPorLote, startDate, endDate, diaLancamentoMensal]);
+  }, [movimentos, mapa, vendasAtivasPorLote, startDate, endDate]);
 
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL") return slipRows;
@@ -716,7 +719,7 @@ export default function SlipContabil() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Ano</Label>
               <div className="flex items-center gap-2">
@@ -749,16 +752,6 @@ export default function SlipContabil() {
                   {tiposPresentes.map((t) => (
                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Dia Lanc. Mensal</Label>
-              <Select value={diaLancamentoMensal} onValueChange={(v) => setDiaLancamentoMensal(v as "primeiro" | "ultimo")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="primeiro">Primeiro dia do mês</SelectItem>
-                  <SelectItem value="ultimo">Último dia do mês</SelectItem>
                 </SelectContent>
               </Select>
             </div>
