@@ -417,6 +417,7 @@ export default function SlipContabil() {
           data_venda: ctx.data_venda,
           parcela: ctx.parcela,
           has_historico: !!mapping.historico_padrao,
+          is_partida_mensal: !!mapping.partida_mensal,
         });
 
         const child = childMappings.find((c) => c.lancamento_pai_id === mapping.id);
@@ -440,12 +441,13 @@ export default function SlipContabil() {
             conta_credito_codigo: child.conta_credito?.codigo || "",
             conta_credito_estruturado: child.conta_credito?.codigo_estruturado || "",
             conta_credito_descricao: child.conta_credito?.descricao || "",
-          historico: resolveHistorico(child.historico_padrao, ctxChild),
+            historico: resolveHistorico(child.historico_padrao, ctxChild),
             valor: valorChild,
             is_second: true,
             data_venda: ctx.data_venda,
             parcela: ctx.parcela,
             has_historico: !!child.historico_padrao,
+            is_partida_mensal: !!mapping.partida_mensal,
           });
         }
       }
