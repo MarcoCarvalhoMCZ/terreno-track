@@ -96,6 +96,8 @@ const INDICADORES_NOMES = ["IGPM", "INCC", "INPC", "IPCA"];
 export default function Indicadores() {
   const { canEdit } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab") || "indicadores";
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
