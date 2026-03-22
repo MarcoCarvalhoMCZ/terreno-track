@@ -35,6 +35,13 @@ export default function Dashboard() {
     },
   });
 
+  const PIE_COLORS: Record<string, string> = {
+    VENDIDO: "#ef4444",
+    QUITADO: "#000000",
+    CANCELADO: "#9ca3af",
+    DISPONIVEL: "#22c55e",
+  };
+
   const { data: lotesStats } = useQuery({
     queryKey: ["lotes-stats"],
     queryFn: async () => {
@@ -42,16 +49,29 @@ export default function Dashboard() {
       if (error) throw error;
       const total = data.length;
       const disponivel = data.filter((l) => l.status === "DISPONIVEL").length;
-      const vendido = data.filter((l) => l.status === "VENDIDO" || l.status === "QUITADO" || l.status === "CANCELADO").length;
-      const reservado = data.filter((l) => l.status === "RESERVADO").length;
+      const vendido = data.filter((l) => l.status === "VENDIDO").length;
       const quitado = data.filter((l) => l.status === "QUITADO").length;
+      const cancelado = data.filter((l) => l.status === "CANCELADO").length;
+      const totalVendidos = vendido + quitado + cancelado;
+      const reservado = data.filter((l) => l.status === "RESERVADO").length;
       return {
-        total, disponivel, vendido, reservado, quitado,
-        percentVendido: total > 0 ? ((vendido / total) * 100).toFixed(0) : 0,
+        total, disponivel, vendido, quitado, cancelado, reservado,
+        totalVendidos,
+        percentVendido: total > 0 ? ((totalVendidos / total) * 100).toFixed(0) : 0,
         percentDisponivel: total > 0 ? ((disponivel / total) * 100).toFixed(0) : 0,
       };
     },
   });
+
+  const pieData = useMemo(() => {
+    if (!lotesStats) return [];
+    return [
+      { name: "Vendidos", value: lotesStats.vendido, color: PIE_COLORS.VENDIDO },
+      { name: "Quitados", value: lotesStats.quitado, color: PIE_COLORS.QUITADO },
+      { name: "Cancelados", value: lotesStats.cancelado, color: PIE_COLORS.CANCELADO },
+      { name: "Disponíveis", value: lotesStats.disponivel, color: PIE_COLORS.DISPONIVEL },
+    ].filter(d => d.value > 0);
+  }, [lotesStats]);
 
   const dataInicio12Meses = format(subMonths(new Date(), 12), "yyyy-MM-dd");
 
@@ -172,7 +192,7 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from("vendas")
         .select(`*, comprador:pessoas!comprador_pessoa_id(nome_razao), lote:lotes(quadra, numero_lote)`)
-        .order("created_at", { ascending: false })
+        .order("data_venda", { ascending: false })
         .limit(5);
       if (error) throw error;
       return data || [];
