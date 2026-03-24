@@ -26,6 +26,7 @@ import { tiposMovimentoTodos } from "@/constants/movimento";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AuditFooter } from "@/components/AuditFooter";
 
 interface MapaItem {
   id: string;
@@ -37,6 +38,10 @@ interface MapaItem {
   expressao_valor: string | null;
   partida_mensal: boolean;
   dia_lancamento: string;
+  created_by: string | null;
+  created_at: string | null;
+  updated_by: string | null;
+  updated_at: string | null;
   conta_debito?: { id: string; codigo: string; descricao: string } | null;
   conta_credito?: { id: string; codigo: string; descricao: string } | null;
 }
@@ -527,6 +532,14 @@ export default function MapaMovimentoConta() {
                   </SelectContent>
                 </Select>
               </div>
+            )}
+            {selected && (
+              <AuditFooter
+                created_by={selected.created_by}
+                created_at={selected.created_at}
+                updated_by={selected.updated_by}
+                updated_at={selected.updated_at}
+              />
             )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
