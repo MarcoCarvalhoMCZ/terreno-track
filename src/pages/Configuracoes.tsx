@@ -17,6 +17,7 @@ import { Settings, Save, RefreshCw, Upload, X, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
+import { AuditFooter } from "@/components/AuditFooter";
 
 type Configuracao = Tables<"configuracoes">;
 type ConfiguracaoUpdate = TablesUpdate<"configuracoes">;
@@ -600,20 +601,16 @@ export default function Configuracoes() {
             </CardContent>
           </Card>
 
-          {/* Info Card */}
+          {/* Audit Info */}
           {configuracao && (
             <Card className="bg-muted/50">
               <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
-                  <div>
-                    <span className="font-medium">Criado em:</span>{" "}
-                    {configuracao.created_at ? new Date(configuracao.created_at).toLocaleString("pt-BR") : "-"}
-                  </div>
-                  <div>
-                    <span className="font-medium">Última atualização:</span>{" "}
-                    {configuracao.updated_at ? new Date(configuracao.updated_at).toLocaleString("pt-BR") : "-"}
-                  </div>
-                </div>
+                <AuditFooter
+                  created_by={configuracao.created_by}
+                  created_at={configuracao.created_at}
+                  updated_by={configuracao.updated_by}
+                  updated_at={configuracao.updated_at}
+                />
               </CardContent>
             </Card>
           )}

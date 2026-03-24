@@ -52,6 +52,7 @@ import type { Lote } from "@/types/lote.types";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
 import { LoteSearchSelect } from "@/components/LoteSearchSelect";
+import { AuditFooter } from "@/components/AuditFooter";
 
 type VendaInsert = TablesInsert<"vendas">;
 type VendaUpdate = TablesUpdate<"vendas">;
@@ -740,6 +741,15 @@ export default function Vendas() {
                 {/* Documentos - só aparece ao editar */}
                 {editingVenda && (
                   <VendaDocumentos vendaId={editingVenda.id} canEdit={canEdit} />
+                )}
+
+                {editingVenda && (
+                  <AuditFooter
+                    created_by={editingVenda.created_by}
+                    created_at={editingVenda.created_at}
+                    updated_by={editingVenda.updated_by}
+                    updated_at={editingVenda.updated_at}
+                  />
                 )}
 
                 <div className="flex justify-end gap-2 pt-4">

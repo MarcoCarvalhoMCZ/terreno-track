@@ -48,6 +48,7 @@ import type { Lote, LoteInsert, LoteUpdate } from "@/types/lote.types";
 import { emptyLote } from "@/types/lote.types";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
+import { AuditFooter } from "@/components/AuditFooter";
 
 export default function Lotes() {
   const { canEdit } = useAuth();
@@ -349,6 +350,15 @@ export default function Lotes() {
                     rows={3}
                   />
                 </div>
+
+                {editingLote && (
+                  <AuditFooter
+                    created_by={editingLote.created_by}
+                    created_at={editingLote.created_at}
+                    updated_by={editingLote.updated_by}
+                    updated_at={editingLote.updated_at}
+                  />
+                )}
 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button

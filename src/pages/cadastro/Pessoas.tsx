@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
+import { AuditFooter } from "@/components/AuditFooter";
 
 type Pessoa = Tables<"pessoas">;
 type PessoaInsert = TablesInsert<"pessoas">;
@@ -620,6 +621,15 @@ export default function Pessoas() {
                   </div>
                 </div>
               </div>
+
+              {editingPessoa && (
+                <AuditFooter
+                  created_by={editingPessoa.created_by}
+                  created_at={editingPessoa.created_at}
+                  updated_by={editingPessoa.updated_by}
+                  updated_at={editingPessoa.updated_at}
+                />
+              )}
 
               <div className="flex justify-end gap-2 pt-4">
                 <Button

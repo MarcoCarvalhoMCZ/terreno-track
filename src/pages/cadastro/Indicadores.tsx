@@ -49,6 +49,7 @@ import { format, parse, startOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
+import { AuditFooter } from "@/components/AuditFooter";
 
 interface Indicador {
   id: string;
@@ -58,6 +59,9 @@ interface Indicador {
   periodicidade: string | null;
   ativo: boolean | null;
   created_at: string | null;
+  created_by: string | null;
+  updated_at: string | null;
+  updated_by: string | null;
 }
 
 interface IndicadorValor {
@@ -705,6 +709,15 @@ export default function Indicadores() {
               />
               <Label htmlFor="ativo">Indicador ativo</Label>
             </div>
+
+            {selectedIndicador && (
+              <AuditFooter
+                created_by={selectedIndicador.created_by}
+                created_at={selectedIndicador.created_at}
+                updated_by={selectedIndicador.updated_by}
+                updated_at={selectedIndicador.updated_at}
+              />
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleCloseDialog}>

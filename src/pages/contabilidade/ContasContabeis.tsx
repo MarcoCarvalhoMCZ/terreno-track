@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, FileSpreadsheet } from "lucide-react";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
+import { AuditFooter } from "@/components/AuditFooter";
 
 interface ContaContabil {
   id: string;
@@ -34,6 +35,10 @@ interface ContaContabil {
   tipo_conta: string | null;
   natureza_saldo: string | null;
   ativo: boolean | null;
+  created_by: string | null;
+  created_at: string | null;
+  updated_by: string | null;
+  updated_at: string | null;
 }
 
 interface ContaForm {
@@ -317,6 +322,14 @@ export default function ContasContabeis() {
               <Switch checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} />
               <Label>Ativo</Label>
             </div>
+            {selected && (
+              <AuditFooter
+                created_by={selected.created_by}
+                created_at={selected.created_at}
+                updated_by={selected.updated_by}
+                updated_at={selected.updated_at}
+              />
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleCloseDialog}>Cancelar</Button>
               <Button type="submit">{selected ? "Salvar" : "Criar"}</Button>
