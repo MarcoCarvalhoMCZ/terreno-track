@@ -138,6 +138,7 @@ function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
   result = r(result, "valor_atualizacao", formatCurrency(ctx.valor));
   result = r(result, "valor_juros", formatCurrency(ctx.valor));
   result = r(result, "valor_multa", formatCurrency(ctx.valor));
+  result = r(result, "valor_outros", formatCurrency(ctx.valor));
   result = r(result, "mes_ano", ctx.data_mov
     ? format(new Date(ctx.data_mov + "T00:00:00"), "MMMM/yyyy", { locale: ptBR }).toUpperCase()
     : "—");
