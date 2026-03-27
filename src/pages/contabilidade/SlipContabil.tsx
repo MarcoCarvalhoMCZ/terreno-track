@@ -801,6 +801,66 @@ export default function SlipContabil() {
         </CardContent>
       </Card>
 
+      {/* Recebimentos view */}
+      {isRecebimentos ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 flex-wrap">
+              <FileText className="h-5 w-5" />
+              Slip Recebimentos – {mesLabel}/{ano}
+              {recebimentosRows.length > 0 && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  ({recebimentosRows.length} recebimentos)
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center py-8"><span className="text-muted-foreground">Carregando...</span></div>
+            ) : recebimentosRows.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground">Nenhum recebimento no período selecionado.</p>
+              </div>
+            ) : (
+              <>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/20">
+                      <th className="text-left py-2 px-3 font-medium">Data</th>
+                      <th className="text-left py-2 px-3 font-medium">Tipo</th>
+                      <th className="text-left py-2 px-3 font-medium">Lote</th>
+                      <th className="text-left py-2 px-3 font-medium">Comprador</th>
+                      <th className="text-right py-2 px-3 font-medium">Valor Recebido</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recebimentosRows.map((row, idx) => (
+                      <tr key={idx} className="border-b last:border-b-0 hover:bg-muted/10">
+                        <td className="py-1.5 px-3 font-mono text-sm">
+                          {format(new Date(row.data_mov + "T00:00:00"), "dd/MM/yyyy")}
+                        </td>
+                        <td className="py-1.5 px-3 text-sm">{row.categoria}</td>
+                        <td className="py-1.5 px-3 font-mono text-sm">{row.quadra}-{row.numero_lote}</td>
+                        <td className="py-1.5 px-3 text-sm">{row.comprador}</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-sm">{formatCurrency(row.valor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/20 font-bold">
+                      <td className="py-2 px-3" colSpan={4}>TOTAL RECEBIMENTOS</td>
+                      <td className="py-2 px-3 text-right font-mono text-primary">{formatCurrency(recebimentosTotal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+      <>
       {/* Slip entries */}
       <Card>
         <CardHeader>
