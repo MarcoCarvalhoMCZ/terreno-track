@@ -1131,6 +1131,8 @@ export default function SlipContabil() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   );
 }
