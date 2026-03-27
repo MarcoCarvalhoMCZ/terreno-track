@@ -561,9 +561,10 @@ export default function SlipContabil() {
   const exportRecebimentosPDF = useCallback(() => {
     if (!recebimentosRows.length) return;
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const mesNome = MESES_LABEL.find((m) => m.value === mes)?.label || mes;
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text(`Slip Recebimentos – ${mesLabel}/${ano}`, 14, 18);
+    doc.text(`Slip Recebimentos – ${mesNome}/${ano}`, 14, 18);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 24);
