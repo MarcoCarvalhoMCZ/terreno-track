@@ -229,6 +229,93 @@ export default function Balancete() {
     toast.success("Dados atualizados com sucesso.");
   };
 
+  const exportarPDF = () => {
+    if (!columns || columns.length === 0) return;
+
+    const isLandscape = columns.length > 2;
+    const doc = new jsPDF({ orientation: isLandscape ? "landscape" : "portrait", unit: "mm", format: "a4" });
+
+    const titulo = modo === "anual"
+      ? `Balancete do Loteamento - ${ano}`
+      : `Balancete do Loteamento - ${MESES_LABEL[mesInicio]}–${MESES_LABEL[effectiveMesFim]}/${ano}`;
+
+    doc.setFontSize(14);
+    doc.text(titulo, 14, 16);
+    doc.setFontSize(8);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 22);
+
+    const head = ["Movimento", ...columns.map((c) => c.label)];
+
+    const fmtVal = (v: number, dash = true) => (v === 0 && dash ? "-" : formatCurrency(v));
+
+    const body: string[][] = [];
+
+    // Saldo Anterior
+    body.push(["(+) Saldo Anterior", ...columns.map((c) => formatCurrency(c.saldoAnterior))]);
+
+    // Debits
+    for (const row of DEBIT_ROWS) {
+      body.push([row.label, ...columns.map((c) => fmtVal(c.debitValues[row.key] || 0))]);
+    }
+    body.push(["Subtotal Débitos", ...columns.map((c) => formatCurrency(c.totalDebitos))]);
+
+    // Credits
+    for (const row of CREDIT_ROWS) {
+      body.push([row.label, ...columns.map((c) => fmtVal(c.creditValues[row.key] || 0))]);
+    }
+    body.push(["Subtotal Créditos", ...columns.map((c) => formatCurrency(c.totalCreditos))]);
+
+    // Outros
+    body.push(["(±) Outros/Ajustes", ...columns.map((c) => fmtVal(c.totalOutros))]);
+    body.push(["Subtotal Outros", ...columns.map((c) => formatCurrency(c.totalOutros))]);
+
+    // Saldo Final
+    body.push(["(=) Saldo Final", ...columns.map((c) => formatCurrency(c.saldoFinal))]);
+
+    const subtotalRowIndices = new Set([
+      DEBIT_ROWS.length + 1, // after debits + saldo anterior
+      DEBIT_ROWS.length + 1 + CREDIT_ROWS.length + 1, // after credits
+      body.length - 2, // subtotal outros
+    ]);
+    const saldoAnteriorIdx = 0;
+    const saldoFinalIdx = body.length - 1;
+
+    autoTable(doc, {
+      startY: 26,
+      head: [head],
+      body,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: "bold" },
+      columnStyles: Object.fromEntries(
+        columns.map((_, i) => [i + 1, { halign: "right" as const }])
+      ),
+      didParseCell: (data) => {
+        if (data.section !== "body") return;
+        const rowIdx = data.row.index;
+        // Saldo Anterior row
+        if (rowIdx === saldoAnteriorIdx) {
+          data.cell.styles.fillColor = [229, 231, 235];
+          data.cell.styles.fontStyle = "bold";
+        }
+        // Subtotal rows
+        if (subtotalRowIndices.has(rowIdx)) {
+          data.cell.styles.fillColor = [243, 244, 246];
+          data.cell.styles.fontStyle = "bold";
+        }
+        // Saldo Final row
+        if (rowIdx === saldoFinalIdx) {
+          data.cell.styles.fillColor = [219, 234, 254];
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+    });
+
+    const nomeArq = modo === "anual"
+      ? `balancete_${ano}.pdf`
+      : `balancete_${MESES_LABEL[mesInicio]}_${MESES_LABEL[effectiveMesFim]}_${ano}.pdf`;
+    doc.save(nomeArq);
+  };
+
   const renderValueCell = (value: number, isBold = false, isTotal = false) => (
     <TableCell
       className={`text-right font-mono text-sm ${isBold ? "font-bold" : ""} ${isTotal ? "text-primary" : ""} ${value < 0 ? "text-destructive" : ""}`}
