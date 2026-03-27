@@ -590,7 +590,7 @@ export default function SlipContabil() {
     });
 
     doc.save(`slip-recebimentos-${ano}-${mes.padStart(2, "0")}.pdf`);
-  }, [recebimentosRows, recebimentosTotal, ano, mes, mesLabel]);
+  }, [recebimentosRows, recebimentosTotal, ano, mes]);
 
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL" || isRecebimentos) return slipRows;
