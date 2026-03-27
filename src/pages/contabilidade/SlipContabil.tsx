@@ -300,7 +300,7 @@ export default function SlipContabil() {
         const { data, error } = await supabase
           .from("conta_corrente_lote")
           .select(`
-            data_mov, tipo_mov, debito, credito, venda_id, numero_parcela, lote_id,
+            data_mov, tipo_mov, tipo_fluxo, debito, credito, venda_id, numero_parcela, lote_id,
             lote:lotes(quadra, numero_lote, custo_contabil, area_m2, matricula_ri),
             venda:vendas(valor_venda, comprador_nome_1, comprador_cpf_1, comprador_nome_2, comprador_cpf_2, data_venda, valor_arras, valor_reforco, qtd_reforcos, valor_parcelamento, qtd_parcelas, comprador:pessoas!vendas_comprador_pessoa_id_fkey(nome_razao, cpf_cnpj))
           `)
@@ -517,10 +517,51 @@ export default function SlipContabil() {
     return dailyRows;
   }, [movimentos, mapa, vendasAtivasPorLote, startDate, endDate]);
 
+  const isRecebimentos = tipoMovFiltro === "RECEBIMENTOS";
+
+  // Build recebimentos view: credit movements from raw data
+  const recebimentosRows = useMemo(() => {
+    if (!isRecebimentos || !movimentos) return [];
+    const TIPOS_RECEBIMENTO = ["PARCELA", "REFORCO"];
+    const rows: { data_mov: string; categoria: string; quadra: string; numero_lote: string; comprador: string; valor: number }[] = [];
+    for (const mov of movimentos) {
+      const credito = Number(mov.credito || 0);
+      if (credito <= 0) continue;
+      const isParcela = mov.tipo_mov === "PARCELA";
+      const isReforco = mov.tipo_mov === "REFORCO";
+      const isOutro = !TIPOS_RECEBIMENTO.includes(mov.tipo_mov);
+      // Only include PARCELA, REFORCO, or other credit movements (excluding debits like VENDA, ATUALIZACAO, JUROS, MULTA)
+      if (!isParcela && !isReforco && !isOutro) continue;
+      const lote = mov.lote as any;
+      const venda = (mov.venda || vendasAtivasPorLote.get(mov.lote_id)) as any;
+      const compradores = resolveCompradores(venda);
+      const firstName = compradores.comprador?.split(" ")[0] || "—";
+      let categoria = "Outros";
+      if (isParcela) {
+        const fluxo = mov.tipo_fluxo || "PARCELAMENTO";
+        categoria = fluxo === "REFORCO" ? "Reforço" : "Parcelamento";
+      } else if (isReforco) {
+        categoria = "Reforço";
+      }
+      rows.push({
+        data_mov: mov.data_mov,
+        categoria,
+        quadra: lote?.quadra || "-",
+        numero_lote: lote?.numero_lote || "-",
+        comprador: firstName,
+        valor: credito,
+      });
+    }
+    rows.sort((a, b) => a.data_mov.localeCompare(b.data_mov));
+    return rows;
+  }, [isRecebimentos, movimentos, vendasAtivasPorLote]);
+
+  const recebimentosTotal = useMemo(() => recebimentosRows.reduce((s, r) => s + r.valor, 0), [recebimentosRows]);
+
   const filteredRows = useMemo(() => {
-    if (tipoMovFiltro === "ALL") return slipRows;
+    if (tipoMovFiltro === "ALL" || isRecebimentos) return slipRows;
     return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
-  }, [slipRows, tipoMovFiltro]);
+  }, [slipRows, tipoMovFiltro, isRecebimentos]);
 
   // Split: rows with historico AND not partida_mensal = detailed; partida_mensal = monthly with listing
   const rowsWithHistorico = useMemo(() => filteredRows.filter((r) => r.has_historico && !r.is_partida_mensal), [filteredRows]);
@@ -710,10 +751,12 @@ export default function SlipContabil() {
           <h1 className="text-3xl font-bold">Slip Contábil</h1>
           <p className="text-muted-foreground">Partidas Dobradas — Detalhamento contábil dos movimentos por período</p>
         </div>
-        <Button onClick={exportPDF} disabled={!filteredRows.length}>
-          <Download className="mr-2 h-4 w-4" />
-          Exportar PDF
-        </Button>
+        {!isRecebimentos && (
+          <Button onClick={exportPDF} disabled={!filteredRows.length}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar PDF
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -749,6 +792,7 @@ export default function SlipContabil() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Todos os tipos</SelectItem>
+                  <SelectItem value="RECEBIMENTOS">📋 Slip Recebimentos</SelectItem>
                   {tiposPresentes.map((t) => (
                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
@@ -759,6 +803,66 @@ export default function SlipContabil() {
         </CardContent>
       </Card>
 
+      {/* Recebimentos view */}
+      {isRecebimentos ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 flex-wrap">
+              <FileText className="h-5 w-5" />
+              Slip Recebimentos – {mesLabel}/{ano}
+              {recebimentosRows.length > 0 && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  ({recebimentosRows.length} recebimentos)
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center py-8"><span className="text-muted-foreground">Carregando...</span></div>
+            ) : recebimentosRows.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground">Nenhum recebimento no período selecionado.</p>
+              </div>
+            ) : (
+              <>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/20">
+                      <th className="text-left py-2 px-3 font-medium">Data</th>
+                      <th className="text-left py-2 px-3 font-medium">Tipo</th>
+                      <th className="text-left py-2 px-3 font-medium">Lote</th>
+                      <th className="text-left py-2 px-3 font-medium">Comprador</th>
+                      <th className="text-right py-2 px-3 font-medium">Valor Recebido</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recebimentosRows.map((row, idx) => (
+                      <tr key={idx} className="border-b last:border-b-0 hover:bg-muted/10">
+                        <td className="py-1.5 px-3 font-mono text-sm">
+                          {format(new Date(row.data_mov + "T00:00:00"), "dd/MM/yyyy")}
+                        </td>
+                        <td className="py-1.5 px-3 text-sm">{row.categoria}</td>
+                        <td className="py-1.5 px-3 font-mono text-sm">{row.quadra}-{row.numero_lote}</td>
+                        <td className="py-1.5 px-3 text-sm">{row.comprador}</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-sm">{formatCurrency(row.valor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/20 font-bold">
+                      <td className="py-2 px-3" colSpan={4}>TOTAL RECEBIMENTOS</td>
+                      <td className="py-2 px-3 text-right font-mono text-primary">{formatCurrency(recebimentosTotal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+      <>
       {/* Slip entries */}
       <Card>
         <CardHeader>
@@ -1029,6 +1133,8 @@ export default function SlipContabil() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   );
 }
