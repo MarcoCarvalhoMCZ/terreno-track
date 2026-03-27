@@ -790,6 +790,7 @@ export default function SlipContabil() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Todos os tipos</SelectItem>
+                  <SelectItem value="RECEBIMENTOS">📋 Slip Recebimentos</SelectItem>
                   {tiposPresentes.map((t) => (
                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
