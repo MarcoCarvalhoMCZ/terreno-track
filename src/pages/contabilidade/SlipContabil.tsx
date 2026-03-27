@@ -751,10 +751,12 @@ export default function SlipContabil() {
           <h1 className="text-3xl font-bold">Slip Contábil</h1>
           <p className="text-muted-foreground">Partidas Dobradas — Detalhamento contábil dos movimentos por período</p>
         </div>
-        <Button onClick={exportPDF} disabled={!filteredRows.length}>
-          <Download className="mr-2 h-4 w-4" />
-          Exportar PDF
-        </Button>
+        {!isRecebimentos && (
+          <Button onClick={exportPDF} disabled={!filteredRows.length}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar PDF
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
