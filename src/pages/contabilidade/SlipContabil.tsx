@@ -785,7 +785,18 @@ export default function SlipContabil() {
           <h1 className="text-3xl font-bold">Slip Contábil</h1>
           <p className="text-muted-foreground">Partidas Dobradas — Detalhamento contábil dos movimentos por período</p>
         </div>
-        {!isRecebimentos && (
+        {isRecebimentos ? (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.print()} disabled={!recebimentosRows.length}>
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimir
+            </Button>
+            <Button onClick={exportRecebimentosPDF} disabled={!recebimentosRows.length}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar PDF
+            </Button>
+          </div>
+        ) : (
           <Button onClick={exportPDF} disabled={!filteredRows.length}>
             <Download className="mr-2 h-4 w-4" />
             Exportar PDF
