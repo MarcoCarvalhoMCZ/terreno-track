@@ -138,6 +138,7 @@ function resolveHistorico(template: string | null, ctx: HistoricoCtx): string {
   result = r(result, "valor_atualizacao", formatCurrency(ctx.valor));
   result = r(result, "valor_juros", formatCurrency(ctx.valor));
   result = r(result, "valor_multa", formatCurrency(ctx.valor));
+  result = r(result, "valor_outros", formatCurrency(ctx.valor));
   result = r(result, "mes_ano", ctx.data_mov
     ? format(new Date(ctx.data_mov + "T00:00:00"), "MMMM/yyyy", { locale: ptBR }).toUpperCase()
     : "—");
@@ -183,6 +184,9 @@ function resolveExpressaoValor(
         break;
       case "valor_multa":
         total += mov.tipo_mov === "MULTA" ? Number(mov.debito || 0) : 0;
+        break;
+      case "valor_outros":
+        total += mov.tipo_mov === "OUTROS" ? Number(mov.debito || 0) + Number(mov.credito || 0) : 0;
         break;
       default:
         total += Number(mov.debito || 0) + Number(mov.credito || 0);
