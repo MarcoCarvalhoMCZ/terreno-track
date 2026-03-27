@@ -86,6 +86,7 @@ const VARIAVEIS_VALOR = [
   { value: "valor_atualizacao", label: "{valor_atualizacao} – Atualização Monetária" },
   { value: "valor_juros", label: "{valor_juros} – Valor dos Juros" },
   { value: "valor_multa", label: "{valor_multa} – Valor da Multa" },
+  { value: "valor_outros", label: "{valor_outros} – Valor de Outros" },
 ];
 
 const PLACEHOLDERS_HELP = [

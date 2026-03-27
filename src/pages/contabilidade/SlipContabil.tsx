@@ -184,6 +184,9 @@ function resolveExpressaoValor(
       case "valor_multa":
         total += mov.tipo_mov === "MULTA" ? Number(mov.debito || 0) : 0;
         break;
+      case "valor_outros":
+        total += mov.tipo_mov === "OUTROS" ? Number(mov.debito || 0) + Number(mov.credito || 0) : 0;
+        break;
       default:
         total += Number(mov.debito || 0) + Number(mov.credito || 0);
     }
