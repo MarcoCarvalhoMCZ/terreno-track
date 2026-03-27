@@ -9,7 +9,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { FileText, ChevronLeft, ChevronRight, Download, Printer } from "lucide-react";
 import { formatCurrency, formatDocument } from "@/lib/formatters";
 import { tiposMovimentoTodos, getTipoMovimentoLabel } from "@/constants/movimento";
 import { format } from "date-fns";
