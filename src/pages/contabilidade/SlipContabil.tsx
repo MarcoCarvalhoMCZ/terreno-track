@@ -9,7 +9,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { FileText, ChevronLeft, ChevronRight, Download, Printer } from "lucide-react";
 import { formatCurrency, formatDocument } from "@/lib/formatters";
 import { tiposMovimentoTodos, getTipoMovimentoLabel } from "@/constants/movimento";
 import { format } from "date-fns";
@@ -558,6 +558,40 @@ export default function SlipContabil() {
 
   const recebimentosTotal = useMemo(() => recebimentosRows.reduce((s, r) => s + r.valor, 0), [recebimentosRows]);
 
+  const exportRecebimentosPDF = useCallback(() => {
+    if (!recebimentosRows.length) return;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const mesNome = MESES_LABEL.find((m) => m.value === mes)?.label || mes;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Slip Recebimentos – ${mesNome}/${ano}`, 14, 18);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 24);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [["Data", "Tipo", "Lote", "Comprador", "Valor Recebido"]],
+      body: recebimentosRows.map((r) => [
+        format(new Date(r.data_mov + "T00:00:00"), "dd/MM/yyyy"),
+        r.categoria,
+        `${r.quadra}-${r.numero_lote}`,
+        r.comprador,
+        formatCurrency(r.valor),
+      ]),
+      foot: [["", "", "", "TOTAL", formatCurrency(recebimentosTotal)]],
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [41, 65, 122], fontStyle: "bold", fontSize: 8 },
+      footStyles: { fillColor: [230, 230, 230], fontStyle: "bold", textColor: [0, 0, 0], fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        4: { halign: "right" },
+      },
+    });
+
+    doc.save(`slip-recebimentos-${ano}-${mes.padStart(2, "0")}.pdf`);
+  }, [recebimentosRows, recebimentosTotal, ano, mes]);
+
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL" || isRecebimentos) return slipRows;
     return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
@@ -751,7 +785,18 @@ export default function SlipContabil() {
           <h1 className="text-3xl font-bold">Slip Contábil</h1>
           <p className="text-muted-foreground">Partidas Dobradas — Detalhamento contábil dos movimentos por período</p>
         </div>
-        {!isRecebimentos && (
+        {isRecebimentos ? (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.print()} disabled={!recebimentosRows.length}>
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimir
+            </Button>
+            <Button onClick={exportRecebimentosPDF} disabled={!recebimentosRows.length}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar PDF
+            </Button>
+          </div>
+        ) : (
           <Button onClick={exportPDF} disabled={!filteredRows.length}>
             <Download className="mr-2 h-4 w-4" />
             Exportar PDF
