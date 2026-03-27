@@ -331,10 +331,18 @@ export default function Balancete() {
           <h1 className="text-3xl font-bold">Balancete do Loteamento</h1>
           <p className="text-muted-foreground">Demonstrativo por tipos de movimento</p>
         </div>
-        <Button variant="outline" onClick={handleRefresh}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Atualizar Dados
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleRefresh}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Atualizar Dados
+          </Button>
+          {columns.length > 0 && (
+            <Button variant="outline" onClick={exportarPDF}>
+              <FileDown className="mr-2 h-4 w-4" />
+              Exportar PDF
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Period controls */}
