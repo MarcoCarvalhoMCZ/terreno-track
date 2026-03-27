@@ -179,10 +179,10 @@ function resolveExpressaoValor(
         total += Number(mov.debito || 0) + Number(mov.credito || 0);
         break;
       case "valor_juros":
-        total += Number(mov.debito || 0);
+        total += mov.tipo_mov === "JUROS" ? Number(mov.debito || 0) : 0;
         break;
       case "valor_multa":
-        total += Number(mov.debito || 0);
+        total += mov.tipo_mov === "MULTA" ? Number(mov.debito || 0) : 0;
         break;
       default:
         total += Number(mov.debito || 0) + Number(mov.credito || 0);
