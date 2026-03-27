@@ -517,10 +517,51 @@ export default function SlipContabil() {
     return dailyRows;
   }, [movimentos, mapa, vendasAtivasPorLote, startDate, endDate]);
 
+  const isRecebimentos = tipoMovFiltro === "RECEBIMENTOS";
+
+  // Build recebimentos view: credit movements from raw data
+  const recebimentosRows = useMemo(() => {
+    if (!isRecebimentos || !movimentos) return [];
+    const TIPOS_RECEBIMENTO = ["PARCELA", "REFORCO"];
+    const rows: { data_mov: string; categoria: string; quadra: string; numero_lote: string; comprador: string; valor: number }[] = [];
+    for (const mov of movimentos) {
+      const credito = Number(mov.credito || 0);
+      if (credito <= 0) continue;
+      const isParcela = mov.tipo_mov === "PARCELA";
+      const isReforco = mov.tipo_mov === "REFORCO";
+      const isOutro = !TIPOS_RECEBIMENTO.includes(mov.tipo_mov);
+      // Only include PARCELA, REFORCO, or other credit movements (excluding debits like VENDA, ATUALIZACAO, JUROS, MULTA)
+      if (!isParcela && !isReforco && !isOutro) continue;
+      const lote = mov.lote as any;
+      const venda = (mov.venda || vendasAtivasPorLote.get(mov.lote_id)) as any;
+      const compradores = resolveCompradores(venda);
+      const firstName = compradores.comprador?.split(" ")[0] || "—";
+      let categoria = "Outros";
+      if (isParcela) {
+        const fluxo = mov.tipo_fluxo || "PARCELAMENTO";
+        categoria = fluxo === "REFORCO" ? "Reforço" : "Parcelamento";
+      } else if (isReforco) {
+        categoria = "Reforço";
+      }
+      rows.push({
+        data_mov: mov.data_mov,
+        categoria,
+        quadra: lote?.quadra || "-",
+        numero_lote: lote?.numero_lote || "-",
+        comprador: firstName,
+        valor: credito,
+      });
+    }
+    rows.sort((a, b) => a.data_mov.localeCompare(b.data_mov));
+    return rows;
+  }, [isRecebimentos, movimentos, vendasAtivasPorLote]);
+
+  const recebimentosTotal = useMemo(() => recebimentosRows.reduce((s, r) => s + r.valor, 0), [recebimentosRows]);
+
   const filteredRows = useMemo(() => {
-    if (tipoMovFiltro === "ALL") return slipRows;
+    if (tipoMovFiltro === "ALL" || isRecebimentos) return slipRows;
     return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
-  }, [slipRows, tipoMovFiltro]);
+  }, [slipRows, tipoMovFiltro, isRecebimentos]);
 
   // Split: rows with historico AND not partida_mensal = detailed; partida_mensal = monthly with listing
   const rowsWithHistorico = useMemo(() => filteredRows.filter((r) => r.has_historico && !r.is_partida_mensal), [filteredRows]);
