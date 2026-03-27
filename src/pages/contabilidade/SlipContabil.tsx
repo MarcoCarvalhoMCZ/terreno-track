@@ -558,6 +558,39 @@ export default function SlipContabil() {
 
   const recebimentosTotal = useMemo(() => recebimentosRows.reduce((s, r) => s + r.valor, 0), [recebimentosRows]);
 
+  const exportRecebimentosPDF = useCallback(() => {
+    if (!recebimentosRows.length) return;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Slip Recebimentos – ${mesLabel}/${ano}`, 14, 18);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 24);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [["Data", "Tipo", "Lote", "Comprador", "Valor Recebido"]],
+      body: recebimentosRows.map((r) => [
+        format(new Date(r.data_mov + "T00:00:00"), "dd/MM/yyyy"),
+        r.categoria,
+        `${r.quadra}-${r.numero_lote}`,
+        r.comprador,
+        formatCurrency(r.valor),
+      ]),
+      foot: [["", "", "", "TOTAL", formatCurrency(recebimentosTotal)]],
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [41, 65, 122], fontStyle: "bold", fontSize: 8 },
+      footStyles: { fillColor: [230, 230, 230], fontStyle: "bold", textColor: [0, 0, 0], fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        4: { halign: "right" },
+      },
+    });
+
+    doc.save(`slip-recebimentos-${ano}-${mes.padStart(2, "0")}.pdf`);
+  }, [recebimentosRows, recebimentosTotal, ano, mes, mesLabel]);
+
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL" || isRecebimentos) return slipRows;
     return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
