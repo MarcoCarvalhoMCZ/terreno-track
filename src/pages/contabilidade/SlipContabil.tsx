@@ -527,7 +527,7 @@ export default function SlipContabil() {
   // Build recebimentos view: credit movements from raw data
   const recebimentosRows = useMemo(() => {
     if (!isRecebimentos || !movimentos) return [];
-    const TIPOS_RECEBIMENTO = ["PARCELA", "REFORCO", "AMORTIZACAO_ESPECIAL"];
+    const TIPOS_RECEBIMENTO = ["PARCELA", "REFORCO", "AMORTIZACAO_ESPECIAL", "ATUALIZACAO"];
     const rows: { data_mov: string; categoria: string; quadra: string; numero_lote: string; comprador: string; valor: number }[] = [];
     for (const mov of movimentos) {
       const credito = Number(mov.credito || 0);
@@ -535,9 +535,10 @@ export default function SlipContabil() {
       const isParcela = mov.tipo_mov === "PARCELA";
       const isReforco = mov.tipo_mov === "REFORCO";
       const isAmortEspecial = mov.tipo_mov === "AMORTIZACAO_ESPECIAL";
+      const isAtualizacao = mov.tipo_mov === "ATUALIZACAO";
       const isOutro = !TIPOS_RECEBIMENTO.includes(mov.tipo_mov);
-      // Only include PARCELA, REFORCO, AMORTIZACAO_ESPECIAL, or other credit movements
-      if (!isParcela && !isReforco && !isAmortEspecial && !isOutro) continue;
+      // Only include PARCELA, REFORCO, AMORTIZACAO_ESPECIAL, ATUALIZACAO, or other credit movements
+      if (!isParcela && !isReforco && !isAmortEspecial && !isAtualizacao && !isOutro) continue;
       const lote = mov.lote as any;
       const venda = (mov.venda || vendasAtivasPorLote.get(mov.lote_id)) as any;
       const compradores = resolveCompradores(venda);
@@ -550,6 +551,8 @@ export default function SlipContabil() {
         categoria = "Reforço";
       } else if (isAmortEspecial) {
         categoria = "Amort. Especial";
+      } else if (isAtualizacao) {
+        categoria = "Atualização Monetária";
       }
       rows.push({
         data_mov: mov.data_mov,
