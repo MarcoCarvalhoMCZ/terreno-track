@@ -173,18 +173,14 @@ export default function Balancete() {
         totalCreditos += val;
       }
 
-      // "Outros" = tipos não categorizados + lado oposto ignorado dos categorizados
+      // "Outros" = only truly uncategorized tipos
       let totalOutros = 0;
       for (const [key, vals] of Object.entries(byTipo)) {
-        if (KNOWN_DEBIT_KEYS.has(key)) {
-          // Credito side of debit types was ignored above
-          totalOutros -= vals.credito;
-        } else if (KNOWN_CREDIT_KEYS.has(key)) {
-          // Debito side of credit types was ignored above
-          totalOutros += vals.debito;
-        } else {
-          totalOutros += vals.debito - vals.credito;
+        if (KNOWN_DEBIT_KEYS.has(key) || KNOWN_CREDIT_KEYS.has(key)) {
+          // Already accounted for in debitValues/creditValues (net)
+          continue;
         }
+        totalOutros += vals.debito - vals.credito;
       }
 
       return {
