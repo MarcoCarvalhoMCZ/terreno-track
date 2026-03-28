@@ -690,10 +690,11 @@ export default function SlipContabil() {
   const tipoMovLabel = tipoMovFiltro !== "ALL" ? getTipoMovimentoLabel(tipoMovFiltro) : "";
 
   // Get unique tipo_mov values present in data for the filter (from slip rows + raw movements)
+  // Always include OUTROS so supervisors can quickly locate unclassified records
   const tiposPresentes = useMemo(() => {
     const fromSlip = slipRows.map((r) => r.tipo_mov);
     const fromRaw = (movimentos || []).map((m: any) => m.tipo_mov);
-    const unique = [...new Set([...fromSlip, ...fromRaw])];
+    const unique = [...new Set([...fromSlip, ...fromRaw, "OUTROS"])];
     return tiposMovimentoTodos.filter((t) => unique.includes(t.value));
   }, [slipRows, movimentos]);
 
