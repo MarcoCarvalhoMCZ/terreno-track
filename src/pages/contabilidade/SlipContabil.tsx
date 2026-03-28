@@ -527,7 +527,7 @@ export default function SlipContabil() {
   // Build recebimentos view: credit movements from raw data
   const recebimentosRows = useMemo(() => {
     if (!isRecebimentos || !movimentos) return [];
-    const TIPOS_RECEBIMENTO = ["PARCELA", "REFORCO", "AMORTIZACAO_ESPECIAL", "ATUALIZACAO"];
+    const TIPOS_RECEBIMENTO = ["PARCELA", "REFORCO", "AMORTIZACAO_ESPECIAL"];
     const rows: { data_mov: string; categoria: string; quadra: string; numero_lote: string; comprador: string; valor: number }[] = [];
     for (const mov of movimentos) {
       const credito = Number(mov.credito || 0);
