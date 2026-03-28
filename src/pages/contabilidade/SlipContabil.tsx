@@ -527,28 +527,26 @@ export default function SlipContabil() {
   // Build recebimentos view: credit movements from raw data
   const recebimentosRows = useMemo(() => {
     if (!isRecebimentos || !movimentos) return [];
-    const TIPOS_RECEBIMENTO = ["PARCELA", "REFORCO", "AMORTIZACAO_ESPECIAL"];
+    const TIPOS_RECEBIMENTO = ["PARCELA", "REFORCO", "AMORTIZACAO_ESPECIAL", "ARRAS"];
     const rows: { data_mov: string; categoria: string; quadra: string; numero_lote: string; comprador: string; valor: number }[] = [];
     for (const mov of movimentos) {
       const credito = Number(mov.credito || 0);
       if (credito <= 0) continue;
-      const isParcela = mov.tipo_mov === "PARCELA";
-      const isReforco = mov.tipo_mov === "REFORCO";
-      const isAmortEspecial = mov.tipo_mov === "AMORTIZACAO_ESPECIAL";
-      const isOutro = !TIPOS_RECEBIMENTO.includes(mov.tipo_mov);
-      if (!isParcela && !isReforco && !isAmortEspecial && !isOutro) continue;
+      if (!TIPOS_RECEBIMENTO.includes(mov.tipo_mov)) continue;
       const lote = mov.lote as any;
       const venda = (mov.venda || vendasAtivasPorLote.get(mov.lote_id)) as any;
       const compradores = resolveCompradores(venda);
       const firstName = compradores.comprador?.split(" ")[0] || "—";
       let categoria = "Outros";
-      if (isParcela) {
+      if (mov.tipo_mov === "PARCELA") {
         const fluxo = mov.tipo_fluxo || "PARCELAMENTO";
-        categoria = fluxo === "REFORCO" ? "Reforço" : "Parcelamento";
-      } else if (isReforco) {
+        categoria = fluxo === "REFORCO" ? "Reforço" : "Parcela Recebida";
+      } else if (mov.tipo_mov === "REFORCO") {
         categoria = "Reforço";
-      } else if (isAmortEspecial) {
+      } else if (mov.tipo_mov === "AMORTIZACAO_ESPECIAL") {
         categoria = "Amort. Especial";
+      } else if (mov.tipo_mov === "ARRAS") {
+        categoria = "Arras / Sinal";
       }
       rows.push({
         data_mov: mov.data_mov,
