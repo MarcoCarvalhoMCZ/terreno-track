@@ -689,12 +689,13 @@ export default function SlipContabil() {
   const mesLabel = MESES_LABEL.find((m) => m.value === mes)?.label || "";
   const tipoMovLabel = tipoMovFiltro !== "ALL" ? getTipoMovimentoLabel(tipoMovFiltro) : "";
 
-  // Get unique tipo_mov values present in data for the filter
+  // Get unique tipo_mov values present in data for the filter (from slip rows + raw movements)
   const tiposPresentes = useMemo(() => {
-    if (!slipRows.length) return [];
-    const unique = [...new Set(slipRows.map((r) => r.tipo_mov))];
+    const fromSlip = slipRows.map((r) => r.tipo_mov);
+    const fromRaw = (movimentos || []).map((m: any) => m.tipo_mov);
+    const unique = [...new Set([...fromSlip, ...fromRaw])];
     return tiposMovimentoTodos.filter((t) => unique.includes(t.value));
-  }, [slipRows]);
+  }, [slipRows, movimentos]);
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
