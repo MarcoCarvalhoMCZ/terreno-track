@@ -9,13 +9,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, ChevronLeft, ChevronRight, Download, Printer } from "lucide-react";
+import { FileText, ChevronLeft, ChevronRight, Download, Printer, FileSpreadsheet } from "lucide-react";
 import { formatCurrency, formatDocument } from "@/lib/formatters";
 import { tiposMovimentoTodos, getTipoMovimentoLabel } from "@/constants/movimento";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 const MESES_LABEL = [
   { value: "1", label: "Janeiro" }, { value: "2", label: "Fevereiro" }, { value: "3", label: "Março" },
@@ -599,6 +600,43 @@ export default function SlipContabil() {
     doc.save(`slip-recebimentos-${ano}-${mes.padStart(2, "0")}.pdf`);
   }, [recebimentosRows, recebimentosTotal, ano, mes]);
 
+  const exportRecebimentosExcel = useCallback(() => {
+    if (!recebimentosRows.length) return;
+    const mesNome = MESES_LABEL.find((m) => m.value === mes)?.label || mes;
+
+    const data = recebimentosRows.map((r) => ({
+      Data: format(new Date(r.data_mov + "T00:00:00"), "dd/MM/yyyy"),
+      Tipo: r.categoria,
+      Lote: `${r.quadra}-${r.numero_lote}`,
+      Comprador: r.comprador,
+      "Valor Recebido": r.valor,
+    }));
+    data.push({
+      Data: "",
+      Tipo: "",
+      Lote: "",
+      Comprador: "TOTAL",
+      "Valor Recebido": recebimentosTotal,
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const colWidths = [{ wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 20 }, { wch: 16 }];
+    ws["!cols"] = colWidths;
+
+    // Format currency column
+    const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+    for (let row = range.s.r + 1; row <= range.e.r; row++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: row, c: 4 })];
+      if (cell && typeof cell.v === "number") {
+        cell.z = '#,##0.00';
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `Recebimentos ${mesNome}`);
+    XLSX.writeFile(wb, `slip-recebimentos-${ano}-${mes.padStart(2, "0")}.xlsx`);
+  }, [recebimentosRows, recebimentosTotal, ano, mes]);
+
   const filteredRows = useMemo(() => {
     if (tipoMovFiltro === "ALL" || isRecebimentos) return slipRows;
     return slipRows.filter((r) => r.tipo_mov === tipoMovFiltro);
@@ -801,6 +839,10 @@ export default function SlipContabil() {
             <Button onClick={exportRecebimentosPDF} disabled={!recebimentosRows.length}>
               <Download className="mr-2 h-4 w-4" />
               Exportar PDF
+            </Button>
+            <Button variant="outline" onClick={exportRecebimentosExcel} disabled={!recebimentosRows.length}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Exportar Excel
             </Button>
           </div>
         ) : (
