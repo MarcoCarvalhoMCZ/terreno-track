@@ -154,7 +154,10 @@ export default function Balancete() {
       const debitValues: Record<string, number> = {};
       let totalDebitos = 0;
       for (const row of DEBIT_ROWS) {
-        const val = byTipo[row.key]?.debito || 0;
+        // Use net value (debito - credito) for debit rows to handle deflation (e.g. negative ATUALIZACAO)
+        const debito = byTipo[row.key]?.debito || 0;
+        const credito = byTipo[row.key]?.credito || 0;
+        const val = debito - credito;
         debitValues[row.key] = val;
         totalDebitos += val;
       }
@@ -162,7 +165,10 @@ export default function Balancete() {
       const creditValues: Record<string, number> = {};
       let totalCreditos = 0;
       for (const row of CREDIT_ROWS) {
-        const val = byTipo[row.key]?.credito || 0;
+        // Use net value (credito - debito) for credit rows
+        const credito = byTipo[row.key]?.credito || 0;
+        const debito = byTipo[row.key]?.debito || 0;
+        const val = credito - debito;
         creditValues[row.key] = val;
         totalCreditos += val;
       }
