@@ -547,6 +547,8 @@ export default function SlipContabil() {
         categoria = "Amort. Especial";
       } else if (mov.tipo_mov === "ARRAS") {
         categoria = "Arras / Sinal";
+      } else if (mov.tipo_mov === "OUTROS") {
+        categoria = "Outros";
       }
       rows.push({
         data_mov: mov.data_mov,
