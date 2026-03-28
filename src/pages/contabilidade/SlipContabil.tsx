@@ -549,8 +549,6 @@ export default function SlipContabil() {
         categoria = "Reforço";
       } else if (isAmortEspecial) {
         categoria = "Amort. Especial";
-      } else if (isAtualizacao) {
-        categoria = "Atualização Monetária";
       }
       rows.push({
         data_mov: mov.data_mov,
