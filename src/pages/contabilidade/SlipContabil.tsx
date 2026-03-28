@@ -535,10 +535,8 @@ export default function SlipContabil() {
       const isParcela = mov.tipo_mov === "PARCELA";
       const isReforco = mov.tipo_mov === "REFORCO";
       const isAmortEspecial = mov.tipo_mov === "AMORTIZACAO_ESPECIAL";
-      const isAtualizacao = mov.tipo_mov === "ATUALIZACAO";
       const isOutro = !TIPOS_RECEBIMENTO.includes(mov.tipo_mov);
-      // Only include PARCELA, REFORCO, AMORTIZACAO_ESPECIAL, ATUALIZACAO, or other credit movements
-      if (!isParcela && !isReforco && !isAmortEspecial && !isAtualizacao && !isOutro) continue;
+      if (!isParcela && !isReforco && !isAmortEspecial && !isOutro) continue;
       const lote = mov.lote as any;
       const venda = (mov.venda || vendasAtivasPorLote.get(mov.lote_id)) as any;
       const compradores = resolveCompradores(venda);
