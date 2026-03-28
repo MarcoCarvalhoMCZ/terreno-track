@@ -154,7 +154,10 @@ export default function Balancete() {
       const debitValues: Record<string, number> = {};
       let totalDebitos = 0;
       for (const row of DEBIT_ROWS) {
-        const val = byTipo[row.key]?.debito || 0;
+        // Use net value (debito - credito) for debit rows to handle deflation (e.g. negative ATUALIZACAO)
+        const debito = byTipo[row.key]?.debito || 0;
+        const credito = byTipo[row.key]?.credito || 0;
+        const val = debito - credito;
         debitValues[row.key] = val;
         totalDebitos += val;
       }
@@ -162,23 +165,22 @@ export default function Balancete() {
       const creditValues: Record<string, number> = {};
       let totalCreditos = 0;
       for (const row of CREDIT_ROWS) {
-        const val = byTipo[row.key]?.credito || 0;
+        // Use net value (credito - debito) for credit rows
+        const credito = byTipo[row.key]?.credito || 0;
+        const debito = byTipo[row.key]?.debito || 0;
+        const val = credito - debito;
         creditValues[row.key] = val;
         totalCreditos += val;
       }
 
-      // "Outros" = tipos não categorizados + lado oposto ignorado dos categorizados
+      // "Outros" = only truly uncategorized tipos
       let totalOutros = 0;
       for (const [key, vals] of Object.entries(byTipo)) {
-        if (KNOWN_DEBIT_KEYS.has(key)) {
-          // Credito side of debit types was ignored above
-          totalOutros -= vals.credito;
-        } else if (KNOWN_CREDIT_KEYS.has(key)) {
-          // Debito side of credit types was ignored above
-          totalOutros += vals.debito;
-        } else {
-          totalOutros += vals.debito - vals.credito;
+        if (KNOWN_DEBIT_KEYS.has(key) || KNOWN_CREDIT_KEYS.has(key)) {
+          // Already accounted for in debitValues/creditValues (net)
+          continue;
         }
+        totalOutros += vals.debito - vals.credito;
       }
 
       return {
