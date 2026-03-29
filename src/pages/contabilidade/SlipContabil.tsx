@@ -524,14 +524,17 @@ export default function SlipContabil() {
 
   const isRecebimentos = tipoMovFiltro === "RECEBIMENTOS";
 
-  // Build recebimentos view: credit movements from raw data
+  // Build recebimentos view: credit AND debit movements for receipt types (net effect)
   const recebimentosRows = useMemo(() => {
     if (!isRecebimentos || !movimentos) return [];
     const TIPOS_RECEBIMENTO = ["PARCELA", "REFORCO", "AMORTIZACAO_ESPECIAL", "ARRAS", "OUTROS"];
     const rows: { data_mov: string; categoria: string; quadra: string; numero_lote: string; comprador: string; valor: number }[] = [];
     for (const mov of movimentos) {
       const credito = Number(mov.credito || 0);
-      if (credito <= 0) continue;
+      const debito = Number(mov.debito || 0);
+      // Include if there's any credit or debit for receipt types
+      const netValue = credito - debito;
+      if (netValue === 0) continue;
       if (!TIPOS_RECEBIMENTO.includes(mov.tipo_mov)) continue;
       const lote = mov.lote as any;
       const venda = (mov.venda || vendasAtivasPorLote.get(mov.lote_id)) as any;
@@ -550,13 +553,17 @@ export default function SlipContabil() {
       } else if (mov.tipo_mov === "OUTROS") {
         categoria = "Outros";
       }
+      // For debit-only entries on credit types, show as negative (estorno/ajuste)
+      if (debito > 0 && credito === 0) {
+        categoria = `(Estorno) ${categoria}`;
+      }
       rows.push({
         data_mov: mov.data_mov,
         categoria,
         quadra: lote?.quadra || "-",
         numero_lote: lote?.numero_lote || "-",
         comprador: firstName,
-        valor: credito,
+        valor: netValue,
       });
     }
     rows.sort((a, b) => a.data_mov.localeCompare(b.data_mov));
