@@ -29,7 +29,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { AlertTriangle, CheckCircle2, Receipt } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
