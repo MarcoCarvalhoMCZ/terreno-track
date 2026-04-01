@@ -417,10 +417,23 @@ export default function Vendas() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
+              <DialogHeader className="flex flex-row items-center justify-between space-y-0">
                 <DialogTitle>
                   {editingVenda ? "Editar Venda" : "Nova Venda"}
                 </DialogTitle>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={handleCloseDialog}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    form="venda-form"
+                    size="sm"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    {editingVenda ? "Salvar" : "Cadastrar"}
+                  </Button>
+                </div>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Lote e Data */}
