@@ -85,8 +85,18 @@ export function ParcelasControleDialog({ loteId, loteLabel }: Props) {
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between space-y-0">
           <DialogTitle>Controle de Parcelas Pagas - {loteLabel}</DialogTitle>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={salvarMutation.isPending || (!dataBaseParc && !dataBaseRef)}
+            >
+              {salvarMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground">
