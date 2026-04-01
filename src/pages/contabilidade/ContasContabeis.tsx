@@ -334,10 +334,6 @@ export default function ContasContabeis() {
                 updated_at={selected.updated_at}
               />
             )}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>Cancelar</Button>
-              <Button type="submit">{selected ? "Salvar" : "Criar"}</Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
