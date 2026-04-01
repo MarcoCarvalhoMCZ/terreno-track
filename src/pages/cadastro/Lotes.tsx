@@ -245,7 +245,7 @@ export default function Lotes() {
                   </Button>
                 </div>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form id="lote-form" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="quadra">Quadra *</Label>
