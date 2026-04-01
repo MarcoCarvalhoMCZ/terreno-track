@@ -130,14 +130,6 @@ export function UserSecurityDialog({
           </p>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

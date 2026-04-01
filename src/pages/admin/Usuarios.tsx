@@ -462,24 +462,6 @@ export default function Usuarios() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPermissionsDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => {
-                if (selectedUser) {
-                  updatePermissionsMutation.mutate({
-                    userId: selectedUser.id,
-                    permissions: selectedPermissions,
-                  });
-                }
-              }}
-              disabled={updatePermissionsMutation.isPending}
-            >
-              {updatePermissionsMutation.isPending ? "Salvando..." : "Salvar Permissões"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

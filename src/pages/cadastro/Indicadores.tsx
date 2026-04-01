@@ -725,19 +725,6 @@ export default function Indicadores() {
               />
             )}
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? "Salvando..."
-                  : "Salvar"}
-              </Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

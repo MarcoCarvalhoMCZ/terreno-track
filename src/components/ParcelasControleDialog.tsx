@@ -181,15 +181,6 @@ export function ParcelasControleDialog({ loteId, loteLabel }: Props) {
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button
-            onClick={handleSave}
-            disabled={salvarMutation.isPending || (!dataBaseParc && !dataBaseRef)}
-          >
-            {salvarMutation.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
