@@ -416,7 +416,7 @@ export default function MapaMovimentoConta() {
               <Button type="submit" form="mapa-form" size="sm">{selected ? "Salvar" : "Criar"}</Button>
             </div>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="mapa-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label>Tipo de Movimento *</Label>
               <Select
