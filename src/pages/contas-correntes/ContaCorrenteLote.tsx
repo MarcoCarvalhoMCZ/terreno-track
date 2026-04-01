@@ -877,10 +877,16 @@ export default function ContaCorrenteLote() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
+              <DialogHeader className="flex flex-row items-center justify-between space-y-0">
                 <DialogTitle>
                   {editingMov ? "Editar Movimentação" : "Nova Movimentação"}
                 </DialogTitle>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={handleCloseDialog}>Cancelar</Button>
+                  <Button type="submit" form="cc-form" size="sm" disabled={createMutation.isPending || updateMutation.isPending}>
+                    {editingMov ? "Salvar" : "Cadastrar"}
+                  </Button>
+                </div>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Tipo de Conta (Parcelamento/Reforço) */}
