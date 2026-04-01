@@ -395,7 +395,7 @@ export default function Pessoas() {
                 </Button>
               </div>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form id="pessoa-form" onSubmit={handleSubmit} className="space-y-6">
               {/* Dados Pessoais */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
