@@ -410,10 +410,27 @@ export default function Usuarios() {
       {/* Dialog de Permissões */}
       <Dialog open={permissionsDialogOpen} onOpenChange={setPermissionsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
             <DialogTitle>
               Permissões de Menu - {selectedUser?.nome}
             </DialogTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPermissionsDialogOpen(false)}>Cancelar</Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (selectedUser) {
+                    updatePermissionsMutation.mutate({
+                      userId: selectedUser.id,
+                      permissions: selectedPermissions,
+                    });
+                  }
+                }}
+                disabled={updatePermissionsMutation.isPending}
+              >
+                {updatePermissionsMutation.isPending ? "Salvando..." : "Salvar Permissões"}
+              </Button>
+            </div>
           </DialogHeader>
           
           <div className="space-y-4">
