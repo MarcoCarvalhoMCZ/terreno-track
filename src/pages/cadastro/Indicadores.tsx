@@ -20,7 +20,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -645,12 +644,18 @@ export default function Indicadores() {
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
             <DialogTitle>
               {selectedIndicador ? "Editar Indicador" : "Novo Indicador"}
             </DialogTitle>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleCloseDialog}>Cancelar</Button>
+              <Button type="submit" form="indicador-form" size="sm" disabled={createMutation.isPending || updateMutation.isPending}>
+                {createMutation.isPending || updateMutation.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="indicador-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="nome">Nome *</Label>
               <Input
@@ -719,19 +724,6 @@ export default function Indicadores() {
               />
             )}
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? "Salvando..."
-                  : "Salvar"}
-              </Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

@@ -384,12 +384,18 @@ export default function Pessoas() {
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+            <DialogHeader className="flex flex-row items-center justify-between space-y-0">
               <DialogTitle>
                 {editingPessoa ? "Editar Pessoa" : "Nova Pessoa"}
               </DialogTitle>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={handleCloseDialog}>Cancelar</Button>
+                <Button type="submit" form="pessoa-form" size="sm" disabled={createMutation.isPending || updateMutation.isPending}>
+                  {editingPessoa ? "Salvar" : "Cadastrar"}
+                </Button>
+              </div>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form id="pessoa-form" onSubmit={handleSubmit} className="space-y-6">
               {/* Dados Pessoais */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -631,21 +637,6 @@ export default function Pessoas() {
                 />
               )}
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCloseDialog}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                >
-                  {editingPessoa ? "Salvar" : "Cadastrar"}
-                </Button>
-              </div>
             </form>
           </DialogContent>
         </Dialog>

@@ -29,7 +29,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { AlertTriangle, CheckCircle2, Receipt } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
@@ -431,8 +430,18 @@ export default function RecebimentoParcela() {
       {/* Dialog de Recebimento */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
             <DialogTitle>Registrar Recebimento</DialogTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button
+                size="sm"
+                onClick={() => registrarMutation.mutate()}
+                disabled={registrarMutation.isPending || registrarMutation.isSuccess}
+              >
+                {registrarMutation.isPending ? "Registrando..." : registrarMutation.isSuccess ? "Registrado ✓" : "Registrar"}
+              </Button>
+            </div>
           </DialogHeader>
           {parcelaSelecionada && (
             <div className="space-y-4">
@@ -534,17 +543,6 @@ export default function RecebimentoParcela() {
               </div>
             </div>
           )}
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => registrarMutation.mutate()}
-              disabled={registrarMutation.isPending || registrarMutation.isSuccess}
-            >
-              {registrarMutation.isPending ? "Registrando..." : registrarMutation.isSuccess ? "Registrado ✓" : "Registrar"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

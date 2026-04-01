@@ -234,12 +234,18 @@ export default function Lotes() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
-              <DialogHeader>
+              <DialogHeader className="flex flex-row items-center justify-between space-y-0">
                 <DialogTitle>
                   {editingLote ? "Editar Lote" : "Novo Lote"}
                 </DialogTitle>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={handleCloseDialog}>Cancelar</Button>
+                  <Button type="submit" form="lote-form" size="sm" disabled={createMutation.isPending || updateMutation.isPending}>
+                    {editingLote ? "Salvar" : "Cadastrar"}
+                  </Button>
+                </div>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form id="lote-form" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="quadra">Quadra *</Label>
@@ -360,21 +366,6 @@ export default function Lotes() {
                   />
                 )}
 
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCloseDialog}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                  >
-                    {editingLote ? "Salvar" : "Cadastrar"}
-                  </Button>
-                </div>
               </form>
             </DialogContent>
           </Dialog>

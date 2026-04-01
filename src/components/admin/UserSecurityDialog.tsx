@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
@@ -74,8 +73,14 @@ export function UserSecurityDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between space-y-0">
           <DialogTitle>Dados de Recuperação - {userName}</DialogTitle>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -124,14 +129,6 @@ export function UserSecurityDialog({
           </p>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

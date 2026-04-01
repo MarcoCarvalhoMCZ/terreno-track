@@ -9,7 +9,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -280,10 +280,14 @@ export default function ContasContabeis() {
       {/* Dialog CRUD */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
             <DialogTitle>{selected ? "Editar Conta Contábil" : "Nova Conta Contábil"}</DialogTitle>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleCloseDialog}>Cancelar</Button>
+              <Button type="submit" form="conta-form" size="sm">{selected ? "Salvar" : "Criar"}</Button>
+            </div>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="conta-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Código Reduzido *</Label>
@@ -330,10 +334,6 @@ export default function ContasContabeis() {
                 updated_at={selected.updated_at}
               />
             )}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>Cancelar</Button>
-              <Button type="submit">{selected ? "Salvar" : "Criar"}</Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

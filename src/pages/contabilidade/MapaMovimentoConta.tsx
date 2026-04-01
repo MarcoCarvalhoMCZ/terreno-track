@@ -10,7 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -407,12 +407,16 @@ export default function MapaMovimentoConta() {
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
             <DialogTitle>
               {selected ? "Editar Mapeamento" : isSecondEntry ? "2º Lançamento" : "Novo Mapeamento"}
             </DialogTitle>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleClose}>Cancelar</Button>
+              <Button type="submit" form="mapa-form" size="sm">{selected ? "Salvar" : "Criar"}</Button>
+            </div>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="mapa-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label>Tipo de Movimento *</Label>
               <Select
@@ -542,10 +546,6 @@ export default function MapaMovimentoConta() {
                 updated_at={selected.updated_at}
               />
             )}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-              <Button type="submit">{selected ? "Salvar" : "Criar"}</Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

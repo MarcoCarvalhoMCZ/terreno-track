@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,8 +85,18 @@ export function ParcelasControleDialog({ loteId, loteLabel }: Props) {
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between space-y-0">
           <DialogTitle>Controle de Parcelas Pagas - {loteLabel}</DialogTitle>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={salvarMutation.isPending || (!dataBaseParc && !dataBaseRef)}
+            >
+              {salvarMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground">
@@ -171,15 +181,6 @@ export function ParcelasControleDialog({ loteId, loteLabel }: Props) {
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button
-            onClick={handleSave}
-            disabled={salvarMutation.isPending || (!dataBaseParc && !dataBaseRef)}
-          >
-            {salvarMutation.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

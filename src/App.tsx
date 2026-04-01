@@ -30,6 +30,7 @@ const MapaMovimentoConta = lazy(() => import("./pages/contabilidade/MapaMoviment
 const Balancete = lazy(() => import("./pages/contabilidade/Balancete"));
 const SlipContabil = lazy(() => import("./pages/contabilidade/SlipContabil"));
 const SaldoLotes = lazy(() => import("./pages/contabilidade/SaldoLotes"));
+const FluxoCobrancas = lazy(() => import("./pages/relatorios/FluxoCobrancas"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Importacao = lazy(() => import("./pages/Importacao"));
 const Sobre = lazy(() => import("./pages/Sobre"));
@@ -110,6 +111,7 @@ function AppRoutes() {
         <Route path="/contabilidade/balancete" element={<ProtectedRoute><Balancete /></ProtectedRoute>} />
         <Route path="/contabilidade/slip" element={<ProtectedRoute><SlipContabil /></ProtectedRoute>} />
         <Route path="/contabilidade/saldo-lotes" element={<ProtectedRoute><SaldoLotes /></ProtectedRoute>} />
+        <Route path="/relatorios/fluxo-cobrancas" element={<ProtectedRoute><FluxoCobrancas /></ProtectedRoute>} />
         <Route path="/importacao" element={<ProtectedRoute><Importacao /></ProtectedRoute>} />
         <Route path="/sobre" element={<ProtectedRoute><Sobre /></ProtectedRoute>} />
         <Route path="/admin/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
