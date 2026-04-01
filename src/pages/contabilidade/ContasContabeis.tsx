@@ -287,7 +287,7 @@ export default function ContasContabeis() {
               <Button type="submit" form="conta-form" size="sm">{selected ? "Salvar" : "Criar"}</Button>
             </div>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="conta-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Código Reduzido *</Label>
