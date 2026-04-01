@@ -30,6 +30,7 @@ const MapaMovimentoConta = lazy(() => import("./pages/contabilidade/MapaMoviment
 const Balancete = lazy(() => import("./pages/contabilidade/Balancete"));
 const SlipContabil = lazy(() => import("./pages/contabilidade/SlipContabil"));
 const SaldoLotes = lazy(() => import("./pages/contabilidade/SaldoLotes"));
+const FluxoCobrancas = lazy(() => import("./pages/relatorios/FluxoCobrancas"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Importacao = lazy(() => import("./pages/Importacao"));
 const Sobre = lazy(() => import("./pages/Sobre"));

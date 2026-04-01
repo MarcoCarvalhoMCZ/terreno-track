@@ -103,6 +103,7 @@ const controleFinanceiroItems: MenuItem[] = [
 // ═══ 6. RELATÓRIOS ═══
 const relatoriosItems: MenuItem[] = [
   { title: "Saldo dos Lotes", url: "/contabilidade/saldo-lotes", icon: FileSpreadsheet, menuKey: "saldoLotes" },
+  { title: "Fluxo Cobranças", url: "/relatorios/fluxo-cobrancas", icon: Receipt, menuKey: "fluxoCobrancas" },
 ];
 
 // ═══ 7. CONTABILIDADE ═══

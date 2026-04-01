@@ -25,6 +25,7 @@ export const MENU_ITEMS = {
   balancete: { label: "Balancete do Loteamento", path: "/contabilidade/balancete" },
   slipContabil: { label: "Slip Contábil", path: "/contabilidade/slip" },
   saldoLotes: { label: "Saldo dos Lotes", path: "/contabilidade/saldo-lotes" },
+  fluxoCobrancas: { label: "Fluxo Cobranças", path: "/relatorios/fluxo-cobrancas" },
   importacao: { label: "Importação (CSV)", path: "/importacao" },
   sobre: { label: "Sobre", path: "/sobre" },
   usuarios: { label: "Usuários e Permissões", path: "/admin/usuarios" },
