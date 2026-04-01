@@ -280,8 +280,12 @@ export default function ContasContabeis() {
       {/* Dialog CRUD */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
             <DialogTitle>{selected ? "Editar Conta Contábil" : "Nova Conta Contábil"}</DialogTitle>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleCloseDialog}>Cancelar</Button>
+              <Button type="submit" form="conta-form" size="sm">{selected ? "Salvar" : "Criar"}</Button>
+            </div>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
