@@ -888,7 +888,7 @@ export default function ContaCorrenteLote() {
                   </Button>
                 </div>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form id="cc-form" onSubmit={handleSubmit} className="space-y-4">
                 {/* Tipo de Conta (Parcelamento/Reforço) */}
                 <div className="space-y-2">
                   <Label htmlFor="tipo_fluxo_form">Tipo de Conta <span className="text-destructive">*</span></Label>
