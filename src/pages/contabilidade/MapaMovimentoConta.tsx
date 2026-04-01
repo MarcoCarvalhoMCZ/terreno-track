@@ -407,10 +407,14 @@ export default function MapaMovimentoConta() {
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
             <DialogTitle>
               {selected ? "Editar Mapeamento" : isSecondEntry ? "2º Lançamento" : "Novo Mapeamento"}
             </DialogTitle>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleClose}>Cancelar</Button>
+              <Button type="submit" form="mapa-form" size="sm">{selected ? "Salvar" : "Criar"}</Button>
+            </div>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
