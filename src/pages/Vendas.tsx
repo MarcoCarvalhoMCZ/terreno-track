@@ -765,21 +765,6 @@ export default function Vendas() {
                   />
                 )}
 
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCloseDialog}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                  >
-                    {editingVenda ? "Salvar" : "Cadastrar"}
-                  </Button>
-                </div>
               </form>
             </DialogContent>
           </Dialog>
