@@ -544,17 +544,6 @@ export default function RecebimentoParcela() {
               </div>
             </div>
           )}
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => registrarMutation.mutate()}
-              disabled={registrarMutation.isPending || registrarMutation.isSuccess}
-            >
-              {registrarMutation.isPending ? "Registrando..." : registrarMutation.isSuccess ? "Registrado ✓" : "Registrar"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
