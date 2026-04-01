@@ -435,7 +435,7 @@ export default function Vendas() {
                   </Button>
                 </div>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form id="venda-form" onSubmit={handleSubmit} className="space-y-4">
                 {/* Lote e Data */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
