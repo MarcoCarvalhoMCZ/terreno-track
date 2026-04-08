@@ -13,7 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Settings, Save, RefreshCw, Upload, X, Building2 } from "lucide-react";
+import { Settings, Save, RefreshCw, Upload, X, Building2, Mail, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
