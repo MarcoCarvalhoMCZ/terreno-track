@@ -13,7 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Settings, Save, RefreshCw, Upload, X, Building2 } from "lucide-react";
+import { Settings, Save, RefreshCw, Upload, X, Building2, Mail, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
@@ -103,6 +104,10 @@ export default function Configuracoes() {
     telefone_proprietaria: (config as any).telefone_proprietaria || "",
     email_proprietaria: (config as any).email_proprietaria || "",
     logotipo_url: (config as any).logotipo_url || "",
+    email_remetente_nome: (config as any).email_remetente_nome || "",
+    email_reply_to: (config as any).email_reply_to || "",
+    email_assunto_padrao: (config as any).email_assunto_padrao || "Extrato de Conta Corrente do Lote",
+    email_rodape: (config as any).email_rodape || "",
   });
 
   useEffect(() => {
@@ -581,6 +586,71 @@ export default function Configuracoes() {
                 {(formData as any).criterio_juros_mora === "TOLERANCIA"
                   ? <>Os juros serão calculados após {(formData as any).tolerancia_dias_juros || 0} dia(s) do vencimento.</>
                   : <>Os juros serão calculados a partir do primeiro dia do mês subsequente ao vencimento.</>}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Configuração de E-mail */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Configuração de E-mail
+              </CardTitle>
+              <CardDescription>
+                Configurações do remetente para envio de extratos por e-mail
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Para que o envio de e-mails funcione, é necessário configurar um domínio de e-mail verificado.
+                  O e-mail do remetente (campo "De") será composto pelo nome e endereço configurados abaixo,
+                  vinculados ao domínio verificado do sistema.
+                </AlertDescription>
+              </Alert>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nome do Remetente</Label>
+                  <Input
+                    value={(formData as any).email_remetente_nome || ""}
+                    onChange={(e) => handleChange("email_remetente_nome", e.target.value)}
+                    placeholder="Ex: Loteamento Vila Nova"
+                  />
+                  <p className="text-xs text-muted-foreground">Nome que aparecerá como remetente do e-mail</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>E-mail de Resposta (Reply-To)</Label>
+                  <Input
+                    type="email"
+                    value={(formData as any).email_reply_to || ""}
+                    onChange={(e) => handleChange("email_reply_to", e.target.value)}
+                    placeholder="Ex: contato@empresa.com"
+                  />
+                  <p className="text-xs text-muted-foreground">E-mail para onde as respostas serão direcionadas</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label>Assunto Padrão do E-mail</Label>
+                  <Input
+                    value={(formData as any).email_assunto_padrao || ""}
+                    onChange={(e) => handleChange("email_assunto_padrao", e.target.value)}
+                    placeholder="Ex: Extrato de Conta Corrente do Lote"
+                  />
+                  <p className="text-xs text-muted-foreground">Assunto utilizado ao enviar extratos. O sistema adicionará automaticamente a identificação do lote.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Texto de Rodapé do E-mail</Label>
+                  <Textarea
+                    value={(formData as any).email_rodape || ""}
+                    onChange={(e) => handleChange("email_rodape", e.target.value)}
+                    placeholder="Ex: Este é um e-mail automático. Em caso de dúvidas, entre em contato conosco."
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">Texto que aparecerá no rodapé de todos os e-mails enviados</p>
+                </div>
               </div>
             </CardContent>
           </Card>
