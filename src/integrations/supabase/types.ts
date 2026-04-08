@@ -29,7 +29,11 @@ export type Database = {
           criterio_juros_mora: string | null
           data_criacao_app: string | null
           desenvolvedor_analista: string | null
+          email_assunto_padrao: string | null
           email_proprietaria: string | null
+          email_remetente_nome: string | null
+          email_reply_to: string | null
+          email_rodape: string | null
           id: string
           juros_mora_percentual: number | null
           logotipo_url: string | null
@@ -61,7 +65,11 @@ export type Database = {
           criterio_juros_mora?: string | null
           data_criacao_app?: string | null
           desenvolvedor_analista?: string | null
+          email_assunto_padrao?: string | null
           email_proprietaria?: string | null
+          email_remetente_nome?: string | null
+          email_reply_to?: string | null
+          email_rodape?: string | null
           id?: string
           juros_mora_percentual?: number | null
           logotipo_url?: string | null
@@ -93,7 +101,11 @@ export type Database = {
           criterio_juros_mora?: string | null
           data_criacao_app?: string | null
           desenvolvedor_analista?: string | null
+          email_assunto_padrao?: string | null
           email_proprietaria?: string | null
+          email_remetente_nome?: string | null
+          email_reply_to?: string | null
+          email_rodape?: string | null
           id?: string
           juros_mora_percentual?: number | null
           logotipo_url?: string | null
