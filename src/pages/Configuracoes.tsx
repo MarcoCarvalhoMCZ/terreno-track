@@ -104,6 +104,10 @@ export default function Configuracoes() {
     telefone_proprietaria: (config as any).telefone_proprietaria || "",
     email_proprietaria: (config as any).email_proprietaria || "",
     logotipo_url: (config as any).logotipo_url || "",
+    email_remetente_nome: (config as any).email_remetente_nome || "",
+    email_reply_to: (config as any).email_reply_to || "",
+    email_assunto_padrao: (config as any).email_assunto_padrao || "Extrato de Conta Corrente do Lote",
+    email_rodape: (config as any).email_rodape || "",
   });
 
   useEffect(() => {
