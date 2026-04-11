@@ -554,7 +554,7 @@ export default function AtualizacaoMonetaria() {
 
   const formatPercent = (value: number | null) => {
     if (value === null || value === undefined) return "-";
-    return `${value.toFixed(2)}%`;
+    return `${value.toFixed(4)}%`;
   };
 
   const lotesParaAtualizar = lotesCalculo.filter((l) => l.selecionado);

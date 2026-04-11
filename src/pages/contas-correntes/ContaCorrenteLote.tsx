@@ -290,7 +290,7 @@ export default function ContaCorrenteLote() {
           valor: valorAtualizacao !== 0 ? Math.abs(valorAtualizacao).toFixed(2) : "",
           referencia: "",
           vencimento: "",
-          percentual: fatorPercentual.toFixed(2),
+          percentual: fatorPercentual.toFixed(4),
           descricao: `Atualização Monetária ${loteLabel}`,
         };
       }
