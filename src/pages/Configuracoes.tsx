@@ -656,6 +656,33 @@ export default function Configuracoes() {
             </CardContent>
           </Card>
 
+          {/* Pasta de Extratos */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FolderOpen className="h-5 w-5" />
+                Exportação de Extratos em Lote
+              </CardTitle>
+              <CardDescription>
+                Padrão de organização dos arquivos PDF gerados em lote
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Pasta Padrão de Extratos</Label>
+                <Input
+                  value={(formData as any).pasta_extratos_padrao || ""}
+                  onChange={(e) => handleChange("pasta_extratos_padrao", e.target.value)}
+                  placeholder="Ex: extratos/{ano}-{mes}/"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use <code className="bg-muted px-1 rounded">{"{ano}"}</code> e <code className="bg-muted px-1 rounded">{"{mes}"}</code> como variáveis.
+                  Ex: <code className="bg-muted px-1 rounded">extratos/2026-04/</code>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Observações */}
           <Card>
             <CardHeader>
