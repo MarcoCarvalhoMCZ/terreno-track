@@ -66,7 +66,7 @@ const formatDatePDF = (date: string | Date | null): string => {
 // Format percentage for PDF
 const formatPercentPDF = (value: number | null): string => {
   if (value === null || value === undefined) return "";
-  return `${value.toFixed(2)}%`;
+  return `${value.toFixed(4)}%`;
 };
 
 // Format Histórico: Descrição + (Referência)
