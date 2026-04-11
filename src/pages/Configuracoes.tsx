@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Settings, Save, RefreshCw, Upload, X, Building2, Mail, Info } from "lucide-react";
+import { Settings, Save, RefreshCw, Upload, X, Building2, Mail, Info, FolderOpen } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -108,6 +108,7 @@ export default function Configuracoes() {
     email_reply_to: (config as any).email_reply_to || "",
     email_assunto_padrao: (config as any).email_assunto_padrao || "Extrato de Conta Corrente do Lote",
     email_rodape: (config as any).email_rodape || "",
+    pasta_extratos_padrao: (config as any).pasta_extratos_padrao || "extratos/{ano}-{mes}/",
   });
 
   useEffect(() => {
