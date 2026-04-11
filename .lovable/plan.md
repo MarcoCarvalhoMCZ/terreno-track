@@ -1,33 +1,47 @@
 
 
-## Adicionar placeholder `[mes_ano]` ao histórico do Slip Contábil
+## Plano: Exportação em Lote de Extratos PDF
 
-### O que será feito
+### Resposta às suas perguntas
 
-Adicionar uma nova variável `[mes_ano]` (ou `{mes_ano}`) disponível nos templates de histórico, que resolve para o mês/ano da data do movimento no formato "MARÇO/2025" (mês por extenso em português, maiúsculo).
+**1) Sim, é totalmente viável.** O sistema já possui toda a lógica de geração de PDF individual (função `exportConsultaLoteToPDF`). Podemos criar um processamento em lote que:
+- Identifica todos os lotes que tiveram atualização monetária no mês corrente
+- Para cada lote, carrega os dados (movimentos, resumo, parcelas em atraso)
+- Gera o PDF usando a mesma lógica existente
+- Salva o arquivo no armazenamento do sistema (bucket de Storage)
 
-### Implementação
+**2) Sim, é possível.** Porém, com uma ressalva importante: como o sistema roda em nuvem, os PDFs serão salvos no **armazenamento cloud do sistema** (não em uma pasta local do computador). O campo de configuração servirá para definir o padrão de organização dos arquivos (ex: `extratos/2026-04/`). Os usuários poderão baixar os PDFs individualmente ou em lote a partir do sistema.
 
-**Arquivo:** `src/pages/contabilidade/SlipContabil.tsx`
+---
 
-1. **Adicionar `data_mov` à interface `HistoricoCtx`** (linha ~97):
-   ```typescript
-   data_mov: string | null;
-   ```
+### Implementação proposta
 
-2. **Adicionar resolução do placeholder na função `resolveHistorico`** (após linha 130):
-   ```typescript
-   result = r(result, "mes_ano", ctx.data_mov 
-     ? format(new Date(ctx.data_mov + "T00:00:00"), "MMMM/yyyy", { locale: ptBR }).toUpperCase() 
-     : "—");
-   ```
+#### 1. Novo bucket de Storage
+- Criar bucket `extratos-lote` para armazenar os PDFs gerados
 
-3. **Passar `data_mov` ao construir o contexto** onde `resolveHistorico` é chamado — incluir `data_mov: mov.data_mov` no objeto `HistoricoCtx`.
+#### 2. Campo de configuração
+- Adicionar coluna `pasta_extratos_padrao` na tabela `configuracoes` (ex: `extratos/{ano}-{mes}/`)
+- Exibir esse campo na página de Configurações, visível a todos os usuários (somente leitura para não-admins)
 
-4. **Importar `ptBR`** do `date-fns/locale` se ainda não importado.
+#### 3. Nova página "Exportação em Lote"
+- Menu em **Relatórios > Exportação de Extratos**
+- Selecionar mês de referência
+- Lista os lotes com atualização monetária naquele mês (com checkboxes para seleção)
+- Botão "Gerar Extratos" que processa lote a lote, com barra de progresso
+- Cada PDF é gerado client-side (reaproveitando a lógica existente) e enviado ao Storage
+- Ao finalizar, exibe lista dos arquivos gerados com links para download individual
+- Opção de "Baixar Todos" (zip ou download sequencial)
 
-### Escopo
-- 1 arquivo modificado
-- Sem alteração de backend
-- Novo placeholder disponível imediatamente em qualquer template de histórico
+#### 4. Detalhes técnicos
+- Reutiliza `exportConsultaLoteToPDF` adaptada para retornar o blob ao invés de salvar localmente
+- Upload via `supabase.storage.from('extratos-lote').upload(path, blob)`
+- Nome do arquivo: `Quadra_{XX}_Lote_{YY}.pdf`
+- Caminho: `{pasta_configurada}/Quadra_{XX}_Lote_{YY}.pdf`
+
+#### Arquivos a criar/editar
+- **Migração**: nova coluna + bucket
+- **`src/pages/Configuracoes.tsx`**: campo de pasta padrão
+- **`src/pages/relatorios/ExportacaoExtratos.tsx`**: nova página
+- **`src/lib/consulta-lote-pdf.ts`**: adaptar para retornar blob
+- **`src/components/layout/AppSidebar.tsx`**, **`src/App.tsx`**, **`src/hooks/usePermissions.tsx`**: rota e menu
 
