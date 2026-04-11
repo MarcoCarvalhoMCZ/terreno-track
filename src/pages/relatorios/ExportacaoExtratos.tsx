@@ -555,7 +555,7 @@ export default function ExportacaoExtratos() {
                   <TableRow key={arq.loteId}>
                     <TableCell>
                       {arq.status === "success" ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
                       ) : (
                         <XCircle className="h-4 w-4 text-destructive" />
                       )}
