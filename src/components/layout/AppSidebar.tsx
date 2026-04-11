@@ -16,6 +16,7 @@ import {
   Info,
   ChevronDown,
   LogOut,
+  FileDown,
   FileSearch,
   RefreshCw,
   Shield,
@@ -104,6 +105,7 @@ const controleFinanceiroItems: MenuItem[] = [
 const relatoriosItems: MenuItem[] = [
   { title: "Saldo dos Lotes", url: "/contabilidade/saldo-lotes", icon: FileSpreadsheet, menuKey: "saldoLotes" },
   { title: "Fluxo Cobranças", url: "/relatorios/fluxo-cobrancas", icon: Receipt, menuKey: "fluxoCobrancas" },
+  { title: "Exportação de Extratos", url: "/relatorios/exportacao-extratos", icon: FileDown, menuKey: "exportacaoExtratos" },
 ];
 
 // ═══ 7. CONTABILIDADE ═══

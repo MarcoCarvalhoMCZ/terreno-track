@@ -485,8 +485,36 @@ const addAvisoImportante = (doc: jsPDF, yStart: number): number => {
   return yPos + totalBoxHeight + 8;
 };
 
+// Generate PDF and return as Blob (for batch/upload use)
+export async function generateConsultaLotePDFBlob(params: PDFExportParams): Promise<Blob> {
+  const doc = await buildConsultaLotePDF(params);
+  return doc.output("blob");
+}
+
 // Main export function - now async for programmatic QR generation
 export async function exportConsultaLoteToPDF(params: PDFExportParams): Promise<void> {
+  const { 
+    lote, 
+    venda, 
+    vendedorConfig,
+    resumo, 
+    movimentosParcelamento, 
+    movimentosReforco,
+    pixPayloadParcelamento,
+    pixPayloadReforco,
+    resumoAtrasoParcelamento,
+    resumoAtrasoReforco,
+    buildPixPayloadForParcela,
+    includeQrCodes = true,
+    chavePix,
+  } = params;
+
+  const doc = await buildConsultaLotePDF(params);
+  doc.save(`consulta_lote_${lote.quadra}_${lote.numero_lote}.pdf`);
+}
+
+// Internal builder that returns the jsPDF doc
+async function buildConsultaLotePDF(params: PDFExportParams): Promise<jsPDF> {
   const { 
     lote, 
     venda, 
@@ -524,7 +552,6 @@ export async function exportConsultaLoteToPDF(params: PDFExportParams): Promise<
     let yPos = addHeader(doc, lote, venda, vendedorConfig, tituloFluxo, resumoAtraso.isInadimplente);
     yPos = addExtratoTable(doc, yPos, `Últimos 12 movimentos (${tituloFluxo}):`, movimentos);
 
-    // Check for individual QR codes in overdue parcelas
     const temParcelasVencidasCheck = resumoAtraso.parcelas.some(p => p.isVencida);
     const parcelasComQrAtraso = temParcelasVencidasCheck 
       ? resumoAtraso.parcelas.filter(p => (p.isVencida || p.isPrimeiraAVencer) && p.exibirQrCode)
@@ -532,33 +559,28 @@ export async function exportConsultaLoteToPDF(params: PDFExportParams): Promise<
     const temQrCodesIndividuais = parcelasComQrAtraso.length > 0;
 
     if (fluxoResumo) {
-      // Only show next-installment QR in summary if there are NO individual QR codes
       const resumoPixPayload = temQrCodesIndividuais ? null : pixPayload;
       yPos = await addResumo(doc, yPos, tituloFluxo, fluxoResumo, qtdContratadas || 0, qtdPagas || 0, qtdAPagar || 0, resumoPixPayload, proximoValor, proximoVenc, includeQrCodes, chavePix);
     }
 
-    // Show overdue parcelas only if there are actually overdue ones
     const temParcelasVencidas = resumoAtraso.parcelas.some(p => p.isVencida);
     if (temParcelasVencidas && resumoAtraso.parcelas.length > 0) {
       yPos = addParcelasAtrasoTable(doc, yPos, tituloFluxo, resumoAtraso);
       yPos = await addQrCodesAtraso(doc, yPos, tipo, resumoAtraso, buildPixPayloadForParcela, includeQrCodes, chavePix);
     }
 
-    // Only add the institutional payment imputation notice if this flow has overdue parcelas
     if (temParcelasVencidas) {
       addAvisoImportante(doc, yPos);
     }
   };
 
-  // Page 1: always PARCELAMENTO
   await renderFluxoPage("PARCELAMENTO");
 
-  // Page 2: REFORÇO (only if exists)
   const hasReforco = (resumo?.qtdReforcosContratados || 0) > 0 || movimentosReforco.length > 0;
   if (hasReforco) {
     doc.addPage();
     await renderFluxoPage("REFORCO");
   }
 
-  doc.save(`consulta_lote_${lote.quadra}_${lote.numero_lote}.pdf`);
+  return doc;
 }
