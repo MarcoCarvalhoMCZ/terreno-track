@@ -1,0 +1,1 @@
+ALTER TABLE public.configuracoes DROP COLUMN IF EXISTS pasta_extratos_padrao;
