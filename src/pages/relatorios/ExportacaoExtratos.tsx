@@ -21,10 +21,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileDown, Loader2, CheckCircle2, XCircle, Download, FolderOpen } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { FileArchive, Loader2, CheckCircle2, XCircle, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { format, subMonths, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import JSZip from "jszip";
 import { generateConsultaLotePDFBlob } from "@/lib/consulta-lote-pdf";
 import { calcularResumoLote } from "@/lib/calculo-financeiro";
 import { generatePixPayload, generateTxId, TipoFluxoTxId } from "@/lib/pix";
@@ -46,11 +48,11 @@ interface ArquivoGerado {
   quadra: string;
   numero_lote: string;
   fileName: string;
-  path: string;
-  publicUrl: string;
   status: "success" | "error";
   error?: string;
 }
+
+type ModoEntrega = "zip" | "folder";
 
 function gerarCompetencias(): { label: string; value: string }[] {
   const result = [];
@@ -135,6 +137,8 @@ function calcularParcelasEmAtraso(
   return resultado;
 }
 
+const supportsDirectoryPicker = typeof window !== "undefined" && "showDirectoryPicker" in window;
+
 export default function ExportacaoExtratos() {
   const competencias = gerarCompetencias();
   const [competenciaSelecionada, setCompetenciaSelecionada] = useState(competencias[0].value);
@@ -144,13 +148,13 @@ export default function ExportacaoExtratos() {
   const [loteAtual, setLoteAtual] = useState("");
   const [arquivosGerados, setArquivosGerados] = useState<ArquivoGerado[]>([]);
 
-  // Fetch config for pasta padrão
+  // Fetch config
   const { data: config } = useQuery({
     queryKey: ["configuracoes-extratos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("configuracoes")
-        .select("pasta_extratos_padrao, chave_pix, vendedor_pessoa_id, juros_mora_percentual, multa_mora_percentual, criterio_juros_mora, tolerancia_dias_juros")
+        .select("chave_pix, vendedor_pessoa_id, juros_mora_percentual, multa_mora_percentual, criterio_juros_mora, tolerancia_dias_juros")
         .limit(1)
         .maybeSingle();
       if (error) throw error;
@@ -159,7 +163,7 @@ export default function ExportacaoExtratos() {
   });
 
   // Fetch lotes with ATUALIZACAO in selected month
-  const { isLoading: loadingLotes, refetch: buscarLotes } = useQuery({
+  const { isLoading: loadingLotes } = useQuery({
     queryKey: ["lotes-com-atualizacao", competenciaSelecionada],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -170,7 +174,6 @@ export default function ExportacaoExtratos() {
         .order("lote_id");
       if (error) throw error;
 
-      // Deduplicate by lote_id
       const uniqueLotes = new Map<string, LoteComAtualizacao>();
       for (const row of data || []) {
         if (!uniqueLotes.has(row.lote_id)) {
@@ -204,21 +207,33 @@ export default function ExportacaoExtratos() {
 
   const lotesSelecionados = lotes.filter((l) => l.selected);
 
-  const gerarExtratos = useCallback(async () => {
+  const gerarExtratos = useCallback(async (modo: ModoEntrega) => {
     if (lotesSelecionados.length === 0) {
       toast.warning("Selecione pelo menos um lote.");
       return;
+    }
+
+    // For folder mode, ask for directory BEFORE starting
+    let dirHandle: any = null;
+    if (modo === "folder") {
+      if (!supportsDirectoryPicker) {
+        toast.error("Seu navegador não suporta escolha de pasta. Use o botão 'Baixar ZIP'.");
+        return;
+      }
+      try {
+        dirHandle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
+      } catch (err: any) {
+        // User cancelled
+        if (err?.name === "AbortError") return;
+        toast.error("Não foi possível acessar a pasta selecionada.");
+        return;
+      }
     }
 
     setProcessando(true);
     setProgresso(0);
     setArquivosGerados([]);
 
-    const pastaBase = (config?.pasta_extratos_padrao || "extratos/{ano}-{mes}/")
-      .replace("{ano}", competenciaSelecionada.split("-")[0])
-      .replace("{mes}", competenciaSelecionada.split("-")[1]);
-
-    // Load shared configs
     const moraConfig: MoraConfig = {
       juros_mora_percentual: config?.juros_mora_percentual ?? 1.0,
       multa_mora_percentual: config?.multa_mora_percentual ?? 2.0,
@@ -226,7 +241,6 @@ export default function ExportacaoExtratos() {
       tolerancia_dias_juros: config?.tolerancia_dias_juros ?? 0,
     };
 
-    // Vendedor config
     let vendedorConfig: { nome_razao: string | null; cpf_cnpj: string | null } | null = null;
     if (config?.vendedor_pessoa_id) {
       const { data: vendedor } = await supabase
@@ -237,7 +251,6 @@ export default function ExportacaoExtratos() {
       vendedorConfig = vendedor;
     }
 
-    // PIX config
     let pixConfig: { chave_pix: string | null; nome_beneficiario: string | null; cidade_beneficiario: string | null } = {
       chave_pix: config?.chave_pix || null,
       nome_beneficiario: null,
@@ -251,6 +264,7 @@ export default function ExportacaoExtratos() {
     }
 
     const resultados: ArquivoGerado[] = [];
+    const zip = modo === "zip" ? new JSZip() : null;
 
     for (let i = 0; i < lotesSelecionados.length; i++) {
       const lote = lotesSelecionados[i];
@@ -258,7 +272,6 @@ export default function ExportacaoExtratos() {
       setProgresso(Math.round(((i) / lotesSelecionados.length) * 100));
 
       try {
-        // Fetch venda
         const { data: venda } = await supabase
           .from("vendas")
           .select("*, vendedor:pessoas!vendas_vendedor_pessoa_id_fkey(nome_razao), comprador:pessoas!vendas_comprador_pessoa_id_fkey(nome_razao, cpf_cnpj)")
@@ -268,7 +281,6 @@ export default function ExportacaoExtratos() {
           .limit(1)
           .maybeSingle();
 
-        // Fetch all movements
         const { data: movParc } = await supabase
           .from("conta_corrente_lote")
           .select("*")
@@ -285,13 +297,11 @@ export default function ExportacaoExtratos() {
           .order("data_mov", { ascending: true })
           .order("created_at", { ascending: true });
 
-        // Fetch parcelas_controle
         const { data: controle } = await supabase
           .from("parcelas_controle")
           .select("tipo_fluxo, data_base, qtd_pagas_base")
           .eq("lote_id", lote.lote_id);
 
-        // All movements for resumo calculation
         const { data: allMov } = await supabase
           .from("conta_corrente_lote")
           .select("tipo_mov, tipo_fluxo, debito, credito, data_mov, vencimento, referencia, numero_parcela, sequencia_parcela")
@@ -314,7 +324,6 @@ export default function ExportacaoExtratos() {
           }
         );
 
-        // Get ultima atualizacao date
         const { data: ultAtualiz } = await supabase
           .from("conta_corrente_lote")
           .select("data_mov")
@@ -325,11 +334,9 @@ export default function ExportacaoExtratos() {
           .maybeSingle();
         const ultimaAtualizacao = ultAtualiz?.data_mov ? parseISO(ultAtualiz.data_mov) : null;
 
-        // Calc parcelas em atraso
         const resumoAtrasoParcelamento = calcularParcelasEmAtraso("PARCELAMENTO", venda, resumo, moraConfig, ultimaAtualizacao);
         const resumoAtrasoReforco = calcularParcelasEmAtraso("REFORCO", venda, resumo, moraConfig, ultimaAtualizacao);
 
-        // Build PIX payloads
         const buildPixPayloadForType = (tipo: TipoConta) => {
           if (!pixConfig.chave_pix || !pixConfig.nome_beneficiario || !pixConfig.cidade_beneficiario || !resumo) return null;
           const isP = tipo === "PARCELAMENTO";
@@ -351,11 +358,9 @@ export default function ExportacaoExtratos() {
           } catch { return null; }
         };
 
-        // Last 12 movements per flow
         const movParc12 = (movParc || []).slice(-12);
         const movRef12 = (movRef || []).slice(-12);
 
-        // Generate PDF blob
         const blob = await generateConsultaLotePDFBlob({
           lote: { quadra: lote.quadra, numero_lote: lote.numero_lote },
           venda,
@@ -372,25 +377,22 @@ export default function ExportacaoExtratos() {
           chavePix: pixConfig.chave_pix,
         });
 
-        // Upload to storage
         const fileName = `Quadra_${lote.quadra}_Lote_${lote.numero_lote}.pdf`;
-        const filePath = `${pastaBase}${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from("extratos-lote")
-          .upload(filePath, blob, { contentType: "application/pdf", upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage.from("extratos-lote").getPublicUrl(filePath);
+        if (modo === "zip" && zip) {
+          zip.file(fileName, blob);
+        } else if (modo === "folder" && dirHandle) {
+          const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+        }
 
         resultados.push({
           loteId: lote.lote_id,
           quadra: lote.quadra,
           numero_lote: lote.numero_lote,
           fileName,
-          path: filePath,
-          publicUrl: urlData.publicUrl,
           status: "success",
         });
       } catch (err: any) {
@@ -400,11 +402,27 @@ export default function ExportacaoExtratos() {
           quadra: lote.quadra,
           numero_lote: lote.numero_lote,
           fileName: "",
-          path: "",
-          publicUrl: "",
           status: "error",
           error: err.message || "Erro desconhecido",
         });
+      }
+    }
+
+    // Download zip when done
+    if (modo === "zip" && zip) {
+      try {
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Extratos_${competenciaSelecionada}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err: any) {
+        console.error("Erro ao gerar ZIP:", err);
+        toast.error("Erro ao gerar arquivo ZIP.");
       }
     }
 
@@ -422,182 +440,190 @@ export default function ExportacaoExtratos() {
     }
   }, [lotesSelecionados, config, competenciaSelecionada]);
 
-  const pastaAtual = (config?.pasta_extratos_padrao || "extratos/{ano}-{mes}/")
-    .replace("{ano}", competenciaSelecionada.split("-")[0])
-    .replace("{mes}", competenciaSelecionada.split("-")[1]);
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Exportação de Extratos em Lote</h1>
-          <p className="text-muted-foreground">
-            Gere os extratos PDF de todos os lotes com atualização monetária no mês selecionado
-          </p>
+    <TooltipProvider>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Exportação de Extratos em Lote</h1>
+            <p className="text-muted-foreground">
+              Gere os extratos PDF de todos os lotes com atualização monetária no mês selecionado
+            </p>
+          </div>
+          {!processando && lotesSelecionados.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button onClick={() => gerarExtratos("zip")} size="lg" variant="outline">
+                <FileArchive className="h-4 w-4 mr-2" />
+                Baixar ZIP ({lotesSelecionados.length})
+              </Button>
+              {supportsDirectoryPicker ? (
+                <Button onClick={() => gerarExtratos("folder")} size="lg">
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Salvar em pasta…
+                </Button>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button size="lg" disabled>
+                        <FolderOpen className="h-4 w-4 mr-2" />
+                        Salvar em pasta…
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Disponível apenas em Chrome, Edge ou Opera.
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          )}
         </div>
-        {!processando && lotesSelecionados.length > 0 && (
-          <Button onClick={gerarExtratos} size="lg">
-            <FileDown className="h-4 w-4 mr-2" />
-            Gerar {lotesSelecionados.length} Extrato(s)
-          </Button>
+
+        {/* Seleção de Competência */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Competência</CardTitle>
+            <CardDescription>Selecione o mês de referência da atualização monetária</CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center gap-4">
+            <div className="w-64">
+              <Select value={competenciaSelecionada} onValueChange={setCompetenciaSelecionada}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {competencias.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Os PDFs serão entregues como um arquivo ZIP único ou salvos diretamente em uma pasta do seu computador (Chrome/Edge).
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Progress */}
+        {processando && (
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm font-medium">Processando: {loteAtual}</span>
+              </div>
+              <Progress value={progresso} className="h-3" />
+              <p className="text-xs text-muted-foreground text-right">{progresso}%</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Lista de lotes */}
+        {!processando && lotes.length > 0 && arquivosGerados.length === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Lotes com Atualização Monetária ({lotes.length})</CardTitle>
+              <CardDescription>Selecione os lotes para gerar os extratos</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={lotes.every((l) => l.selected)}
+                        onCheckedChange={(checked) => toggleAll(!!checked)}
+                      />
+                    </TableHead>
+                    <TableHead>Quadra</TableHead>
+                    <TableHead>Lote</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {lotes.map((lote) => (
+                    <TableRow key={lote.lote_id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={lote.selected}
+                          onCheckedChange={() => toggleLote(lote.lote_id)}
+                        />
+                      </TableCell>
+                      <TableCell>{lote.quadra}</TableCell>
+                      <TableCell>{lote.numero_lote}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty state */}
+        {!processando && !loadingLotes && lotes.length === 0 && (
+          <Card>
+            <CardContent className="pt-6 text-center text-muted-foreground">
+              Nenhum lote com atualização monetária encontrado para {competencias.find(c => c.value === competenciaSelecionada)?.label}.
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Resultados */}
+        {arquivosGerados.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Extratos Gerados</CardTitle>
+              <CardDescription>
+                {arquivosGerados.filter(a => a.status === "success").length} de {arquivosGerados.length} extrato(s) gerado(s) com sucesso
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Quadra</TableHead>
+                    <TableHead>Lote</TableHead>
+                    <TableHead>Arquivo</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {arquivosGerados.map((arq) => (
+                    <TableRow key={arq.loteId}>
+                      <TableCell>
+                        {arq.status === "success" ? (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-destructive" />
+                        )}
+                      </TableCell>
+                      <TableCell>{arq.quadra}</TableCell>
+                      <TableCell>{arq.numero_lote}</TableCell>
+                      <TableCell>
+                        {arq.status === "success" ? (
+                          <span className="text-sm">{arq.fileName}</span>
+                        ) : (
+                          <Badge variant="destructive">{arq.error}</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="flex justify-end mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setArquivosGerados([]);
+                    setProgresso(0);
+                  }}
+                >
+                  Nova Exportação
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
-
-      {/* Seleção de Competência */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Competência</CardTitle>
-          <CardDescription>Selecione o mês de referência da atualização monetária</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center gap-4">
-          <div className="w-64">
-            <Select value={competenciaSelecionada} onValueChange={setCompetenciaSelecionada}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {competencias.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <FolderOpen className="h-4 w-4" />
-            <span>Pasta: <code className="bg-muted px-1 rounded">{pastaAtual}</code></span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Progress */}
-      {processando && (
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm font-medium">Processando: {loteAtual}</span>
-            </div>
-            <Progress value={progresso} className="h-3" />
-            <p className="text-xs text-muted-foreground text-right">{progresso}%</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Lista de lotes */}
-      {!processando && lotes.length > 0 && arquivosGerados.length === 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Lotes com Atualização Monetária ({lotes.length})</CardTitle>
-            <CardDescription>Selecione os lotes para gerar os extratos</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={lotes.every((l) => l.selected)}
-                      onCheckedChange={(checked) => toggleAll(!!checked)}
-                    />
-                  </TableHead>
-                  <TableHead>Quadra</TableHead>
-                  <TableHead>Lote</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lotes.map((lote) => (
-                  <TableRow key={lote.lote_id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={lote.selected}
-                        onCheckedChange={() => toggleLote(lote.lote_id)}
-                      />
-                    </TableCell>
-                    <TableCell>{lote.quadra}</TableCell>
-                    <TableCell>{lote.numero_lote}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Empty state */}
-      {!processando && !loadingLotes && lotes.length === 0 && (
-        <Card>
-          <CardContent className="pt-6 text-center text-muted-foreground">
-            Nenhum lote com atualização monetária encontrado para {competencias.find(c => c.value === competenciaSelecionada)?.label}.
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Resultados */}
-      {arquivosGerados.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Extratos Gerados</CardTitle>
-            <CardDescription>
-              {arquivosGerados.filter(a => a.status === "success").length} de {arquivosGerados.length} extrato(s) gerado(s) com sucesso
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Quadra</TableHead>
-                  <TableHead>Lote</TableHead>
-                  <TableHead>Arquivo</TableHead>
-                  <TableHead className="text-right">Ação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {arquivosGerados.map((arq) => (
-                  <TableRow key={arq.loteId}>
-                    <TableCell>
-                      {arq.status === "success" ? (
-                        <CheckCircle2 className="h-4 w-4 text-primary" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-destructive" />
-                      )}
-                    </TableCell>
-                    <TableCell>{arq.quadra}</TableCell>
-                    <TableCell>{arq.numero_lote}</TableCell>
-                    <TableCell>
-                      {arq.status === "success" ? (
-                        <span className="text-sm">{arq.fileName}</span>
-                      ) : (
-                        <Badge variant="destructive">{arq.error}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {arq.status === "success" && (
-                        <Button variant="ghost" size="sm" asChild>
-                          <a href={arq.publicUrl} target="_blank" rel="noopener noreferrer">
-                            <Download className="h-4 w-4 mr-1" />
-                            Baixar
-                          </a>
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            <div className="flex justify-end mt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setArquivosGerados([]);
-                  setProgresso(0);
-                }}
-              >
-                Nova Exportação
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    </TooltipProvider>
   );
 }
