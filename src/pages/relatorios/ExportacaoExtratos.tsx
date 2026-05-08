@@ -373,7 +373,7 @@ export default function ExportacaoExtratos() {
           resumoAtrasoParcelamento,
           resumoAtrasoReforco,
           buildPixPayloadForParcela,
-          includeQrCodes: false,
+          includeQrCodes: true,
           chavePix: pixConfig.chave_pix,
         });
 
