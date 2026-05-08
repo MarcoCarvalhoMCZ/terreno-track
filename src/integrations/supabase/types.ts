@@ -42,7 +42,6 @@ export type Database = {
           observacoes: string | null
           padrao_corretor_pessoa_id: string | null
           padrao_percentual_corretagem: number | null
-          pasta_extratos_padrao: string | null
           razao_social_proprietaria: string | null
           representante_legal_2_pessoa_id: string | null
           representante_legal_pessoa_id: string | null
@@ -79,7 +78,6 @@ export type Database = {
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
-          pasta_extratos_padrao?: string | null
           razao_social_proprietaria?: string | null
           representante_legal_2_pessoa_id?: string | null
           representante_legal_pessoa_id?: string | null
@@ -116,7 +114,6 @@ export type Database = {
           observacoes?: string | null
           padrao_corretor_pessoa_id?: string | null
           padrao_percentual_corretagem?: number | null
-          pasta_extratos_padrao?: string | null
           razao_social_proprietaria?: string | null
           representante_legal_2_pessoa_id?: string | null
           representante_legal_pessoa_id?: string | null
