@@ -93,17 +93,13 @@ export function VendaDocumentos({ vendaId, canEdit }: VendaDocumentosProps) {
         .upload(filePath, file);
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from("venda-documentos")
-        .getPublicUrl(filePath);
-
       const { error: dbError } = await supabase
         .from("venda_documentos")
         .insert({
           venda_id: vendaId,
           nome: nomeDocumento.trim(),
           arquivo_path: filePath,
-          arquivo_url: urlData.publicUrl,
+          arquivo_url: null,
         });
       if (dbError) throw dbError;
 
@@ -118,9 +114,15 @@ export function VendaDocumentos({ vendaId, canEdit }: VendaDocumentosProps) {
     }
   };
 
-  const handleView = (doc: VendaDocumento) => {
-    if (doc.arquivo_url) {
-      window.open(doc.arquivo_url, "_blank");
+  const handleView = async (doc: VendaDocumento) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("venda-documentos")
+        .createSignedUrl(doc.arquivo_path, 3600);
+      if (error) throw error;
+      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    } catch (err: any) {
+      toast.error("Erro ao abrir documento: " + err.message);
     }
   };
 
