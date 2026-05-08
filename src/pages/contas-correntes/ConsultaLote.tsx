@@ -243,10 +243,6 @@ export default function ConsultaLote() {
                   <FileDown className="h-4 w-4 mr-2" />
                   Exportar PDF com QR
                 </Button>
-                <Button onClick={() => handleExportPDF(false)} variant="outline">
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Exportar PDF sem QR
-                </Button>
               </div>
             )}
           </div>
