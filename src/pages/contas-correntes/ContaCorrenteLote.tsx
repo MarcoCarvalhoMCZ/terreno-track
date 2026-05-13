@@ -781,7 +781,7 @@ export default function ContaCorrenteLote() {
                     <SortableTableHead sortKey="data_mov" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>DATA</SortableTableHead>
                     <SortableTableHead sortKey="lote" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>LOTE</SortableTableHead>
                     <SortableTableHead sortKey="tipo_mov" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>TIPO</SortableTableHead>
-                    <SortableTableHead sortKey="descricao" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>DESCRIÇÃO</SortableTableHead>
+                    
                     <SortableTableHead sortKey="referencia" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>REFERÊNCIA</SortableTableHead>
                     <SortableTableHead sortKey="numero_parcela" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-center">Nº PARC.</SortableTableHead>
                     <SortableTableHead sortKey="sequencia_parcela" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-center">SEQ.</SortableTableHead>
