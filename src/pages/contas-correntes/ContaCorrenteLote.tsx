@@ -803,9 +803,6 @@ export default function ContaCorrenteLote() {
                           {getTipoMovimentoLabel(mov.tipo_mov)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-48 truncate">
-                        {mov.descricao || "-"}
-                      </TableCell>
                       <TableCell>{mov.referencia || "-"}</TableCell>
                       <TableCell className="text-center text-muted-foreground">
                         {mov.numero_parcela ?? "-"}
