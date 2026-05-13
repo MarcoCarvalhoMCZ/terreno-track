@@ -480,17 +480,127 @@ export default function ContaCorrenteLote() {
     return (data?.length || 0) > 0;
   };
 
+  // Insere PARCELA/REFORCO + (opcionalmente) movimentos vinculados de JUROS e MULTA.
+  // Quando há atraso elegível, gera automaticamente os movimentos de juros e multa
+  // vinculados via parcela_origem_id (cascade delete garantido pela FK).
+  const inserirParcelaComEncargos = async (parcelaData: ContaCorrenteInsert) => {
+    const { data: parcelaInserida, error: errParcela } = await supabase
+      .from("conta_corrente_lote")
+      .insert(parcelaData)
+      .select()
+      .single();
+
+    if (errParcela) throw errParcela;
+    if (!parcelaInserida) throw new Error("Falha ao inserir parcela");
+
+    if (encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada) {
+      const baseVinculo: Partial<ContaCorrenteInsert> = {
+        lote_id: parcelaData.lote_id,
+        venda_id: parcelaData.venda_id ?? null,
+        data_mov: parcelaData.data_mov,
+        tipo_fluxo: parcelaData.tipo_fluxo,
+        vencimento: parcelaData.vencimento ?? null,
+        numero_parcela: parcelaData.numero_parcela ?? null,
+        sequencia_parcela: parcelaData.sequencia_parcela ?? null,
+        parcela_origem_id: parcelaInserida.id,
+        credito: 0,
+      } as any;
+
+      const movimentosVinculados: ContaCorrenteInsert[] = [];
+
+      if (encargosMora.valorJuros > 0) {
+        movimentosVinculados.push({
+          ...baseVinculo,
+          tipo_mov: "JUROS",
+          debito: Number(encargosMora.valorJuros.toFixed(2)),
+          percentual_calculo: Number(encargosMora.jurosPercentual.toFixed(4)),
+          descricao: `Juros de Mora vinculado à Parcela #${parcelaData.numero_parcela ?? ""} (${encargosMora.diasAtraso} dia(s) atraso)`,
+        } as ContaCorrenteInsert);
+      }
+
+      if (encargosMora.valorMulta > 0) {
+        movimentosVinculados.push({
+          ...baseVinculo,
+          tipo_mov: "MULTA",
+          debito: Number(encargosMora.valorMulta.toFixed(2)),
+          percentual_calculo: moraConfig?.multa_mora_percentual ?? null,
+          descricao: `Multa por Atraso vinculada à Parcela #${parcelaData.numero_parcela ?? ""}`,
+        } as ContaCorrenteInsert);
+      }
+
+      if (movimentosVinculados.length > 0) {
+        const { error: errVinc } = await supabase
+          .from("conta_corrente_lote")
+          .insert(movimentosVinculados);
+        if (errVinc) {
+          // Reverte a parcela para evitar lançamento órfão
+          await supabase.from("conta_corrente_lote").delete().eq("id", parcelaInserida.id);
+          throw errVinc;
+        }
+      }
+    }
+
+    return parcelaInserida;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validação com mensagens específicas
+    // Bloquear criação manual de tipos auto-gerados
+    if (formData.tipo_mov && TIPOS_AUTO_GERADOS.includes(formData.tipo_mov)) {
+      toast.error("Movimentos de Juros e Multa são gerados automaticamente ao receber uma parcela em atraso.");
+      return;
+    }
+
+    // Validação baseada na matriz de campos habilitados/obrigatórios
     const camposFaltando: string[] = [];
-    if (!formData.lote_id) camposFaltando.push("Lote");
-    if (!formData.data_mov) camposFaltando.push("Data Movimento");
-    if (!formData.tipo_mov) camposFaltando.push("Tipo Movimento");
-    
+    const labels: Record<CampoMovimento, string> = {
+      tipo_fluxo_form: "Tipo de Conta",
+      lote_id: "Lote",
+      data_mov: "Data Movimento",
+      tipo_mov: "Tipo Movimento",
+      valor: "Valor",
+      natureza_outros: "Natureza",
+      referencia: "Referência",
+      vencimento: "Vencimento",
+      numero_parcela: "Nº Parcela",
+      sequencia_parcela: "Sequência",
+      percentual_calculo: "Percentual",
+      modo_pagamento: "Modo de Pagamento",
+      banco_origem: "Banco Origem",
+      cpf_cnpj_pagador: "CPF/CNPJ Pagador",
+      descricao: "Descrição",
+    };
+
     const valor = parseValorBR(valorMovimento);
-    if (!valor || valor <= 0) camposFaltando.push("Valor");
+
+    (Object.keys(labels) as CampoMovimento[]).forEach((campo) => {
+      if (!isCampoObrigatorio(formData.tipo_mov, campo)) return;
+      let preenchido = false;
+      switch (campo) {
+        case "valor":
+          preenchido = !!valor && valor > 0;
+          break;
+        case "natureza_outros":
+          preenchido = !!formData.natureza_outros;
+          break;
+        case "vencimento":
+          preenchido = !!formData.vencimento;
+          break;
+        case "numero_parcela":
+          preenchido = formData.numero_parcela != null;
+          break;
+        case "sequencia_parcela":
+          preenchido = formData.sequencia_parcela != null;
+          break;
+        case "percentual_calculo":
+          preenchido = formData.percentual_calculo != null;
+          break;
+        default:
+          preenchido = !!(formData as any)[campo];
+      }
+      if (!preenchido) camposFaltando.push(labels[campo]);
+    });
 
     if (camposFaltando.length > 0) {
       toast.error(`Campos obrigatórios não preenchidos: ${camposFaltando.join(", ")}`);
@@ -498,18 +608,12 @@ export default function ContaCorrenteLote() {
     }
 
     // Determinar natureza do movimento
-    const naturezaDoTipo = getNaturezaMovimento(formData.tipo_mov);
+    const naturezaDoTipo = getNaturezaMovimento(formData.tipo_mov!);
     let naturezaFinal: "debito" | "credito";
-    
+
     if (naturezaDoTipo === "pergunta") {
-      if (!formData.natureza_outros) {
-        toast.error("Selecione se o movimento é débito ou crédito");
-        return;
-      }
-      naturezaFinal = formData.natureza_outros;
+      naturezaFinal = formData.natureza_outros!;
     } else if (naturezaDoTipo === "auto") {
-      // Para ATUALIZACAO: índice positivo = débito (aumenta saldo), índice negativo = crédito (reduz saldo)
-      // O percentual_calculo armazena o índice, que pode ser negativo
       const percentual = formData.percentual_calculo || 0;
       naturezaFinal = percentual >= 0 ? "debito" : "credito";
     } else {
@@ -518,15 +622,13 @@ export default function ContaCorrenteLote() {
 
     // Preparar dados - remover campos que não existem no banco
     const { natureza_outros, tipo_fluxo_form, ...formDataSemExtras } = formData;
-    
-    // Incluir campos de pagamento apenas para tipos PARCELA e REFORCO
     const isPagamento = formData.tipo_mov === "PARCELA" || formData.tipo_mov === "REFORCO";
-    
+
     const dataToSave = {
       ...formDataSemExtras,
       tipo_fluxo: tipo_fluxo_form || tipoConta,
-      debito: naturezaFinal === "debito" ? valor : null,
-      credito: naturezaFinal === "credito" ? valor : null,
+      debito: naturezaFinal === "debito" ? valor! : null,
+      credito: naturezaFinal === "credito" ? valor! : null,
       percentual_calculo: formData.percentual_calculo ? Number(formData.percentual_calculo) : null,
       venda_id: null,
       modo_pagamento: isPagamento ? (formData.modo_pagamento || null) : null,
@@ -534,16 +636,15 @@ export default function ContaCorrenteLote() {
       cpf_cnpj_pagador: isPagamento ? (formData.cpf_cnpj_pagador || null) : null,
       numero_parcela: formData.numero_parcela ?? null,
       sequencia_parcela: formData.sequencia_parcela ?? null,
-    };
+    } as ContaCorrenteInsert;
 
-    // Verificar duplicidade para ATUALIZACAO (consulta robusta no banco)
+    // Verificar duplicidade para ATUALIZACAO
     if (!editingMov && formData.tipo_mov === "ATUALIZACAO" && formData.lote_id && formData.data_mov) {
       const tipoFluxo = tipo_fluxo_form || tipoConta;
-
       try {
         const jaExiste = await existeAtualizacaoNoMes(formData.lote_id, tipoFluxo, formData.data_mov);
         if (jaExiste) {
-          setPendingSubmitData({ dataToSave: dataToSave as ContaCorrenteInsert, isEdit: false });
+          setPendingSubmitData({ dataToSave, isEdit: false });
           setDuplicateAtualizacaoDialogOpen(true);
           return;
         }
@@ -558,9 +659,27 @@ export default function ContaCorrenteLote() {
         id: editingMov.id,
         updates: dataToSave as ContaCorrenteUpdate,
       });
-    } else {
-      createMutation.mutate(dataToSave as ContaCorrenteInsert);
+      return;
     }
+
+    // Para PARCELA/REFORCO: usar fluxo com geração automática de Juros/Multa
+    if (isPagamento) {
+      try {
+        await inserirParcelaComEncargos(dataToSave);
+        const msg = encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada
+          ? `Parcela registrada. Juros e Multa gerados automaticamente.`
+          : "Movimentação cadastrada com sucesso!";
+        toast.success(msg);
+        queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
+        queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
+        handleCloseDialog();
+      } catch (err: any) {
+        toast.error("Erro ao cadastrar movimentação: " + (err?.message || "Erro desconhecido"));
+      }
+      return;
+    }
+
+    createMutation.mutate(dataToSave);
   };
 
   const handleDuplicateAtualizacaoConfirm = async (recalcular: boolean) => {
