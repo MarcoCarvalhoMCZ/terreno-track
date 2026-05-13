@@ -54,9 +54,9 @@ export function usePermissions() {
     enabled: !!user && !isAdmin,
   });
 
-  // Admin tem acesso a tudo; "configuracoes" é exclusivo de Admin
+  // "administrador" é exclusivo de Admin; "configuracoes" agora é acessível a Admin/Operador via permissão
   const hasPermission = (menuKey: MenuKey): boolean => {
-    if (menuKey === "configuracoes") return isAdmin;
+    if (menuKey === "administrador") return isAdmin;
     if (isAdmin) return true;
     if (!permissions) return false;
     return permissions.includes(menuKey);
