@@ -83,6 +83,7 @@ export function LoteSearchSelect({
   placeholder = "Selecione o lote",
   showStatus = false,
   className,
+  disabled = false,
   allOptionValue,
   allOptionLabel = "Todos os lotes",
 }: LoteSearchSelectProps) {
@@ -108,12 +109,14 @@ export function LoteSearchSelect({
       : placeholder;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => !disabled && setOpen(o)}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          disabled={disabled}
+          tabIndex={disabled ? -1 : 0}
           className={cn("w-full justify-between font-normal", !value && "text-muted-foreground", className)}
         >
           <span className="truncate">{displayLabel}</span>
