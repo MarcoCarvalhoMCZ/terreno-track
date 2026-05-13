@@ -1,9 +1,13 @@
-import { addMonths, differenceInMonths, startOfMonth, isAfter, isBefore } from "date-fns";
+import { addMonths, differenceInDays, differenceInMonths, startOfMonth, isAfter, isBefore } from "date-fns";
 
 /**
- * Critério de incidência de juros de mora
+ * Critério de incidência de juros de mora.
+ * - MES_SUBSEQUENTE: juros começam no 1º dia do mês seguinte ao vencimento
+ * - TOLERANCIA: juros começam após N dias de tolerância
+ * - PRO_RATA_DIA: juros calculados proporcionalmente aos dias em atraso (preparado)
+ * - FIXO_MENSAL: aplica mês cheio independentemente da quantidade de dias (preparado)
  */
-export type CriterioJurosMora = "MES_SUBSEQUENTE" | "TOLERANCIA";
+export type CriterioJurosMora = "MES_SUBSEQUENTE" | "TOLERANCIA" | "PRO_RATA_DIA" | "FIXO_MENSAL";
 
 /**
  * Configurações de mora (juros + multa)
