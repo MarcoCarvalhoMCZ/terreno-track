@@ -78,6 +78,7 @@ export type Database = {
           id: string
           juros_mora_percentual: number | null
           logotipo_url: string | null
+          mensagem_extrato: string | null
           multa_mora_percentual: number | null
           nome_beneficiario: string | null
           observacoes: string | null
@@ -114,6 +115,7 @@ export type Database = {
           id?: string
           juros_mora_percentual?: number | null
           logotipo_url?: string | null
+          mensagem_extrato?: string | null
           multa_mora_percentual?: number | null
           nome_beneficiario?: string | null
           observacoes?: string | null
@@ -150,6 +152,7 @@ export type Database = {
           id?: string
           juros_mora_percentual?: number | null
           logotipo_url?: string | null
+          mensagem_extrato?: string | null
           multa_mora_percentual?: number | null
           nome_beneficiario?: string | null
           observacoes?: string | null
