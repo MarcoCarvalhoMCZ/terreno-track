@@ -123,6 +123,7 @@ const administracaoItems: MenuItem[] = [
   { title: "Importação CSV", url: "/importacao", icon: FileUp, menuKey: "importacao" },
   { title: "Usuários e Permissões", url: "/admin/usuarios", icon: Shield, menuKey: "usuarios" },
   { title: "Configuração", url: "/configuracoes", icon: Settings, menuKey: "configuracoes" },
+  { title: "Administrador", url: "/administrador", icon: Shield, menuKey: "administrador" },
 ];
 
 // ═══ 9. SISTEMA ═══

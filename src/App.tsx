@@ -36,6 +36,7 @@ const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Importacao = lazy(() => import("./pages/Importacao"));
 const Sobre = lazy(() => import("./pages/Sobre"));
 const Usuarios = lazy(() => import("./pages/admin/Usuarios"));
+const Administrador = lazy(() => import("./pages/Administrador"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -93,7 +94,8 @@ function AppRoutes() {
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/mapa-loteamento" element={<ProtectedRoute><MapaLoteamento /></ProtectedRoute>} />
-        <Route path="/configuracoes" element={<AdminRoute><Configuracoes /></AdminRoute>} />
+        <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+        <Route path="/administrador" element={<AdminRoute><Administrador /></AdminRoute>} />
         <Route path="/cadastro/lotes" element={<ProtectedRoute><Lotes /></ProtectedRoute>} />
         <Route path="/cadastro/pessoas" element={<ProtectedRoute><Pessoas /></ProtectedRoute>} />
         <Route path="/cadastro/indicadores" element={<ProtectedRoute><Indicadores /></ProtectedRoute>} />

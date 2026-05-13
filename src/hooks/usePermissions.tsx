@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 export const MENU_ITEMS = {
   dashboard: { label: "Dashboard", path: "/" },
   mapaLoteamento: { label: "Mapa do Loteamento", path: "/mapa-loteamento" },
-  configuracoes: { label: "Configurações", path: "/configuracoes" },
+  configuracoes: { label: "Configuração", path: "/configuracoes" },
+  administrador: { label: "Administrador", path: "/administrador" },
   lotes: { label: "Lotes (Estoque)", path: "/cadastro/lotes" },
   indicadores: { label: "Indicadores de Atualização", path: "/cadastro/indicadores" },
   pessoas: { label: "Pessoas (PF/PJ)", path: "/cadastro/pessoas" },
@@ -53,9 +54,9 @@ export function usePermissions() {
     enabled: !!user && !isAdmin,
   });
 
-  // Admin tem acesso a tudo; "configuracoes" é exclusivo de Admin
+  // "administrador" é exclusivo de Admin; "configuracoes" agora é acessível a Admin/Operador via permissão
   const hasPermission = (menuKey: MenuKey): boolean => {
-    if (menuKey === "configuracoes") return isAdmin;
+    if (menuKey === "administrador") return isAdmin;
     if (isAdmin) return true;
     if (!permissions) return false;
     return permissions.includes(menuKey);
