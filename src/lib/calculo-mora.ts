@@ -23,12 +23,14 @@ export interface MoraConfig {
  * Resultado do cálculo de encargos de mora para uma parcela
  */
 export interface EncargosCalculados {
+  diasAtraso: number;
   mesesAtraso: number;
   jurosPercentual: number;
   valorJuros: number;
   valorMulta: number;
   totalParcela: number;
   isVencida: boolean;
+  toleranciaAplicada: boolean;
 }
 
 /**
