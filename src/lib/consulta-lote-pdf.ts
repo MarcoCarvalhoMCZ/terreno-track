@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { formatDateBR } from "@/lib/date";
 import { formatNumber, formatCurrency } from "@/lib/formatters";
 import { generateQrDataUrl } from "@/lib/qr-utils";
+import { supabase } from "@/integrations/supabase/client";
 import type { ResumoFluxo, ResumoLote, TipoConta } from "@/types/conta-corrente.types";
 import type { ParcelaEmAtraso, ResumoParcelasEmAtraso } from "@/hooks/useParcelasEmAtraso";
 
@@ -485,6 +486,63 @@ const addAvisoImportante = (doc: jsPDF, yStart: number): number => {
   return yPos + totalBoxHeight + 8;
 };
 
+// Mensagem institucional configurável (fundo verde claro). Sempre exibida quando preenchida.
+const MENSAGEM_TITULO = "AVISO";
+const addMensagemExtrato = (doc: jsPDF, yStart: number, mensagem: string): number => {
+  const texto = mensagem.trim();
+  if (!texto) return yStart;
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginLeft = 14;
+  const marginRight = 14;
+  const boxWidth = pageWidth - marginLeft - marginRight;
+  const padding = 6;
+  const textMaxWidth = boxWidth - padding * 2;
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  // Preserva quebras de linha do usuário e quebra automaticamente
+  const linhasOriginais = texto.split(/\r?\n/);
+  const splitText: string[] = [];
+  for (const linha of linhasOriginais) {
+    const wrapped = doc.splitTextToSize(linha === "" ? " " : linha, textMaxWidth) as string[];
+    splitText.push(...wrapped);
+  }
+  const lineHeight = 4.5;
+  const titleHeight = 7;
+  const totalBoxHeight = padding + titleHeight + splitText.length * lineHeight + padding;
+
+  let yPos = yStart;
+  if (yPos + totalBoxHeight + 10 > pageHeight - 15) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  // Fundo verde claro com borda verde
+  doc.setDrawColor(120, 180, 120);
+  doc.setFillColor(220, 245, 220);
+  doc.roundedRect(marginLeft, yPos, boxWidth, totalBoxHeight, 2, 2, "FD");
+
+  let textY = yPos + padding + 4;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(40, 110, 40);
+  doc.text(MENSAGEM_TITULO, marginLeft + padding, textY);
+
+  textY += titleHeight;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(40, 70, 40);
+  for (const line of splitText) {
+    doc.text(line, marginLeft + padding, textY);
+    textY += lineHeight;
+  }
+
+  doc.setTextColor(0, 0, 0);
+  return yPos + totalBoxHeight + 8;
+};
+
 // Generate PDF and return as Blob (for batch/upload use)
 export async function generateConsultaLotePDFBlob(params: PDFExportParams): Promise<Blob> {
   const doc = await buildConsultaLotePDF(params);
@@ -533,6 +591,19 @@ async function buildConsultaLotePDF(params: PDFExportParams): Promise<jsPDF> {
 
   const doc = new jsPDF();
 
+  // Buscar mensagem institucional configurada (texto livre); silenciosa em caso de erro
+  let mensagemExtrato = "";
+  try {
+    const { data: cfg } = await supabase
+      .from("configuracoes")
+      .select("mensagem_extrato")
+      .limit(1)
+      .maybeSingle();
+    mensagemExtrato = ((cfg as any)?.mensagem_extrato || "").toString();
+  } catch {
+    mensagemExtrato = "";
+  }
+
   const renderFluxoPage = async (tipo: TipoConta) => {
     const isParcelamento = tipo === "PARCELAMENTO";
 
@@ -570,7 +641,11 @@ async function buildConsultaLotePDF(params: PDFExportParams): Promise<jsPDF> {
     }
 
     if (temParcelasVencidas) {
-      addAvisoImportante(doc, yPos);
+      yPos = addAvisoImportante(doc, yPos);
+    }
+
+    if (mensagemExtrato.trim()) {
+      yPos = addMensagemExtrato(doc, yPos, mensagemExtrato);
     }
   };
 

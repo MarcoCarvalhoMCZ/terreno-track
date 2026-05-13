@@ -57,6 +57,7 @@ export default function Configuracoes() {
     email_reply_to: (c as any).email_reply_to || "",
     email_assunto_padrao: (c as any).email_assunto_padrao || "Extrato de Conta Corrente do Lote",
     email_rodape: (c as any).email_rodape || "",
+    mensagem_extrato: (c as any).mensagem_extrato || "",
   });
 
   useEffect(() => {
@@ -311,6 +312,32 @@ export default function Configuracoes() {
                   />
                   <p className="text-xs text-muted-foreground">Texto que aparecerá no rodapé de todos os e-mails enviados</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Mensagem do Extrato */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Mensagem do Extrato</CardTitle>
+              <CardDescription>
+                Quando preenchida, esta mensagem será impressa em destaque (fundo verde claro) em cada extrato exportado em PDF.
+                Deixe em branco para não exibir nenhum aviso.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>Mensagem</Label>
+                <Textarea
+                  value={(formData as any).mensagem_extrato || ""}
+                  onChange={(e) => handleChange("mensagem_extrato", e.target.value)}
+                  placeholder="Ex: Prezado cliente, lembre-se de manter seus pagamentos em dia para evitar acréscimos por atraso."
+                  rows={5}
+                  maxLength={1000}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Texto livre, até 1000 caracteres. Quebras de linha são preservadas. Sem formatação rica (negrito, itálico, links).
+                </p>
               </div>
             </CardContent>
           </Card>

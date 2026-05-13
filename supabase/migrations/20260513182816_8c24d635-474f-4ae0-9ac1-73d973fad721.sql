@@ -1,0 +1,1 @@
+ALTER TABLE public.configuracoes ADD COLUMN IF NOT EXISTS mensagem_extrato text;
