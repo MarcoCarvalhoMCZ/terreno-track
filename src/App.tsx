@@ -36,6 +36,7 @@ const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Importacao = lazy(() => import("./pages/Importacao"));
 const Sobre = lazy(() => import("./pages/Sobre"));
 const Usuarios = lazy(() => import("./pages/admin/Usuarios"));
+const Administrador = lazy(() => import("./pages/Administrador"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
