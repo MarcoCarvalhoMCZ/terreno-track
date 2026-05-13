@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +64,11 @@ import {
   type NaturezaMovimento,
 } from "@/constants/movimento";
 import {
+  isCampoHabilitado,
+  isCampoObrigatorio,
+  type CampoMovimento,
+} from "@/constants/movimento-campos";
+import {
   useContaCorrenteMovimentacoes,
   useLotes,
   useVendasComLote,
@@ -70,9 +76,15 @@ import {
   useIndicadoresValores,
   useContaCorrenteMutations,
 } from "@/hooks/useContaCorrente";
+import { useMoraConfig } from "@/hooks/useParcelasEmAtraso";
+import { calcularEncargosParcela } from "@/lib/calculo-mora";
+import { AtrasoBanner } from "@/components/movimento/AtrasoBanner";
 
 type ContaCorrenteInsert = TablesInsert<"conta_corrente_lote">;
 type ContaCorrenteUpdate = TablesUpdate<"conta_corrente_lote">;
+
+// Tipos que NÃO podem ser criados manualmente (são gerados automaticamente)
+const TIPOS_AUTO_GERADOS = ["JUROS", "MULTA"];
 
 export default function ContaCorrenteLote() {
   const { canEdit } = useAuth();
@@ -96,6 +108,10 @@ export default function ContaCorrenteLote() {
   const { data: vendas } = useVendasComLote();
   const { data: resumoFluxo } = useResumoFluxoLote();
   const { data: indicadoresValores } = useIndicadoresValores();
+
+  // Lê configurações de mora (juros, multa, critério, tolerância)
+  const { data: moraConfig } = useMoraConfig();
+  const queryClient = useQueryClient();
 
   // Close dialog handler to pass to mutations
   const handleCloseDialog = () => {
@@ -372,28 +388,29 @@ export default function ContaCorrenteLote() {
     setShouldApplySuggestions(true);
   }, [formData.tipo_mov, formData.lote_id, formData.tipo_fluxo_form]);
 
-  // Efeito para calcular juros quando vencimento mudar (para tipo JUROS)
-  useEffect(() => {
-    if (editingMov || formData.tipo_mov !== "JUROS" || !formData.vencimento || !resumoFluxoLote) return;
+  // Cálculo automático de encargos de mora (juros + multa) para PARCELA/REFORCO
+  // Reativo: recalcula sempre que tipo_mov, vencimento, data_mov, valor ou config mudar
+  const encargosMora = useMemo(() => {
+    if (editingMov) return null;
+    if (formData.tipo_mov !== "PARCELA" && formData.tipo_mov !== "REFORCO") return null;
+    if (!formData.vencimento || !formData.data_mov || !moraConfig) return null;
+
+    const valor = parseValorBR(valorMovimento);
+    if (!valor || valor <= 0) return null;
 
     const vencimento = parseDateOnly(formData.vencimento);
-    const hoje = new Date();
-    
-    if (vencimento && vencimento < hoje) {
-      const mesesAtraso = Math.floor((hoje.getTime() - vencimento.getTime()) / (1000 * 60 * 60 * 24 * 30));
-      const valorParcela = resumoFluxoLote.valor_proximo_titulo || 0;
-      const taxaJuros = 1; // 1% ao mês
-      const valorJuros = valorParcela * (taxaJuros / 100) * mesesAtraso;
-      
-      if (valorJuros > 0) {
-        setValorMovimento(valorJuros.toFixed(2));
-        setFormData(prev => ({
-          ...prev,
-          percentual_calculo: taxaJuros * mesesAtraso,
-        }));
-      }
-    }
-  }, [formData.vencimento, formData.tipo_mov, resumoFluxoLote, editingMov]);
+    const dataPagamento = parseDateOnly(formData.data_mov);
+    if (!vencimento || !dataPagamento) return null;
+
+    return calcularEncargosParcela(valor, vencimento, dataPagamento, moraConfig);
+  }, [
+    formData.tipo_mov,
+    formData.vencimento,
+    formData.data_mov,
+    valorMovimento,
+    moraConfig,
+    editingMov,
+  ]);
 
   // handleCloseDialog is defined above with mutations
 
@@ -463,17 +480,127 @@ export default function ContaCorrenteLote() {
     return (data?.length || 0) > 0;
   };
 
+  // Insere PARCELA/REFORCO + (opcionalmente) movimentos vinculados de JUROS e MULTA.
+  // Quando há atraso elegível, gera automaticamente os movimentos de juros e multa
+  // vinculados via parcela_origem_id (cascade delete garantido pela FK).
+  const inserirParcelaComEncargos = async (parcelaData: ContaCorrenteInsert) => {
+    const { data: parcelaInserida, error: errParcela } = await supabase
+      .from("conta_corrente_lote")
+      .insert(parcelaData)
+      .select()
+      .single();
+
+    if (errParcela) throw errParcela;
+    if (!parcelaInserida) throw new Error("Falha ao inserir parcela");
+
+    if (encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada) {
+      const baseVinculo: Partial<ContaCorrenteInsert> = {
+        lote_id: parcelaData.lote_id,
+        venda_id: parcelaData.venda_id ?? null,
+        data_mov: parcelaData.data_mov,
+        tipo_fluxo: parcelaData.tipo_fluxo,
+        vencimento: parcelaData.vencimento ?? null,
+        numero_parcela: parcelaData.numero_parcela ?? null,
+        sequencia_parcela: parcelaData.sequencia_parcela ?? null,
+        parcela_origem_id: parcelaInserida.id,
+        credito: 0,
+      } as any;
+
+      const movimentosVinculados: ContaCorrenteInsert[] = [];
+
+      if (encargosMora.valorJuros > 0) {
+        movimentosVinculados.push({
+          ...baseVinculo,
+          tipo_mov: "JUROS",
+          debito: Number(encargosMora.valorJuros.toFixed(2)),
+          percentual_calculo: Number(encargosMora.jurosPercentual.toFixed(4)),
+          descricao: `Juros de Mora vinculado à Parcela #${parcelaData.numero_parcela ?? ""} (${encargosMora.diasAtraso} dia(s) atraso)`,
+        } as ContaCorrenteInsert);
+      }
+
+      if (encargosMora.valorMulta > 0) {
+        movimentosVinculados.push({
+          ...baseVinculo,
+          tipo_mov: "MULTA",
+          debito: Number(encargosMora.valorMulta.toFixed(2)),
+          percentual_calculo: moraConfig?.multa_mora_percentual ?? null,
+          descricao: `Multa por Atraso vinculada à Parcela #${parcelaData.numero_parcela ?? ""}`,
+        } as ContaCorrenteInsert);
+      }
+
+      if (movimentosVinculados.length > 0) {
+        const { error: errVinc } = await supabase
+          .from("conta_corrente_lote")
+          .insert(movimentosVinculados);
+        if (errVinc) {
+          // Reverte a parcela para evitar lançamento órfão
+          await supabase.from("conta_corrente_lote").delete().eq("id", parcelaInserida.id);
+          throw errVinc;
+        }
+      }
+    }
+
+    return parcelaInserida;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validação com mensagens específicas
+    // Bloquear criação manual de tipos auto-gerados
+    if (formData.tipo_mov && TIPOS_AUTO_GERADOS.includes(formData.tipo_mov)) {
+      toast.error("Movimentos de Juros e Multa são gerados automaticamente ao receber uma parcela em atraso.");
+      return;
+    }
+
+    // Validação baseada na matriz de campos habilitados/obrigatórios
     const camposFaltando: string[] = [];
-    if (!formData.lote_id) camposFaltando.push("Lote");
-    if (!formData.data_mov) camposFaltando.push("Data Movimento");
-    if (!formData.tipo_mov) camposFaltando.push("Tipo Movimento");
-    
+    const labels: Record<CampoMovimento, string> = {
+      tipo_fluxo_form: "Tipo de Conta",
+      lote_id: "Lote",
+      data_mov: "Data Movimento",
+      tipo_mov: "Tipo Movimento",
+      valor: "Valor",
+      natureza_outros: "Natureza",
+      referencia: "Referência",
+      vencimento: "Vencimento",
+      numero_parcela: "Nº Parcela",
+      sequencia_parcela: "Sequência",
+      percentual_calculo: "Percentual",
+      modo_pagamento: "Modo de Pagamento",
+      banco_origem: "Banco Origem",
+      cpf_cnpj_pagador: "CPF/CNPJ Pagador",
+      descricao: "Descrição",
+    };
+
     const valor = parseValorBR(valorMovimento);
-    if (!valor || valor <= 0) camposFaltando.push("Valor");
+
+    (Object.keys(labels) as CampoMovimento[]).forEach((campo) => {
+      if (!isCampoObrigatorio(formData.tipo_mov, campo)) return;
+      let preenchido = false;
+      switch (campo) {
+        case "valor":
+          preenchido = !!valor && valor > 0;
+          break;
+        case "natureza_outros":
+          preenchido = !!formData.natureza_outros;
+          break;
+        case "vencimento":
+          preenchido = !!formData.vencimento;
+          break;
+        case "numero_parcela":
+          preenchido = formData.numero_parcela != null;
+          break;
+        case "sequencia_parcela":
+          preenchido = formData.sequencia_parcela != null;
+          break;
+        case "percentual_calculo":
+          preenchido = formData.percentual_calculo != null;
+          break;
+        default:
+          preenchido = !!(formData as any)[campo];
+      }
+      if (!preenchido) camposFaltando.push(labels[campo]);
+    });
 
     if (camposFaltando.length > 0) {
       toast.error(`Campos obrigatórios não preenchidos: ${camposFaltando.join(", ")}`);
@@ -481,18 +608,12 @@ export default function ContaCorrenteLote() {
     }
 
     // Determinar natureza do movimento
-    const naturezaDoTipo = getNaturezaMovimento(formData.tipo_mov);
+    const naturezaDoTipo = getNaturezaMovimento(formData.tipo_mov!);
     let naturezaFinal: "debito" | "credito";
-    
+
     if (naturezaDoTipo === "pergunta") {
-      if (!formData.natureza_outros) {
-        toast.error("Selecione se o movimento é débito ou crédito");
-        return;
-      }
-      naturezaFinal = formData.natureza_outros;
+      naturezaFinal = formData.natureza_outros!;
     } else if (naturezaDoTipo === "auto") {
-      // Para ATUALIZACAO: índice positivo = débito (aumenta saldo), índice negativo = crédito (reduz saldo)
-      // O percentual_calculo armazena o índice, que pode ser negativo
       const percentual = formData.percentual_calculo || 0;
       naturezaFinal = percentual >= 0 ? "debito" : "credito";
     } else {
@@ -501,15 +622,13 @@ export default function ContaCorrenteLote() {
 
     // Preparar dados - remover campos que não existem no banco
     const { natureza_outros, tipo_fluxo_form, ...formDataSemExtras } = formData;
-    
-    // Incluir campos de pagamento apenas para tipos PARCELA e REFORCO
     const isPagamento = formData.tipo_mov === "PARCELA" || formData.tipo_mov === "REFORCO";
-    
+
     const dataToSave = {
       ...formDataSemExtras,
       tipo_fluxo: tipo_fluxo_form || tipoConta,
-      debito: naturezaFinal === "debito" ? valor : null,
-      credito: naturezaFinal === "credito" ? valor : null,
+      debito: naturezaFinal === "debito" ? valor! : null,
+      credito: naturezaFinal === "credito" ? valor! : null,
       percentual_calculo: formData.percentual_calculo ? Number(formData.percentual_calculo) : null,
       venda_id: null,
       modo_pagamento: isPagamento ? (formData.modo_pagamento || null) : null,
@@ -517,16 +636,15 @@ export default function ContaCorrenteLote() {
       cpf_cnpj_pagador: isPagamento ? (formData.cpf_cnpj_pagador || null) : null,
       numero_parcela: formData.numero_parcela ?? null,
       sequencia_parcela: formData.sequencia_parcela ?? null,
-    };
+    } as ContaCorrenteInsert;
 
-    // Verificar duplicidade para ATUALIZACAO (consulta robusta no banco)
+    // Verificar duplicidade para ATUALIZACAO
     if (!editingMov && formData.tipo_mov === "ATUALIZACAO" && formData.lote_id && formData.data_mov) {
       const tipoFluxo = tipo_fluxo_form || tipoConta;
-
       try {
         const jaExiste = await existeAtualizacaoNoMes(formData.lote_id, tipoFluxo, formData.data_mov);
         if (jaExiste) {
-          setPendingSubmitData({ dataToSave: dataToSave as ContaCorrenteInsert, isEdit: false });
+          setPendingSubmitData({ dataToSave, isEdit: false });
           setDuplicateAtualizacaoDialogOpen(true);
           return;
         }
@@ -541,9 +659,27 @@ export default function ContaCorrenteLote() {
         id: editingMov.id,
         updates: dataToSave as ContaCorrenteUpdate,
       });
-    } else {
-      createMutation.mutate(dataToSave as ContaCorrenteInsert);
+      return;
     }
+
+    // Para PARCELA/REFORCO: usar fluxo com geração automática de Juros/Multa
+    if (isPagamento) {
+      try {
+        await inserirParcelaComEncargos(dataToSave);
+        const msg = encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada
+          ? `Parcela registrada. Juros e Multa gerados automaticamente.`
+          : "Movimentação cadastrada com sucesso!";
+        toast.success(msg);
+        queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
+        queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
+        handleCloseDialog();
+      } catch (err: any) {
+        toast.error("Erro ao cadastrar movimentação: " + (err?.message || "Erro desconhecido"));
+      }
+      return;
+    }
+
+    createMutation.mutate(dataToSave);
   };
 
   const handleDuplicateAtualizacaoConfirm = async (recalcular: boolean) => {
@@ -656,12 +792,27 @@ export default function ContaCorrenteLote() {
 
   // Using getTipoMovimentoLabel from centralized constants
 
-  // Get tipos de movimento baseado no tipo de conta selecionado NO FORMULÁRIO (sem VENDA)
-  const tiposMovimentoFiltrados = tiposMovimento.filter(t => 
-    formData.tipo_fluxo_form === "PARCELAMENTO" 
-      ? tiposParcelamento.includes(t.value)
-      : tiposReforco.includes(t.value)
+  // Get tipos de movimento para o formulário (sem VENDA, sem JUROS, sem MULTA - estes são auto-gerados)
+  const tiposMovimentoFiltrados = tiposMovimento.filter(t =>
+    !TIPOS_AUTO_GERADOS.includes(t.value) && (
+      formData.tipo_fluxo_form === "PARCELAMENTO"
+        ? tiposParcelamento.includes(t.value)
+        : tiposReforco.includes(t.value)
+    )
   );
+
+  // Helper: aplica disabled + tabIndex baseado na matriz de habilitação
+  const fieldProps = (campo: CampoMovimento) => {
+    const habilitado = isCampoHabilitado(formData.tipo_mov, campo);
+    return {
+      disabled: !habilitado,
+      tabIndex: habilitado ? 0 : -1,
+      "aria-disabled": !habilitado,
+    };
+  };
+  const isHab = (campo: CampoMovimento) => isCampoHabilitado(formData.tipo_mov, campo);
+  const isObr = (campo: CampoMovimento) => isCampoObrigatorio(formData.tipo_mov, campo);
+  const reqMark = (campo: CampoMovimento) => isObr(campo) ? <span className="text-destructive">*</span> : null;
 
   // Get tipos para filtro (inclui VENDA para visualização)
   const tiposMovimentoFiltro = tiposMovimentoTodos.filter(t => 
@@ -888,25 +1039,26 @@ export default function ContaCorrenteLote() {
               <form id="cc-form" onSubmit={handleSubmit} className="space-y-4">
                 {/* Tipo de Conta (Parcelamento/Reforço) */}
                 <div className="space-y-2">
-                  <Label htmlFor="tipo_fluxo_form">Tipo de Conta <span className="text-destructive">*</span></Label>
+                  <Label htmlFor="tipo_fluxo_form">Tipo de Conta {reqMark("tipo_fluxo_form")}</Label>
                   <Select
                     value={formData.tipo_fluxo_form || "PARCELAMENTO"}
+                    disabled={!isHab("tipo_fluxo_form")}
                     onValueChange={(value) => {
                       const novoTipoConta = value as TipoConta;
                       const tiposValidos = novoTipoConta === "PARCELAMENTO" ? tiposParcelamento : tiposReforco;
-                      const novoTipoMov = tiposValidos.includes(formData.tipo_mov || "") 
-                        ? formData.tipo_mov 
+                      const novoTipoMov = tiposValidos.includes(formData.tipo_mov || "") && !TIPOS_AUTO_GERADOS.includes(formData.tipo_mov || "")
+                        ? formData.tipo_mov
                         : (novoTipoConta === "PARCELAMENTO" ? "PARCELA" : "REFORCO");
-                      
-                      setFormData({ 
-                        ...formData, 
+
+                      setFormData({
+                        ...formData,
                         tipo_fluxo_form: novoTipoConta,
                         tipo_mov: novoTipoMov,
                       });
                       setValorMovimento("");
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger tabIndex={isHab("tipo_fluxo_form") ? 0 : -1}>
                       <SelectValue placeholder="Selecione o tipo de conta" />
                     </SelectTrigger>
                     <SelectContent>
@@ -919,7 +1071,7 @@ export default function ContaCorrenteLote() {
                 {/* Lote e Data */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="lote_id">Lote <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="lote_id">Lote {reqMark("lote_id")}</Label>
                     <LoteSearchSelect
                       lotes={lotes}
                       value={formData.lote_id || ""}
@@ -928,32 +1080,33 @@ export default function ContaCorrenteLote() {
                         setValorMovimento("");
                       }}
                       placeholder="Selecione o lote"
+                      disabled={!isHab("lote_id")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="data_mov">Data Movimento <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="data_mov">Data Movimento {reqMark("data_mov")}</Label>
                     <Input
                       id="data_mov"
                       type="date"
                       value={formData.data_mov || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, data_mov: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, data_mov: e.target.value })}
+                      {...fieldProps("data_mov")}
                     />
                   </div>
                 </div>
 
                 {/* Tipo de Movimento */}
                 <div className="space-y-2">
-                  <Label htmlFor="tipo_mov">Tipo Movimento <span className="text-destructive">*</span></Label>
+                  <Label htmlFor="tipo_mov">Tipo Movimento {reqMark("tipo_mov")}</Label>
                   <Select
                     value={formData.tipo_mov || ""}
+                    disabled={!isHab("tipo_mov")}
                     onValueChange={(value) => {
                       setFormData({ ...formData, tipo_mov: value });
                       setValorMovimento("");
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger tabIndex={isHab("tipo_mov") ? 0 : -1}>
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
                     <SelectContent>
@@ -964,30 +1117,33 @@ export default function ContaCorrenteLote() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Juros e Multa são gerados automaticamente quando há atraso elegível.
+                  </p>
                 </div>
 
-                {/* Valor e Natureza (para tipos pergunta) */}
+                {/* Valor e Natureza */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="valor">Valor <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="valor">Valor {reqMark("valor")}</Label>
                     <Input
                       id="valor"
                       type="text"
                       inputMode="decimal"
                       value={valorMovimento}
                       onChange={(e) => {
-                        // Permite apenas números, vírgula e ponto (formato brasileiro)
                         const value = e.target.value.replace(/[^\d.,]/g, '');
                         setValorMovimento(value);
                       }}
                       placeholder="0,00"
                       className="[appearance:textfield]"
+                      {...fieldProps("valor")}
                     />
                     <p className="text-xs text-muted-foreground">Sugestão calculada. Pode ser alterado.</p>
                   </div>
-                  {getNaturezaMovimento(formData.tipo_mov || "") === "pergunta" && (
+                  {isHab("natureza_outros") && (
                     <div className="space-y-2">
-                      <Label>Natureza <span className="text-destructive">*</span></Label>
+                      <Label>Natureza {reqMark("natureza_outros")}</Label>
                       <Select
                         value={formData.natureza_outros || ""}
                         onValueChange={(value) =>
@@ -1006,38 +1162,50 @@ export default function ContaCorrenteLote() {
                   )}
                 </div>
 
+                {/* Banner de atraso (parcela em atraso detectada) */}
+                {encargosMora && encargosMora.isVencida && (
+                  <AtrasoBanner
+                    diasAtraso={encargosMora.diasAtraso}
+                    mesesAtraso={encargosMora.mesesAtraso}
+                    criterio={moraConfig?.criterio_juros_mora || "MES_SUBSEQUENTE"}
+                    jurosPercentual={encargosMora.jurosPercentual}
+                    multaPercentual={moraConfig?.multa_mora_percentual || 0}
+                    valorOriginal={parseValorBR(valorMovimento) || 0}
+                    valorJuros={encargosMora.valorJuros}
+                    valorMulta={encargosMora.valorMulta}
+                    valorAtualizado={encargosMora.totalParcela}
+                    toleranciaAplicada={encargosMora.toleranciaAplicada}
+                  />
+                )}
+
                 {/* Referência e Vencimento */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="referencia">Referência</Label>
+                    <Label htmlFor="referencia">Referência {reqMark("referencia")}</Label>
                     <Input
                       id="referencia"
                       value={formData.referencia || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, referencia: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, referencia: e.target.value })}
                       placeholder="Ex: Parcela 1 de 24"
+                      {...fieldProps("referencia")}
                     />
-                    <p className="text-xs text-muted-foreground">Sugestão. Pode ser alterado.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="vencimento">Vencimento</Label>
+                    <Label htmlFor="vencimento">Vencimento {reqMark("vencimento")}</Label>
                     <Input
                       id="vencimento"
                       type="date"
                       value={formData.vencimento || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, vencimento: e.target.value || null })
-                      }
+                      onChange={(e) => setFormData({ ...formData, vencimento: e.target.value || null })}
+                      {...fieldProps("vencimento")}
                     />
-                    <p className="text-xs text-muted-foreground">Sugestão. Pode ser alterado.</p>
                   </div>
                 </div>
 
                 {/* Nº Parcela e Sequência */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="numero_parcela">Nº Parcela</Label>
+                    <Label htmlFor="numero_parcela">Nº Parcela {reqMark("numero_parcela")}</Label>
                     <Input
                       id="numero_parcela"
                       type="number"
@@ -1047,11 +1215,11 @@ export default function ContaCorrenteLote() {
                         setFormData({ ...formData, numero_parcela: e.target.value ? parseInt(e.target.value) : null })
                       }
                       placeholder="Ex: 24"
+                      {...fieldProps("numero_parcela")}
                     />
-                    <p className="text-xs text-muted-foreground">Número da parcela no plano.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="sequencia_parcela">Sequência</Label>
+                    <Label htmlFor="sequencia_parcela">Sequência {reqMark("sequencia_parcela")}</Label>
                     <Input
                       id="sequencia_parcela"
                       type="number"
@@ -1061,40 +1229,40 @@ export default function ContaCorrenteLote() {
                         setFormData({ ...formData, sequencia_parcela: e.target.value ? parseInt(e.target.value) : null })
                       }
                       placeholder="1"
+                      {...fieldProps("sequencia_parcela")}
                     />
-                    <p className="text-xs text-muted-foreground">Sequência (2+ se parcela paga em partes).</p>
                   </div>
                 </div>
 
                 {/* Percentual de Cálculo */}
-                <div className="space-y-2">
-                  <Label htmlFor="percentual_calculo">Percentual de Cálculo (%)</Label>
-                  <Input
-                    id="percentual_calculo"
-                    type="text"
-                    inputMode="decimal"
-                    value={formData.percentual_calculo ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(",", ".");
-                      if (val === "" || /^-?\d*\.?\d*$/.test(val)) {
-                        setFormData({ ...formData, percentual_calculo: val === "" ? null : (parseFloat(val) || val) as any });
-                      }
-                    }}
-                    placeholder="Ex: 0.5"
-                  />
-                </div>
+                {isHab("percentual_calculo") && (
+                  <div className="space-y-2">
+                    <Label htmlFor="percentual_calculo">Percentual de Cálculo (%) {reqMark("percentual_calculo")}</Label>
+                    <Input
+                      id="percentual_calculo"
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.percentual_calculo ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(",", ".");
+                        if (val === "" || /^-?\d*\.?\d*$/.test(val)) {
+                          setFormData({ ...formData, percentual_calculo: val === "" ? null : (parseFloat(val) || val) as any });
+                        }
+                      }}
+                      placeholder="Ex: 0.5"
+                    />
+                  </div>
+                )}
 
-                {/* Campos de pagamento - apenas para Parcela Recebida e Reforço */}
-                {(formData.tipo_mov === "PARCELA" || formData.tipo_mov === "REFORCO") && (
+                {/* Campos de pagamento - apenas habilitados para Parcela/Reforço */}
+                {isHab("modo_pagamento") && (
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="modo_pagamento">Modo de Pagamento</Label>
                         <Select
                           value={formData.modo_pagamento || ""}
-                          onValueChange={(value) =>
-                            setFormData({ ...formData, modo_pagamento: value })
-                          }
+                          onValueChange={(value) => setFormData({ ...formData, modo_pagamento: value })}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione" />
@@ -1112,9 +1280,7 @@ export default function ContaCorrenteLote() {
                         <Input
                           id="banco_origem"
                           value={formData.banco_origem || ""}
-                          onChange={(e) =>
-                            setFormData({ ...formData, banco_origem: e.target.value })
-                          }
+                          onChange={(e) => setFormData({ ...formData, banco_origem: e.target.value })}
                           placeholder="Ex: Banco do Brasil"
                         />
                       </div>
@@ -1124,9 +1290,7 @@ export default function ContaCorrenteLote() {
                       <Input
                         id="cpf_cnpj_pagador"
                         value={formData.cpf_cnpj_pagador || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, cpf_cnpj_pagador: e.target.value })
-                        }
+                        onChange={(e) => setFormData({ ...formData, cpf_cnpj_pagador: e.target.value })}
                         placeholder="000.000.000-00 ou 00.000.000/0000-00"
                       />
                     </div>
@@ -1135,14 +1299,13 @@ export default function ContaCorrenteLote() {
 
                 {/* Descrição */}
                 <div className="space-y-2">
-                  <Label htmlFor="descricao">Descrição</Label>
+                  <Label htmlFor="descricao">Descrição {reqMark("descricao")}</Label>
                   <Textarea
                     id="descricao"
                     value={formData.descricao || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, descricao: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                     placeholder="Descrição do movimento"
+                    {...fieldProps("descricao")}
                   />
                 </div>
 

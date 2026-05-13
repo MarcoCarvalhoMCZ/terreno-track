@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      auditoria_mora_override: {
+        Row: {
+          campo: string
+          created_at: string
+          id: string
+          motivo: string | null
+          movimento_id: string
+          user_id: string | null
+          valor_novo: number | null
+          valor_original: number | null
+        }
+        Insert: {
+          campo: string
+          created_at?: string
+          id?: string
+          motivo?: string | null
+          movimento_id: string
+          user_id?: string | null
+          valor_novo?: number | null
+          valor_original?: number | null
+        }
+        Update: {
+          campo?: string
+          created_at?: string
+          id?: string
+          motivo?: string | null
+          movimento_id?: string
+          user_id?: string | null
+          valor_novo?: number | null
+          valor_original?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_mora_override_movimento_id_fkey"
+            columns: ["movimento_id"]
+            isOneToOne: false
+            referencedRelation: "conta_corrente_lote"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       configuracoes: {
         Row: {
           agencia: string | null
@@ -215,6 +256,7 @@ export type Database = {
           lote_id: string
           modo_pagamento: string | null
           numero_parcela: number | null
+          parcela_origem_id: string | null
           percentual_calculo: number | null
           referencia: string | null
           saldo: number | null
@@ -239,6 +281,7 @@ export type Database = {
           lote_id: string
           modo_pagamento?: string | null
           numero_parcela?: number | null
+          parcela_origem_id?: string | null
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null
@@ -263,6 +306,7 @@ export type Database = {
           lote_id?: string
           modo_pagamento?: string | null
           numero_parcela?: number | null
+          parcela_origem_id?: string | null
           percentual_calculo?: number | null
           referencia?: string | null
           saldo?: number | null
@@ -295,6 +339,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_totalizacao_mensal_por_lote"
             referencedColumns: ["lote_id"]
+          },
+          {
+            foreignKeyName: "conta_corrente_lote_parcela_origem_id_fkey"
+            columns: ["parcela_origem_id"]
+            isOneToOne: false
+            referencedRelation: "conta_corrente_lote"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "conta_corrente_lote_venda_id_fkey"
