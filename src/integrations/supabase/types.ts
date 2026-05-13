@@ -789,6 +789,27 @@ export type Database = {
           },
         ]
       }
+      mensagem_extrato_historico: {
+        Row: {
+          alterado_em: string
+          alterado_por: string | null
+          id: string
+          mensagem: string | null
+        }
+        Insert: {
+          alterado_em?: string
+          alterado_por?: string | null
+          id?: string
+          mensagem?: string | null
+        }
+        Update: {
+          alterado_em?: string
+          alterado_por?: string | null
+          id?: string
+          mensagem?: string | null
+        }
+        Relationships: []
+      }
       modos_pagamento: {
         Row: {
           ativo: boolean | null
