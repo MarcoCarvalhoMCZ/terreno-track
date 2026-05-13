@@ -388,28 +388,29 @@ export default function ContaCorrenteLote() {
     setShouldApplySuggestions(true);
   }, [formData.tipo_mov, formData.lote_id, formData.tipo_fluxo_form]);
 
-  // Efeito para calcular juros quando vencimento mudar (para tipo JUROS)
-  useEffect(() => {
-    if (editingMov || formData.tipo_mov !== "JUROS" || !formData.vencimento || !resumoFluxoLote) return;
+  // Cálculo automático de encargos de mora (juros + multa) para PARCELA/REFORCO
+  // Reativo: recalcula sempre que tipo_mov, vencimento, data_mov, valor ou config mudar
+  const encargosMora = useMemo(() => {
+    if (editingMov) return null;
+    if (formData.tipo_mov !== "PARCELA" && formData.tipo_mov !== "REFORCO") return null;
+    if (!formData.vencimento || !formData.data_mov || !moraConfig) return null;
+
+    const valor = parseValorBR(valorMovimento);
+    if (!valor || valor <= 0) return null;
 
     const vencimento = parseDateOnly(formData.vencimento);
-    const hoje = new Date();
-    
-    if (vencimento && vencimento < hoje) {
-      const mesesAtraso = Math.floor((hoje.getTime() - vencimento.getTime()) / (1000 * 60 * 60 * 24 * 30));
-      const valorParcela = resumoFluxoLote.valor_proximo_titulo || 0;
-      const taxaJuros = 1; // 1% ao mês
-      const valorJuros = valorParcela * (taxaJuros / 100) * mesesAtraso;
-      
-      if (valorJuros > 0) {
-        setValorMovimento(valorJuros.toFixed(2));
-        setFormData(prev => ({
-          ...prev,
-          percentual_calculo: taxaJuros * mesesAtraso,
-        }));
-      }
-    }
-  }, [formData.vencimento, formData.tipo_mov, resumoFluxoLote, editingMov]);
+    const dataPagamento = parseDateOnly(formData.data_mov);
+    if (!vencimento || !dataPagamento) return null;
+
+    return calcularEncargosParcela(valor, vencimento, dataPagamento, moraConfig);
+  }, [
+    formData.tipo_mov,
+    formData.vencimento,
+    formData.data_mov,
+    valorMovimento,
+    moraConfig,
+    editingMov,
+  ]);
 
   // handleCloseDialog is defined above with mutations
 
