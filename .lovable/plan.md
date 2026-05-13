@@ -1,77 +1,45 @@
-## O que será criado
+## Migração de campos para a página Administrador
 
-**1. Nova entrada no menu lateral** (grupo Administração), logo abaixo de "Configuração":
+Com base na sua marcação (✅), os campos serão divididos assim:
 
-```text
-Administração
-├── Reorganização
-├── Importação CSV
-├── Usuários e Permissões
-├── Configuração              ← passará a ser acessível por ADMIN + OPERADOR
-└── Administrador             ← NOVO — exclusivo ADMIN
-```
+### Vão para Administrador (exclusivo Admin)
+**Empresa Proprietária** (9 campos)
+- `razao_social_proprietaria`, `cnpj_proprietaria`, `crc_rs_proprietaria`, `cidade_uf_proprietaria`, `telefone_proprietaria`, `email_proprietaria`, `logotipo_url`, `data_criacao_app`, `desenvolvedor_analista`
 
-**2. Nova rota** `/administrador` → `src/pages/Administrador.tsx` (página vazia, pronta para receber os campos que você marcar).
+**Pessoas padrão** (5 campos)
+- `vendedor_pessoa_id`, `representante_legal_pessoa_id`, `representante_legal_2_pessoa_id`, `padrao_corretor_pessoa_id`, `padrao_percentual_corretagem`
 
-**3. Nova `MenuKey`** `administrador` em `usePermissions.tsx`, tratada como `configuracoes` (somente Admin, mesmo que esteja na lista de permissões).
+**Outros**
+- `observacoes`
 
-**4. Permissão da página "Configuração"** será afrouxada: deixa de ser exclusiva do Admin e passa a aceitar Operador também (caso contrário, mover campos não faz sentido).
-
-**5. Proteção no banco**: trigger `BEFORE UPDATE` em `configuracoes` que rejeita alteração das colunas marcadas como "Administrador" quando o usuário não for ADMIN. Assim a separação fica garantida mesmo via API.
-
-> Nesta etapa **não migro nenhum campo** — só crio a estrutura. Após sua aprovação e marcação dos campos abaixo, faço a migração na próxima rodada.
+### Permanecem em Configuração (Admin + Operador)
+- **Dados bancários / PIX**: `banco`, `agencia`, `conta_corrente`, `chave_pix`, `nome_beneficiario`, `cidade_beneficiario`
+- **Mora / Atraso**: `juros_mora_percentual`, `multa_mora_percentual`, `criterio_juros_mora`, `tolerancia_dias_juros`
+- **E-mail**: `email_remetente_nome`, `email_reply_to`, `email_assunto_padrao`, `email_rodape`
 
 ---
 
-## Lista de campos para você marcar
+## O que será feito
 
-Marque com ✅ os que devem ir para **Administrador** (os não marcados ficam em **Configuração**, acessível ao Operador).
+**1. Página `Administrador.tsx`** — receberá três blocos editáveis (Empresa Proprietária, Pessoas padrão, Observações), reaproveitando os mesmos componentes de formulário hoje em `Configuracoes.tsx` (inputs, upload de logotipo, selects de pessoa via `LoteSearchSelect`/equivalente). Botões "Salvar/Cancelar" no `DialogHeader` à direita, conforme padrão do projeto. Inclui `AuditFooter`.
 
-### Bloco — Empresa Proprietária
-- [ ] `razao_social_proprietaria`
-- [ ] `cnpj_proprietaria`
-- [ ] `crc_rs_proprietaria`
-- [ ] `cidade_uf_proprietaria`
-- [ ] `telefone_proprietaria`
-- [ ] `email_proprietaria`
-- [ ] `logotipo_url`
-- [ ] `data_criacao_app`
-- [ ] `desenvolvedor_analista`
+**2. Página `Configuracoes.tsx`** — removidos os blocos migrados; permanecem apenas Dados bancários/PIX, Mora/Atraso e E-mail. Mantém o mesmo layout/estilo.
 
-### Bloco — Pessoas padrão
-- [ ] `vendedor_pessoa_id` (Vendedor padrão)
-- [ ] `representante_legal_pessoa_id`
-- [ ] `representante_legal_2_pessoa_id`
-- [ ] `padrao_corretor_pessoa_id`
-- [ ] `padrao_percentual_corretagem`
+**3. Proteção no banco** — trigger `BEFORE UPDATE` em `public.configuracoes` que rejeita alteração das colunas administrativas quando o usuário não for ADMIN (usa `has_role(auth.uid(),'admin')`). Lista de colunas protegidas: as 15 marcadas acima. SELECT continua livre (Operador precisa ler para exibir, ex.: vendedor padrão em telas de venda).
 
-### Bloco — Dados bancários / PIX
-- [ ] `banco`
-- [ ] `agencia`
-- [ ] `conta_corrente`
-- [ ] `chave_pix`
-- [ ] `nome_beneficiario`
-- [ ] `cidade_beneficiario`
+**4. Quadro de Avisos** (mensagem institucional para extratos) — fica para uma próxima rodada, conforme combinado; não entra agora.
 
-### Bloco — Mora / Atraso
-- [ ] `juros_mora_percentual`
-- [ ] `multa_mora_percentual`
-- [ ] `criterio_juros_mora`
-- [ ] `tolerancia_dias_juros`
+---
 
-### Bloco — E-mail
-- [ ] `email_remetente_nome`
-- [ ] `email_reply_to`
-- [ ] `email_assunto_padrao`
-- [ ] `email_rodape`
+## Detalhes técnicos
 
-### Bloco — Outros
-- [ ] `observacoes`
+- Não altero `src/integrations/supabase/types.ts` (auto-gerado).
+- Migration única: `CREATE OR REPLACE FUNCTION public.tg_configuracoes_protect_admin_fields()` + `CREATE TRIGGER` em `BEFORE UPDATE`. A função compara `OLD.<col>` vs `NEW.<col>` para cada coluna protegida; se diferente e `NOT has_role(auth.uid(),'admin')` → `RAISE EXCEPTION`.
+- O hook de carregamento das configurações (`useConfiguracoes` ou query equivalente) é reutilizado nas duas páginas — apenas os campos exibidos/editáveis mudam.
+- Os campos `vendedor_pessoa_id`, `representante_legal_*`, `padrao_corretor_pessoa_id` continuam sendo lidos normalmente pelo Operador em outras telas (Vendas, etc.) — só a edição passa a ser exclusiva do Admin.
 
 ---
 
 ## Próximo passo
 
-1. Aprove este plano para eu criar a página vazia + entrada no menu.
-2. Em seguida, me responda no chat com a lista marcada (pode colar a lista acima com ✅ nos itens escolhidos).
-3. Eu então migro os campos marcados para a nova página e ativo a proteção no banco.
+Aprove o plano para eu (a) aplicar a migration de proteção e (b) reorganizar as duas páginas.
