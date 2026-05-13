@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +64,11 @@ import {
   type NaturezaMovimento,
 } from "@/constants/movimento";
 import {
+  isCampoHabilitado,
+  isCampoObrigatorio,
+  type CampoMovimento,
+} from "@/constants/movimento-campos";
+import {
   useContaCorrenteMovimentacoes,
   useLotes,
   useVendasComLote,
@@ -70,9 +76,15 @@ import {
   useIndicadoresValores,
   useContaCorrenteMutations,
 } from "@/hooks/useContaCorrente";
+import { useMoraConfig } from "@/hooks/useParcelasEmAtraso";
+import { calcularEncargosParcela } from "@/lib/calculo-mora";
+import { AtrasoBanner } from "@/components/movimento/AtrasoBanner";
 
 type ContaCorrenteInsert = TablesInsert<"conta_corrente_lote">;
 type ContaCorrenteUpdate = TablesUpdate<"conta_corrente_lote">;
+
+// Tipos que NÃO podem ser criados manualmente (são gerados automaticamente)
+const TIPOS_AUTO_GERADOS = ["JUROS", "MULTA"];
 
 export default function ContaCorrenteLote() {
   const { canEdit } = useAuth();
