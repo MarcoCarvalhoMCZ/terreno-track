@@ -792,12 +792,27 @@ export default function ContaCorrenteLote() {
 
   // Using getTipoMovimentoLabel from centralized constants
 
-  // Get tipos de movimento baseado no tipo de conta selecionado NO FORMULÁRIO (sem VENDA)
-  const tiposMovimentoFiltrados = tiposMovimento.filter(t => 
-    formData.tipo_fluxo_form === "PARCELAMENTO" 
-      ? tiposParcelamento.includes(t.value)
-      : tiposReforco.includes(t.value)
+  // Get tipos de movimento para o formulário (sem VENDA, sem JUROS, sem MULTA - estes são auto-gerados)
+  const tiposMovimentoFiltrados = tiposMovimento.filter(t =>
+    !TIPOS_AUTO_GERADOS.includes(t.value) && (
+      formData.tipo_fluxo_form === "PARCELAMENTO"
+        ? tiposParcelamento.includes(t.value)
+        : tiposReforco.includes(t.value)
+    )
   );
+
+  // Helper: aplica disabled + tabIndex baseado na matriz de habilitação
+  const fieldProps = (campo: CampoMovimento) => {
+    const habilitado = isCampoHabilitado(formData.tipo_mov, campo);
+    return {
+      disabled: !habilitado,
+      tabIndex: habilitado ? 0 : -1,
+      "aria-disabled": !habilitado,
+    };
+  };
+  const isHab = (campo: CampoMovimento) => isCampoHabilitado(formData.tipo_mov, campo);
+  const isObr = (campo: CampoMovimento) => isCampoObrigatorio(formData.tipo_mov, campo);
+  const reqMark = (campo: CampoMovimento) => isObr(campo) ? <span className="text-destructive">*</span> : null;
 
   // Get tipos para filtro (inclui VENDA para visualização)
   const tiposMovimentoFiltro = tiposMovimentoTodos.filter(t => 
