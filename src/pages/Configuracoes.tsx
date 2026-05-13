@@ -29,7 +29,7 @@ export default function Configuracoes() {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<FormData>({});
   const [hasChanges, setHasChanges] = useState(false);
-
+  const [historicoOpen, setHistoricoOpen] = useState(false);
   const { data: configuracao, isLoading } = useQuery({
     queryKey: ["configuracoes"],
     queryFn: async () => {
