@@ -57,6 +57,7 @@ export default function Configuracoes() {
     email_reply_to: (c as any).email_reply_to || "",
     email_assunto_padrao: (c as any).email_assunto_padrao || "Extrato de Conta Corrente do Lote",
     email_rodape: (c as any).email_rodape || "",
+    mensagem_extrato: (c as any).mensagem_extrato || "",
   });
 
   useEffect(() => {
