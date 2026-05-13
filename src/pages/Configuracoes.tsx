@@ -13,11 +13,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Settings, Save, RefreshCw, Mail, Info } from "lucide-react";
+import { Settings, Save, RefreshCw, Mail, Info, History } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { AuditFooter } from "@/components/AuditFooter";
+import { MensagemExtratoHistoricoDialog } from "@/components/MensagemExtratoHistoricoDialog";
 
 type Configuracao = Tables<"configuracoes">;
 type ConfiguracaoUpdate = TablesUpdate<"configuracoes">;
