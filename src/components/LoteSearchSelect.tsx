@@ -30,6 +30,7 @@ interface LoteSearchSelectProps {
   placeholder?: string;
   showStatus?: boolean;
   className?: string;
+  disabled?: boolean;
   /** If provided, shows a "Todos" option at the top with this value */
   allOptionValue?: string;
   allOptionLabel?: string;
