@@ -320,11 +320,24 @@ export default function Configuracoes() {
           {/* Mensagem do Extrato */}
           <Card>
             <CardHeader>
-              <CardTitle>Mensagem do Extrato</CardTitle>
-              <CardDescription>
-                Quando preenchida, esta mensagem será impressa em destaque (fundo verde claro) em cada extrato exportado em PDF.
-                Deixe em branco para não exibir nenhum aviso.
-              </CardDescription>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <CardTitle>Mensagem do Extrato</CardTitle>
+                  <CardDescription>
+                    Quando preenchida, esta mensagem será impressa em destaque (fundo verde claro) em cada extrato exportado em PDF.
+                    Deixe em branco para não exibir nenhum aviso.
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHistoricoOpen(true)}
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  Histórico
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -338,10 +351,13 @@ export default function Configuracoes() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Texto livre, até 1000 caracteres. Quebras de linha são preservadas. Sem formatação rica (negrito, itálico, links).
+                  Cada alteração salva é registrada automaticamente no histórico.
                 </p>
               </div>
             </CardContent>
           </Card>
+
+          <MensagemExtratoHistoricoDialog open={historicoOpen} onOpenChange={setHistoricoOpen} />
 
           {configuracao && (
             <Card className="bg-muted/50">
