@@ -316,6 +316,32 @@ export default function Configuracoes() {
             </CardContent>
           </Card>
 
+          {/* Mensagem do Extrato */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Mensagem do Extrato</CardTitle>
+              <CardDescription>
+                Quando preenchida, esta mensagem será impressa em destaque (fundo verde claro) em cada extrato exportado em PDF.
+                Deixe em branco para não exibir nenhum aviso.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>Mensagem</Label>
+                <Textarea
+                  value={(formData as any).mensagem_extrato || ""}
+                  onChange={(e) => handleChange("mensagem_extrato", e.target.value)}
+                  placeholder="Ex: Prezado cliente, lembre-se de manter seus pagamentos em dia para evitar acréscimos por atraso."
+                  rows={5}
+                  maxLength={1000}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Texto livre, até 1000 caracteres. Quebras de linha são preservadas. Sem formatação rica (negrito, itálico, links).
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {configuracao && (
             <Card className="bg-muted/50">
               <CardContent className="pt-6">
