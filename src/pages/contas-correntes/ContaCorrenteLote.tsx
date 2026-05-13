@@ -109,6 +109,10 @@ export default function ContaCorrenteLote() {
   const { data: resumoFluxo } = useResumoFluxoLote();
   const { data: indicadoresValores } = useIndicadoresValores();
 
+  // Lê configurações de mora (juros, multa, critério, tolerância)
+  const { data: moraConfig } = useMoraConfig();
+  const queryClient = useQueryClient();
+
   // Close dialog handler to pass to mutations
   const handleCloseDialog = () => {
     setDialogOpen(false);
