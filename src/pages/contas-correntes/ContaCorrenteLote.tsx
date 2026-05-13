@@ -1039,25 +1039,26 @@ export default function ContaCorrenteLote() {
               <form id="cc-form" onSubmit={handleSubmit} className="space-y-4">
                 {/* Tipo de Conta (Parcelamento/Reforço) */}
                 <div className="space-y-2">
-                  <Label htmlFor="tipo_fluxo_form">Tipo de Conta <span className="text-destructive">*</span></Label>
+                  <Label htmlFor="tipo_fluxo_form">Tipo de Conta {reqMark("tipo_fluxo_form")}</Label>
                   <Select
                     value={formData.tipo_fluxo_form || "PARCELAMENTO"}
+                    disabled={!isHab("tipo_fluxo_form")}
                     onValueChange={(value) => {
                       const novoTipoConta = value as TipoConta;
                       const tiposValidos = novoTipoConta === "PARCELAMENTO" ? tiposParcelamento : tiposReforco;
-                      const novoTipoMov = tiposValidos.includes(formData.tipo_mov || "") 
-                        ? formData.tipo_mov 
+                      const novoTipoMov = tiposValidos.includes(formData.tipo_mov || "") && !TIPOS_AUTO_GERADOS.includes(formData.tipo_mov || "")
+                        ? formData.tipo_mov
                         : (novoTipoConta === "PARCELAMENTO" ? "PARCELA" : "REFORCO");
-                      
-                      setFormData({ 
-                        ...formData, 
+
+                      setFormData({
+                        ...formData,
                         tipo_fluxo_form: novoTipoConta,
                         tipo_mov: novoTipoMov,
                       });
                       setValorMovimento("");
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger tabIndex={isHab("tipo_fluxo_form") ? 0 : -1}>
                       <SelectValue placeholder="Selecione o tipo de conta" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1070,7 +1071,7 @@ export default function ContaCorrenteLote() {
                 {/* Lote e Data */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="lote_id">Lote <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="lote_id">Lote {reqMark("lote_id")}</Label>
                     <LoteSearchSelect
                       lotes={lotes}
                       value={formData.lote_id || ""}
@@ -1079,32 +1080,33 @@ export default function ContaCorrenteLote() {
                         setValorMovimento("");
                       }}
                       placeholder="Selecione o lote"
+                      disabled={!isHab("lote_id")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="data_mov">Data Movimento <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="data_mov">Data Movimento {reqMark("data_mov")}</Label>
                     <Input
                       id="data_mov"
                       type="date"
                       value={formData.data_mov || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, data_mov: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, data_mov: e.target.value })}
+                      {...fieldProps("data_mov")}
                     />
                   </div>
                 </div>
 
                 {/* Tipo de Movimento */}
                 <div className="space-y-2">
-                  <Label htmlFor="tipo_mov">Tipo Movimento <span className="text-destructive">*</span></Label>
+                  <Label htmlFor="tipo_mov">Tipo Movimento {reqMark("tipo_mov")}</Label>
                   <Select
                     value={formData.tipo_mov || ""}
+                    disabled={!isHab("tipo_mov")}
                     onValueChange={(value) => {
                       setFormData({ ...formData, tipo_mov: value });
                       setValorMovimento("");
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger tabIndex={isHab("tipo_mov") ? 0 : -1}>
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1115,30 +1117,33 @@ export default function ContaCorrenteLote() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Juros e Multa são gerados automaticamente quando há atraso elegível.
+                  </p>
                 </div>
 
-                {/* Valor e Natureza (para tipos pergunta) */}
+                {/* Valor e Natureza */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="valor">Valor <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="valor">Valor {reqMark("valor")}</Label>
                     <Input
                       id="valor"
                       type="text"
                       inputMode="decimal"
                       value={valorMovimento}
                       onChange={(e) => {
-                        // Permite apenas números, vírgula e ponto (formato brasileiro)
                         const value = e.target.value.replace(/[^\d.,]/g, '');
                         setValorMovimento(value);
                       }}
                       placeholder="0,00"
                       className="[appearance:textfield]"
+                      {...fieldProps("valor")}
                     />
                     <p className="text-xs text-muted-foreground">Sugestão calculada. Pode ser alterado.</p>
                   </div>
-                  {getNaturezaMovimento(formData.tipo_mov || "") === "pergunta" && (
+                  {isHab("natureza_outros") && (
                     <div className="space-y-2">
-                      <Label>Natureza <span className="text-destructive">*</span></Label>
+                      <Label>Natureza {reqMark("natureza_outros")}</Label>
                       <Select
                         value={formData.natureza_outros || ""}
                         onValueChange={(value) =>
@@ -1157,38 +1162,50 @@ export default function ContaCorrenteLote() {
                   )}
                 </div>
 
+                {/* Banner de atraso (parcela em atraso detectada) */}
+                {encargosMora && encargosMora.isVencida && (
+                  <AtrasoBanner
+                    diasAtraso={encargosMora.diasAtraso}
+                    mesesAtraso={encargosMora.mesesAtraso}
+                    criterio={moraConfig?.criterio_juros_mora || "MES_SUBSEQUENTE"}
+                    jurosPercentual={encargosMora.jurosPercentual}
+                    multaPercentual={moraConfig?.multa_mora_percentual || 0}
+                    valorOriginal={parseValorBR(valorMovimento) || 0}
+                    valorJuros={encargosMora.valorJuros}
+                    valorMulta={encargosMora.valorMulta}
+                    valorAtualizado={encargosMora.totalParcela}
+                    toleranciaAplicada={encargosMora.toleranciaAplicada}
+                  />
+                )}
+
                 {/* Referência e Vencimento */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="referencia">Referência</Label>
+                    <Label htmlFor="referencia">Referência {reqMark("referencia")}</Label>
                     <Input
                       id="referencia"
                       value={formData.referencia || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, referencia: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, referencia: e.target.value })}
                       placeholder="Ex: Parcela 1 de 24"
+                      {...fieldProps("referencia")}
                     />
-                    <p className="text-xs text-muted-foreground">Sugestão. Pode ser alterado.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="vencimento">Vencimento</Label>
+                    <Label htmlFor="vencimento">Vencimento {reqMark("vencimento")}</Label>
                     <Input
                       id="vencimento"
                       type="date"
                       value={formData.vencimento || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, vencimento: e.target.value || null })
-                      }
+                      onChange={(e) => setFormData({ ...formData, vencimento: e.target.value || null })}
+                      {...fieldProps("vencimento")}
                     />
-                    <p className="text-xs text-muted-foreground">Sugestão. Pode ser alterado.</p>
                   </div>
                 </div>
 
                 {/* Nº Parcela e Sequência */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="numero_parcela">Nº Parcela</Label>
+                    <Label htmlFor="numero_parcela">Nº Parcela {reqMark("numero_parcela")}</Label>
                     <Input
                       id="numero_parcela"
                       type="number"
@@ -1198,11 +1215,11 @@ export default function ContaCorrenteLote() {
                         setFormData({ ...formData, numero_parcela: e.target.value ? parseInt(e.target.value) : null })
                       }
                       placeholder="Ex: 24"
+                      {...fieldProps("numero_parcela")}
                     />
-                    <p className="text-xs text-muted-foreground">Número da parcela no plano.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="sequencia_parcela">Sequência</Label>
+                    <Label htmlFor="sequencia_parcela">Sequência {reqMark("sequencia_parcela")}</Label>
                     <Input
                       id="sequencia_parcela"
                       type="number"
@@ -1212,40 +1229,40 @@ export default function ContaCorrenteLote() {
                         setFormData({ ...formData, sequencia_parcela: e.target.value ? parseInt(e.target.value) : null })
                       }
                       placeholder="1"
+                      {...fieldProps("sequencia_parcela")}
                     />
-                    <p className="text-xs text-muted-foreground">Sequência (2+ se parcela paga em partes).</p>
                   </div>
                 </div>
 
                 {/* Percentual de Cálculo */}
-                <div className="space-y-2">
-                  <Label htmlFor="percentual_calculo">Percentual de Cálculo (%)</Label>
-                  <Input
-                    id="percentual_calculo"
-                    type="text"
-                    inputMode="decimal"
-                    value={formData.percentual_calculo ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(",", ".");
-                      if (val === "" || /^-?\d*\.?\d*$/.test(val)) {
-                        setFormData({ ...formData, percentual_calculo: val === "" ? null : (parseFloat(val) || val) as any });
-                      }
-                    }}
-                    placeholder="Ex: 0.5"
-                  />
-                </div>
+                {isHab("percentual_calculo") && (
+                  <div className="space-y-2">
+                    <Label htmlFor="percentual_calculo">Percentual de Cálculo (%) {reqMark("percentual_calculo")}</Label>
+                    <Input
+                      id="percentual_calculo"
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.percentual_calculo ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(",", ".");
+                        if (val === "" || /^-?\d*\.?\d*$/.test(val)) {
+                          setFormData({ ...formData, percentual_calculo: val === "" ? null : (parseFloat(val) || val) as any });
+                        }
+                      }}
+                      placeholder="Ex: 0.5"
+                    />
+                  </div>
+                )}
 
-                {/* Campos de pagamento - apenas para Parcela Recebida e Reforço */}
-                {(formData.tipo_mov === "PARCELA" || formData.tipo_mov === "REFORCO") && (
+                {/* Campos de pagamento - apenas habilitados para Parcela/Reforço */}
+                {isHab("modo_pagamento") && (
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="modo_pagamento">Modo de Pagamento</Label>
                         <Select
                           value={formData.modo_pagamento || ""}
-                          onValueChange={(value) =>
-                            setFormData({ ...formData, modo_pagamento: value })
-                          }
+                          onValueChange={(value) => setFormData({ ...formData, modo_pagamento: value })}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione" />
@@ -1263,9 +1280,7 @@ export default function ContaCorrenteLote() {
                         <Input
                           id="banco_origem"
                           value={formData.banco_origem || ""}
-                          onChange={(e) =>
-                            setFormData({ ...formData, banco_origem: e.target.value })
-                          }
+                          onChange={(e) => setFormData({ ...formData, banco_origem: e.target.value })}
                           placeholder="Ex: Banco do Brasil"
                         />
                       </div>
@@ -1275,9 +1290,7 @@ export default function ContaCorrenteLote() {
                       <Input
                         id="cpf_cnpj_pagador"
                         value={formData.cpf_cnpj_pagador || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, cpf_cnpj_pagador: e.target.value })
-                        }
+                        onChange={(e) => setFormData({ ...formData, cpf_cnpj_pagador: e.target.value })}
                         placeholder="000.000.000-00 ou 00.000.000/0000-00"
                       />
                     </div>
@@ -1286,14 +1299,13 @@ export default function ContaCorrenteLote() {
 
                 {/* Descrição */}
                 <div className="space-y-2">
-                  <Label htmlFor="descricao">Descrição</Label>
+                  <Label htmlFor="descricao">Descrição {reqMark("descricao")}</Label>
                   <Textarea
                     id="descricao"
                     value={formData.descricao || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, descricao: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                     placeholder="Descrição do movimento"
+                    {...fieldProps("descricao")}
                   />
                 </div>
 
