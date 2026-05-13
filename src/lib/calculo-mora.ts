@@ -42,12 +42,19 @@ export function calcularDataInicioJuros(
   criterio: CriterioJurosMora,
   toleranciaDias: number,
 ): Date {
+  // PRO_RATA_DIA e FIXO_MENSAL: começam imediatamente após o vencimento
   if (criterio === "MES_SUBSEQUENTE") {
     return startOfMonth(addMonths(vencimento, 1));
   }
-  const dataComTolerancia = new Date(vencimento);
-  dataComTolerancia.setDate(dataComTolerancia.getDate() + toleranciaDias);
-  return dataComTolerancia;
+  if (criterio === "TOLERANCIA") {
+    const dataComTolerancia = new Date(vencimento);
+    dataComTolerancia.setDate(dataComTolerancia.getDate() + toleranciaDias);
+    return dataComTolerancia;
+  }
+  // PRO_RATA_DIA / FIXO_MENSAL: dia seguinte ao vencimento
+  const diaSeguinte = new Date(vencimento);
+  diaSeguinte.setDate(diaSeguinte.getDate() + 1);
+  return diaSeguinte;
 }
 
 /**
