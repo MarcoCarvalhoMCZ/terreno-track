@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { formatDateBR } from "@/lib/date";
 import { formatNumber, formatCurrency } from "@/lib/formatters";
 import { generateQrDataUrl } from "@/lib/qr-utils";
+import { supabase } from "@/integrations/supabase/client";
 import type { ResumoFluxo, ResumoLote, TipoConta } from "@/types/conta-corrente.types";
 import type { ParcelaEmAtraso, ResumoParcelasEmAtraso } from "@/hooks/useParcelasEmAtraso";
 
