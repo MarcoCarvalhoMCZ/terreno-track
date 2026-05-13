@@ -641,7 +641,7 @@ export default function ContaCorrenteLote() {
         case "lote": return `${item.lote?.quadra || ""} ${item.lote?.numero_lote || ""}`;
         case "tipo_mov": return item.tipo_mov;
         case "descricao": return item.descricao;
-        case "referencia": return item.referencia;
+        case "vencimento": return item.vencimento;
         case "numero_parcela": return item.numero_parcela || 0;
         case "sequencia_parcela": return item.sequencia_parcela || 0;
         case "debito": return item.debito || 0;
@@ -782,7 +782,7 @@ export default function ContaCorrenteLote() {
                     <SortableTableHead sortKey="lote" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>LOTE</SortableTableHead>
                     <SortableTableHead sortKey="tipo_mov" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>TIPO</SortableTableHead>
                     
-                    <SortableTableHead sortKey="referencia" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>REFERÊNCIA</SortableTableHead>
+                    <SortableTableHead sortKey="vencimento" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort}>VENCIMENTO</SortableTableHead>
                     <SortableTableHead sortKey="numero_parcela" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-center">Nº PARC.</SortableTableHead>
                     <SortableTableHead sortKey="sequencia_parcela" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-center">SEQ.</SortableTableHead>
                     <SortableTableHead sortKey="debito" currentKey={movSortConfig.key} direction={movSortConfig.direction} onSort={handleMovSort} className="text-right">DÉBITO</SortableTableHead>
@@ -794,34 +794,34 @@ export default function ContaCorrenteLote() {
                 <TableBody>
                   {sortedMovimentacoes.map((mov) => (
                     <TableRow key={mov.id}>
-                      <TableCell>{formatDate(mov.data_mov)}</TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="py-1">{formatDate(mov.data_mov)}</TableCell>
+                      <TableCell className="py-1 font-medium">
                         {mov.lote ? `Q${mov.lote.quadra} L${mov.lote.numero_lote}` : "-"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         <Badge variant="outline">
                           {getTipoMovimentoLabel(mov.tipo_mov)}
                         </Badge>
                       </TableCell>
-                      <TableCell>{mov.referencia || "-"}</TableCell>
-                      <TableCell className="text-center text-muted-foreground">
+                      <TableCell className="py-1">{mov.vencimento ? formatDate(mov.vencimento) : "-"}</TableCell>
+                      <TableCell className="py-1 text-center text-muted-foreground">
                         {mov.numero_parcela ?? "-"}
                       </TableCell>
-                      <TableCell className="text-center text-muted-foreground">
+                      <TableCell className="py-1 text-center text-muted-foreground">
                         {mov.sequencia_parcela ?? "-"}
                       </TableCell>
-                      <TableCell className="text-right text-destructive">
+                      <TableCell className="py-1 text-right text-destructive">
                         {mov.debito ? formatCurrency(mov.debito) : "-"}
                       </TableCell>
-                      <TableCell className="text-right text-success">
+                      <TableCell className="py-1 text-right text-success">
                         {mov.credito ? formatCurrency(mov.credito) : "-"}
                       </TableCell>
-                      <TableCell className={`text-right font-medium ${mov.saldoAcumulado > 0 ? 'text-destructive' : 'text-success'}`}>
+                      <TableCell className={`py-1 text-right font-medium ${mov.saldoAcumulado > 0 ? 'text-destructive' : 'text-success'}`}>
                         {formatCurrency(mov.saldoAcumulado)}
                       </TableCell>
                       {canEdit && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                        <TableCell className="py-1 text-right">
+                          <div className="flex justify-end gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
