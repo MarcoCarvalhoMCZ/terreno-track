@@ -591,6 +591,19 @@ async function buildConsultaLotePDF(params: PDFExportParams): Promise<jsPDF> {
 
   const doc = new jsPDF();
 
+  // Buscar mensagem institucional configurada (texto livre); silenciosa em caso de erro
+  let mensagemExtrato = "";
+  try {
+    const { data: cfg } = await supabase
+      .from("configuracoes")
+      .select("mensagem_extrato")
+      .limit(1)
+      .maybeSingle();
+    mensagemExtrato = ((cfg as any)?.mensagem_extrato || "").toString();
+  } catch {
+    mensagemExtrato = "";
+  }
+
   const renderFluxoPage = async (tipo: TipoConta) => {
     const isParcelamento = tipo === "PARCELAMENTO";
 
@@ -628,7 +641,11 @@ async function buildConsultaLotePDF(params: PDFExportParams): Promise<jsPDF> {
     }
 
     if (temParcelasVencidas) {
-      addAvisoImportante(doc, yPos);
+      yPos = addAvisoImportante(doc, yPos);
+    }
+
+    if (mensagemExtrato.trim()) {
+      yPos = addMensagemExtrato(doc, yPos, mensagemExtrato);
     }
   };
 
