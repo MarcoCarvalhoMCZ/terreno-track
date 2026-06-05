@@ -101,6 +101,13 @@ export default function ContaCorrenteLote() {
   const [filterTipo, setFilterTipo] = useState<string>("TODOS");
   const [valorMovimento, setValorMovimento] = useState<string>("");
   const [tipoConta, setTipoConta] = useState<TipoConta>("PARCELAMENTO");
+  // Overrides para juros/multa em parcelas com atraso (editáveis pelo usuário)
+  const [overrideJuros, setOverrideJuros] = useState<string>("");
+  const [overrideMulta, setOverrideMulta] = useState<string>("");
+  // Modais novos
+  const [atualizacaoFaltandoOpen, setAtualizacaoFaltandoOpen] = useState(false);
+  const [confirmacaoParcelaOpen, setConfirmacaoParcelaOpen] = useState(false);
+  const [pendingParcelaData, setPendingParcelaData] = useState<ContaCorrenteInsert | null>(null);
 
   // Use centralized hooks for data fetching
   const { data: movimentacoes, isLoading } = useContaCorrenteMovimentacoes();
@@ -119,6 +126,8 @@ export default function ContaCorrenteLote() {
     setEditingMov(null);
     setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta });
     setValorMovimento("");
+    setOverrideJuros("");
+    setOverrideMulta("");
     setShouldApplySuggestions(true);
   };
 
@@ -386,6 +395,8 @@ export default function ContaCorrenteLote() {
   // Resetar flag quando muda o tipo de movimento, lote ou tipo de fluxo (nova seleção)
   useEffect(() => {
     setShouldApplySuggestions(true);
+    setOverrideJuros("");
+    setOverrideMulta("");
   }, [formData.tipo_mov, formData.lote_id, formData.tipo_fluxo_form]);
 
   // Cálculo automático de encargos de mora (juros + multa) para PARCELA/REFORCO
@@ -508,21 +519,27 @@ export default function ContaCorrenteLote() {
 
       const movimentosVinculados: ContaCorrenteInsert[] = [];
 
-      if (encargosMora.valorJuros > 0) {
+      // Aplicar overrides do usuário se fornecidos
+      const jurosOver = parseValorBR(overrideJuros);
+      const multaOver = parseValorBR(overrideMulta);
+      const valorJurosFinal = jurosOver != null && jurosOver >= 0 ? jurosOver : encargosMora.valorJuros;
+      const valorMultaFinal = multaOver != null && multaOver >= 0 ? multaOver : encargosMora.valorMulta;
+
+      if (valorJurosFinal > 0) {
         movimentosVinculados.push({
           ...baseVinculo,
           tipo_mov: "JUROS",
-          debito: Number(encargosMora.valorJuros.toFixed(2)),
+          debito: Number(valorJurosFinal.toFixed(2)),
           percentual_calculo: Number(encargosMora.jurosPercentual.toFixed(4)),
           descricao: `Juros de Mora vinculado à Parcela #${parcelaData.numero_parcela ?? ""} (${encargosMora.diasAtraso} dia(s) atraso)`,
         } as ContaCorrenteInsert);
       }
 
-      if (encargosMora.valorMulta > 0) {
+      if (valorMultaFinal > 0) {
         movimentosVinculados.push({
           ...baseVinculo,
           tipo_mov: "MULTA",
-          debito: Number(encargosMora.valorMulta.toFixed(2)),
+          debito: Number(valorMultaFinal.toFixed(2)),
           percentual_calculo: moraConfig?.multa_mora_percentual ?? null,
           descricao: `Multa por Atraso vinculada à Parcela #${parcelaData.numero_parcela ?? ""}`,
         } as ContaCorrenteInsert);
@@ -533,7 +550,6 @@ export default function ContaCorrenteLote() {
           .from("conta_corrente_lote")
           .insert(movimentosVinculados);
         if (errVinc) {
-          // Reverte a parcela para evitar lançamento órfão
           await supabase.from("conta_corrente_lote").delete().eq("id", parcelaInserida.id);
           throw errVinc;
         }
@@ -664,12 +680,38 @@ export default function ContaCorrenteLote() {
 
     // Para PARCELA/REFORCO: usar fluxo com geração automática de Juros/Multa
     if (isPagamento) {
+      const isParcelaParcelamento =
+        formData.tipo_mov === "PARCELA" && (tipo_fluxo_form || tipoConta) === "PARCELAMENTO";
+
+      // a) Verificar Atualização Monetária do mês da data_mov
+      if (isParcelaParcelamento && formData.lote_id && formData.data_mov) {
+        try {
+          const temAtualiz = await existeAtualizacaoNoMes(
+            formData.lote_id,
+            "PARCELAMENTO",
+            formData.data_mov,
+          );
+          if (!temAtualiz) {
+            setPendingParcelaData(dataToSave);
+            setAtualizacaoFaltandoOpen(true);
+            return;
+          }
+        } catch (err: any) {
+          toast.error("Erro ao verificar Atualização Monetária: " + (err?.message || ""));
+          return;
+        }
+      }
+
+      // b) Se há parcela em atraso, pedir confirmação antes de salvar
+      if (encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada) {
+        setPendingParcelaData(dataToSave);
+        setConfirmacaoParcelaOpen(true);
+        return;
+      }
+
       try {
         await inserirParcelaComEncargos(dataToSave);
-        const msg = encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada
-          ? `Parcela registrada. Juros e Multa gerados automaticamente.`
-          : "Movimentação cadastrada com sucesso!";
-        toast.success(msg);
+        toast.success("Movimentação cadastrada com sucesso!");
         queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
         queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
         handleCloseDialog();
@@ -708,6 +750,21 @@ export default function ContaCorrenteLote() {
     }
     createMutation.mutate(pendingSubmitData.dataToSave as ContaCorrenteInsert);
     setPendingSubmitData(null);
+  };
+
+  const confirmarSalvarParcelaAtraso = async () => {
+    if (!pendingParcelaData) return;
+    setConfirmacaoParcelaOpen(false);
+    try {
+      await inserirParcelaComEncargos(pendingParcelaData);
+      toast.success("Parcela registrada. Juros e Multa gerados automaticamente.");
+      queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
+      queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
+      setPendingParcelaData(null);
+      handleCloseDialog();
+    } catch (err: any) {
+      toast.error("Erro ao cadastrar movimentação: " + (err?.message || "Erro desconhecido"));
+    }
   };
 
   // Filtrar movimentos por tipo de conta (Parcelamento vs Reforço) - usando tipo_fluxo
@@ -1171,36 +1228,82 @@ export default function ContaCorrenteLote() {
                     jurosPercentual={encargosMora.jurosPercentual}
                     multaPercentual={moraConfig?.multa_mora_percentual || 0}
                     valorOriginal={parseValorBR(valorMovimento) || 0}
-                    valorJuros={encargosMora.valorJuros}
-                    valorMulta={encargosMora.valorMulta}
-                    valorAtualizado={encargosMora.totalParcela}
+                    valorJuros={parseValorBR(overrideJuros) ?? encargosMora.valorJuros}
+                    valorMulta={parseValorBR(overrideMulta) ?? encargosMora.valorMulta}
+                    valorAtualizado={
+                      (parseValorBR(valorMovimento) || 0) +
+                      (parseValorBR(overrideJuros) ?? encargosMora.valorJuros) +
+                      (parseValorBR(overrideMulta) ?? encargosMora.valorMulta)
+                    }
                     toleranciaAplicada={encargosMora.toleranciaAplicada}
                   />
                 )}
 
-                {/* Referência e Vencimento */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="referencia">Referência {reqMark("referencia")}</Label>
-                    <Input
-                      id="referencia"
-                      value={formData.referencia || ""}
-                      onChange={(e) => setFormData({ ...formData, referencia: e.target.value })}
-                      placeholder="Ex: Parcela 1 de 24"
-                      {...fieldProps("referencia")}
-                    />
+                {/* Editor de Juros / Multa / Total Recebido quando há atraso elegível */}
+                {encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada && (
+                  <div className="grid grid-cols-2 gap-4 rounded-md border p-3 bg-muted/30">
+                    <div className="space-y-2">
+                      <Label htmlFor="juros_override">
+                        Juros R$ ({encargosMora.jurosPercentual.toFixed(2)}%)
+                      </Label>
+                      <Input
+                        id="juros_override"
+                        type="text"
+                        inputMode="decimal"
+                        value={overrideJuros !== "" ? overrideJuros : encargosMora.valorJuros.toFixed(2)}
+                        onChange={(e) => setOverrideJuros(e.target.value.replace(/[^\d.,]/g, ""))}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="multa_override">
+                        Multa R$ ({(moraConfig?.multa_mora_percentual || 0).toFixed(2)}%)
+                      </Label>
+                      <Input
+                        id="multa_override"
+                        type="text"
+                        inputMode="decimal"
+                        value={overrideMulta !== "" ? overrideMulta : encargosMora.valorMulta.toFixed(2)}
+                        onChange={(e) => setOverrideMulta(e.target.value.replace(/[^\d.,]/g, ""))}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label>Total Recebido R$</Label>
+                      <Input
+                        readOnly
+                        value={(
+                          (parseValorBR(valorMovimento) || 0) +
+                          (parseValorBR(overrideJuros) ?? encargosMora.valorJuros) +
+                          (parseValorBR(overrideMulta) ?? encargosMora.valorMulta)
+                        ).toFixed(2)}
+                        className="font-bold"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vencimento">Vencimento {reqMark("vencimento")}</Label>
-                    <Input
-                      id="vencimento"
-                      type="date"
-                      value={formData.vencimento || ""}
-                      onChange={(e) => setFormData({ ...formData, vencimento: e.target.value || null })}
-                      {...fieldProps("vencimento")}
-                    />
+                )}
+
+                {/* Vencimento (campo Referência removido - sem utilidade) */}
+                {isHab("vencimento") && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="vencimento">Vencimento {reqMark("vencimento")}</Label>
+                      <Input
+                        id="vencimento"
+                        type="date"
+                        value={formData.vencimento || ""}
+                        onChange={(e) => setFormData({ ...formData, vencimento: e.target.value || null })}
+                        readOnly={!!(encargosMora && encargosMora.isVencida)}
+                        {...fieldProps("vencimento")}
+                      />
+                      {encargosMora && encargosMora.isVencida && (
+                        <p className="text-xs text-muted-foreground">
+                          Vencimento travado: refere-se à parcela mais atrasada.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Nº Parcela e Sequência */}
                 <div className="grid grid-cols-2 gap-4">
@@ -1366,6 +1469,69 @@ export default function ContaCorrenteLote() {
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => handleDuplicateAtualizacaoConfirm(true)}>
               Sim, recalcular
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Atualização Monetária ausente no mês */}
+      <AlertDialog open={atualizacaoFaltandoOpen} onOpenChange={setAtualizacaoFaltandoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              ⚠️ Atualização Monetária do mês não realizada
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta parcela somente poderá ser baixada/liquidada após o cálculo da
+              <strong> Atualização Monetária </strong>
+              referente a <strong>{formData.data_mov?.substring(0, 7)}</strong>.
+              Execute a Atualização Monetária do mês antes de registrar o recebimento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => {
+                setAtualizacaoFaltandoOpen(false);
+                setPendingParcelaData(null);
+              }}
+            >
+              Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de dados antes de salvar parcela com atraso */}
+      <AlertDialog open={confirmacaoParcelaOpen} onOpenChange={setConfirmacaoParcelaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar recebimento de parcela em atraso</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <div>Confira os dados antes de confirmar o lançamento:</div>
+                <div className="rounded-md border p-3 space-y-1 bg-muted/30">
+                  <div><strong>Nº Parcela:</strong> {pendingParcelaData?.numero_parcela ?? "-"} (seq. {pendingParcelaData?.sequencia_parcela ?? "-"})</div>
+                  <div><strong>Vencimento:</strong> {pendingParcelaData?.vencimento ? formatDateBR(pendingParcelaData.vencimento) : "-"}</div>
+                  <div><strong>Valor da Parcela:</strong> {formatCurrency(parseValorBR(valorMovimento) || 0)}</div>
+                  <div><strong>Juros ({encargosMora?.jurosPercentual.toFixed(2)}%):</strong> {formatCurrency(parseValorBR(overrideJuros) ?? encargosMora?.valorJuros ?? 0)}</div>
+                  <div><strong>Multa ({(moraConfig?.multa_mora_percentual || 0).toFixed(2)}%):</strong> {formatCurrency(parseValorBR(overrideMulta) ?? encargosMora?.valorMulta ?? 0)}</div>
+                  <div className="pt-1 border-t font-bold">
+                    Total Recebido: {formatCurrency(
+                      (parseValorBR(valorMovimento) || 0) +
+                      (parseValorBR(overrideJuros) ?? encargosMora?.valorJuros ?? 0) +
+                      (parseValorBR(overrideMulta) ?? encargosMora?.valorMulta ?? 0)
+                    )}
+                  </div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setConfirmacaoParcelaOpen(false); setPendingParcelaData(null); }}>
+              Revisar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarSalvarParcelaAtraso}>
+              Confirmar e salvar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
