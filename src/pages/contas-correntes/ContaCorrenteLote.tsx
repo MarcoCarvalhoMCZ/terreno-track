@@ -393,7 +393,6 @@ export default function ContaCorrenteLote() {
   }, [formData.lote_id, formData.tipo_mov, formData.tipo_fluxo_form, formData.data_mov, editingMov, calcularSugestoes, shouldApplySuggestions]);
   
   // Resetar flag quando muda o tipo de movimento, lote ou tipo de fluxo (nova seleção)
-  // Resetar flag quando muda o tipo de movimento, lote ou tipo de fluxo (nova seleção)
   useEffect(() => {
     setShouldApplySuggestions(true);
     setOverrideJuros("");
