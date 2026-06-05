@@ -519,21 +519,27 @@ export default function ContaCorrenteLote() {
 
       const movimentosVinculados: ContaCorrenteInsert[] = [];
 
-      if (encargosMora.valorJuros > 0) {
+      // Aplicar overrides do usuário se fornecidos
+      const jurosOver = parseValorBR(overrideJuros);
+      const multaOver = parseValorBR(overrideMulta);
+      const valorJurosFinal = jurosOver != null && jurosOver >= 0 ? jurosOver : encargosMora.valorJuros;
+      const valorMultaFinal = multaOver != null && multaOver >= 0 ? multaOver : encargosMora.valorMulta;
+
+      if (valorJurosFinal > 0) {
         movimentosVinculados.push({
           ...baseVinculo,
           tipo_mov: "JUROS",
-          debito: Number(encargosMora.valorJuros.toFixed(2)),
+          debito: Number(valorJurosFinal.toFixed(2)),
           percentual_calculo: Number(encargosMora.jurosPercentual.toFixed(4)),
           descricao: `Juros de Mora vinculado à Parcela #${parcelaData.numero_parcela ?? ""} (${encargosMora.diasAtraso} dia(s) atraso)`,
         } as ContaCorrenteInsert);
       }
 
-      if (encargosMora.valorMulta > 0) {
+      if (valorMultaFinal > 0) {
         movimentosVinculados.push({
           ...baseVinculo,
           tipo_mov: "MULTA",
-          debito: Number(encargosMora.valorMulta.toFixed(2)),
+          debito: Number(valorMultaFinal.toFixed(2)),
           percentual_calculo: moraConfig?.multa_mora_percentual ?? null,
           descricao: `Multa por Atraso vinculada à Parcela #${parcelaData.numero_parcela ?? ""}`,
         } as ContaCorrenteInsert);
@@ -544,7 +550,6 @@ export default function ContaCorrenteLote() {
           .from("conta_corrente_lote")
           .insert(movimentosVinculados);
         if (errVinc) {
-          // Reverte a parcela para evitar lançamento órfão
           await supabase.from("conta_corrente_lote").delete().eq("id", parcelaInserida.id);
           throw errVinc;
         }
