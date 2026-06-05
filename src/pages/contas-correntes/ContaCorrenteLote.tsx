@@ -101,6 +101,13 @@ export default function ContaCorrenteLote() {
   const [filterTipo, setFilterTipo] = useState<string>("TODOS");
   const [valorMovimento, setValorMovimento] = useState<string>("");
   const [tipoConta, setTipoConta] = useState<TipoConta>("PARCELAMENTO");
+  // Overrides para juros/multa em parcelas com atraso (editáveis pelo usuário)
+  const [overrideJuros, setOverrideJuros] = useState<string>("");
+  const [overrideMulta, setOverrideMulta] = useState<string>("");
+  // Modais novos
+  const [atualizacaoFaltandoOpen, setAtualizacaoFaltandoOpen] = useState(false);
+  const [confirmacaoParcelaOpen, setConfirmacaoParcelaOpen] = useState(false);
+  const [pendingParcelaData, setPendingParcelaData] = useState<ContaCorrenteInsert | null>(null);
 
   // Use centralized hooks for data fetching
   const { data: movimentacoes, isLoading } = useContaCorrenteMovimentacoes();
