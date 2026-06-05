@@ -126,6 +126,8 @@ export default function ContaCorrenteLote() {
     setEditingMov(null);
     setFormData({ ...emptyMovimento, tipo_fluxo_form: tipoConta });
     setValorMovimento("");
+    setOverrideJuros("");
+    setOverrideMulta("");
     setShouldApplySuggestions(true);
   };
 
