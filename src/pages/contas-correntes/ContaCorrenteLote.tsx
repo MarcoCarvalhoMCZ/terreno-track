@@ -752,6 +752,21 @@ export default function ContaCorrenteLote() {
     setPendingSubmitData(null);
   };
 
+  const confirmarSalvarParcelaAtraso = async () => {
+    if (!pendingParcelaData) return;
+    setConfirmacaoParcelaOpen(false);
+    try {
+      await inserirParcelaComEncargos(pendingParcelaData);
+      toast.success("Parcela registrada. Juros e Multa gerados automaticamente.");
+      queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
+      queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
+      setPendingParcelaData(null);
+      handleCloseDialog();
+    } catch (err: any) {
+      toast.error("Erro ao cadastrar movimentação: " + (err?.message || "Erro desconhecido"));
+    }
+  };
+
   // Filtrar movimentos por tipo de conta (Parcelamento vs Reforço) - usando tipo_fluxo
   const tiposPermitidos = tipoConta === "PARCELAMENTO" ? tiposParcelamento : tiposReforco;
   
