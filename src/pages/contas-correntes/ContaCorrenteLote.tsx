@@ -680,12 +680,38 @@ export default function ContaCorrenteLote() {
 
     // Para PARCELA/REFORCO: usar fluxo com geração automática de Juros/Multa
     if (isPagamento) {
+      const isParcelaParcelamento =
+        formData.tipo_mov === "PARCELA" && (tipo_fluxo_form || tipoConta) === "PARCELAMENTO";
+
+      // a) Verificar Atualização Monetária do mês da data_mov
+      if (isParcelaParcelamento && formData.lote_id && formData.data_mov) {
+        try {
+          const temAtualiz = await existeAtualizacaoNoMes(
+            formData.lote_id,
+            "PARCELAMENTO",
+            formData.data_mov,
+          );
+          if (!temAtualiz) {
+            setPendingParcelaData(dataToSave);
+            setAtualizacaoFaltandoOpen(true);
+            return;
+          }
+        } catch (err: any) {
+          toast.error("Erro ao verificar Atualização Monetária: " + (err?.message || ""));
+          return;
+        }
+      }
+
+      // b) Se há parcela em atraso, pedir confirmação antes de salvar
+      if (encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada) {
+        setPendingParcelaData(dataToSave);
+        setConfirmacaoParcelaOpen(true);
+        return;
+      }
+
       try {
         await inserirParcelaComEncargos(dataToSave);
-        const msg = encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada
-          ? `Parcela registrada. Juros e Multa gerados automaticamente.`
-          : "Movimentação cadastrada com sucesso!";
-        toast.success(msg);
+        toast.success("Movimentação cadastrada com sucesso!");
         queryClient.invalidateQueries({ queryKey: ["conta-corrente-lote"] });
         queryClient.invalidateQueries({ queryKey: ["resumo-fluxo-lote"] });
         handleCloseDialog();
