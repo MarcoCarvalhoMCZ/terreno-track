@@ -1473,6 +1473,69 @@ export default function ContaCorrenteLote() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Atualização Monetária ausente no mês */}
+      <AlertDialog open={atualizacaoFaltandoOpen} onOpenChange={setAtualizacaoFaltandoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              ⚠️ Atualização Monetária do mês não realizada
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta parcela somente poderá ser baixada/liquidada após o cálculo da
+              <strong> Atualização Monetária </strong>
+              referente a <strong>{formData.data_mov?.substring(0, 7)}</strong>.
+              Execute a Atualização Monetária do mês antes de registrar o recebimento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => {
+                setAtualizacaoFaltandoOpen(false);
+                setPendingParcelaData(null);
+              }}
+            >
+              Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de dados antes de salvar parcela com atraso */}
+      <AlertDialog open={confirmacaoParcelaOpen} onOpenChange={setConfirmacaoParcelaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar recebimento de parcela em atraso</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <div>Confira os dados antes de confirmar o lançamento:</div>
+                <div className="rounded-md border p-3 space-y-1 bg-muted/30">
+                  <div><strong>Nº Parcela:</strong> {pendingParcelaData?.numero_parcela ?? "-"} (seq. {pendingParcelaData?.sequencia_parcela ?? "-"})</div>
+                  <div><strong>Vencimento:</strong> {pendingParcelaData?.vencimento ? formatDateBR(pendingParcelaData.vencimento) : "-"}</div>
+                  <div><strong>Valor da Parcela:</strong> {formatCurrency(parseValorBR(valorMovimento) || 0)}</div>
+                  <div><strong>Juros ({encargosMora?.jurosPercentual.toFixed(2)}%):</strong> {formatCurrency(parseValorBR(overrideJuros) ?? encargosMora?.valorJuros ?? 0)}</div>
+                  <div><strong>Multa ({(moraConfig?.multa_mora_percentual || 0).toFixed(2)}%):</strong> {formatCurrency(parseValorBR(overrideMulta) ?? encargosMora?.valorMulta ?? 0)}</div>
+                  <div className="pt-1 border-t font-bold">
+                    Total Recebido: {formatCurrency(
+                      (parseValorBR(valorMovimento) || 0) +
+                      (parseValorBR(overrideJuros) ?? encargosMora?.valorJuros ?? 0) +
+                      (parseValorBR(overrideMulta) ?? encargosMora?.valorMulta ?? 0)
+                    )}
+                  </div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setConfirmacaoParcelaOpen(false); setPendingParcelaData(null); }}>
+              Revisar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarSalvarParcelaAtraso}>
+              Confirmar e salvar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
