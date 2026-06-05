@@ -1228,36 +1228,82 @@ export default function ContaCorrenteLote() {
                     jurosPercentual={encargosMora.jurosPercentual}
                     multaPercentual={moraConfig?.multa_mora_percentual || 0}
                     valorOriginal={parseValorBR(valorMovimento) || 0}
-                    valorJuros={encargosMora.valorJuros}
-                    valorMulta={encargosMora.valorMulta}
-                    valorAtualizado={encargosMora.totalParcela}
+                    valorJuros={parseValorBR(overrideJuros) ?? encargosMora.valorJuros}
+                    valorMulta={parseValorBR(overrideMulta) ?? encargosMora.valorMulta}
+                    valorAtualizado={
+                      (parseValorBR(valorMovimento) || 0) +
+                      (parseValorBR(overrideJuros) ?? encargosMora.valorJuros) +
+                      (parseValorBR(overrideMulta) ?? encargosMora.valorMulta)
+                    }
                     toleranciaAplicada={encargosMora.toleranciaAplicada}
                   />
                 )}
 
-                {/* Referência e Vencimento */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="referencia">Referência {reqMark("referencia")}</Label>
-                    <Input
-                      id="referencia"
-                      value={formData.referencia || ""}
-                      onChange={(e) => setFormData({ ...formData, referencia: e.target.value })}
-                      placeholder="Ex: Parcela 1 de 24"
-                      {...fieldProps("referencia")}
-                    />
+                {/* Editor de Juros / Multa / Total Recebido quando há atraso elegível */}
+                {encargosMora && encargosMora.isVencida && !encargosMora.toleranciaAplicada && (
+                  <div className="grid grid-cols-2 gap-4 rounded-md border p-3 bg-muted/30">
+                    <div className="space-y-2">
+                      <Label htmlFor="juros_override">
+                        Juros R$ ({encargosMora.jurosPercentual.toFixed(2)}%)
+                      </Label>
+                      <Input
+                        id="juros_override"
+                        type="text"
+                        inputMode="decimal"
+                        value={overrideJuros !== "" ? overrideJuros : encargosMora.valorJuros.toFixed(2)}
+                        onChange={(e) => setOverrideJuros(e.target.value.replace(/[^\d.,]/g, ""))}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="multa_override">
+                        Multa R$ ({(moraConfig?.multa_mora_percentual || 0).toFixed(2)}%)
+                      </Label>
+                      <Input
+                        id="multa_override"
+                        type="text"
+                        inputMode="decimal"
+                        value={overrideMulta !== "" ? overrideMulta : encargosMora.valorMulta.toFixed(2)}
+                        onChange={(e) => setOverrideMulta(e.target.value.replace(/[^\d.,]/g, ""))}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label>Total Recebido R$</Label>
+                      <Input
+                        readOnly
+                        value={(
+                          (parseValorBR(valorMovimento) || 0) +
+                          (parseValorBR(overrideJuros) ?? encargosMora.valorJuros) +
+                          (parseValorBR(overrideMulta) ?? encargosMora.valorMulta)
+                        ).toFixed(2)}
+                        className="font-bold"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vencimento">Vencimento {reqMark("vencimento")}</Label>
-                    <Input
-                      id="vencimento"
-                      type="date"
-                      value={formData.vencimento || ""}
-                      onChange={(e) => setFormData({ ...formData, vencimento: e.target.value || null })}
-                      {...fieldProps("vencimento")}
-                    />
+                )}
+
+                {/* Vencimento (campo Referência removido - sem utilidade) */}
+                {isHab("vencimento") && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="vencimento">Vencimento {reqMark("vencimento")}</Label>
+                      <Input
+                        id="vencimento"
+                        type="date"
+                        value={formData.vencimento || ""}
+                        onChange={(e) => setFormData({ ...formData, vencimento: e.target.value || null })}
+                        readOnly={!!(encargosMora && encargosMora.isVencida)}
+                        {...fieldProps("vencimento")}
+                      />
+                      {encargosMora && encargosMora.isVencida && (
+                        <p className="text-xs text-muted-foreground">
+                          Vencimento travado: refere-se à parcela mais atrasada.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Nº Parcela e Sequência */}
                 <div className="grid grid-cols-2 gap-4">
