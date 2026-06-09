@@ -260,7 +260,7 @@ export default function RecebimentoParcela() {
       }
     }
 
-  }, [parcelaSelecionada, loteId, venda, valorRecebido, dataPagamento, descricao, modoPagamento, bancoOrigem, cpfCnpjPagador, moraConfig]);
+  }, [parcelaSelecionada, loteId, venda, valoresRecalculados, dataPagamento, descricao, modoPagamento, bancoOrigem, cpfCnpjPagador, multaPercentual]);
 
   const finalizarRecebimento = useCallback(async () => {
     queryClient.invalidateQueries({ queryKey: ["recebimentos-parcela", loteId] });
