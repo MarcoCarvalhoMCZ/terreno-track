@@ -1,45 +1,25 @@
-## Migração de campos para a página Administrador
+# Corrigir registro de Recebimento de Parcela com Juros/Multa
 
-Com base na sua marcação (✅), os campos serão divididos assim:
+## Problema
 
-### Vão para Administrador (exclusivo Admin)
-**Empresa Proprietária** (9 campos)
-- `razao_social_proprietaria`, `cnpj_proprietaria`, `crc_rs_proprietaria`, `cidade_uf_proprietaria`, `telefone_proprietaria`, `email_proprietaria`, `logotipo_url`, `data_criacao_app`, `desenvolvedor_analista`
+Existe um trigger no banco (`trg_validar_vinculo_juros_multa`) que exige que todo movimento `JUROS` ou `MULTA` tenha `parcela_origem_id` preenchido, apontando para o registro da parcela (`PARCELA`/`REFORCO`) que originou aquele encargo.
 
-**Pessoas padrão** (5 campos)
-- `vendedor_pessoa_id`, `representante_legal_pessoa_id`, `representante_legal_2_pessoa_id`, `padrao_corretor_pessoa_id`, `padrao_percentual_corretagem`
+Hoje, em `src/pages/RecebimentoParcela.tsx` (função `executarRecebimento`), os três registros (PARCELA + JUROS + MULTA) são inseridos em um único `insert([...])` e nenhum deles preenche `parcela_origem_id` — daí o erro:
 
-**Outros**
-- `observacoes`
+> Movimentos JUROS e MULTA devem estar vinculados a uma parcela recebida (parcela_origem_id obrigatório).
 
-### Permanecem em Configuração (Admin + Operador)
-- **Dados bancários / PIX**: `banco`, `agencia`, `conta_corrente`, `chave_pix`, `nome_beneficiario`, `cidade_beneficiario`
-- **Mora / Atraso**: `juros_mora_percentual`, `multa_mora_percentual`, `criterio_juros_mora`, `tolerancia_dias_juros`
-- **E-mail**: `email_remetente_nome`, `email_reply_to`, `email_assunto_padrao`, `email_rodape`
+## Correção
 
----
+Em `src/pages/RecebimentoParcela.tsx`, dentro de `executarRecebimento`:
 
-## O que será feito
+1. Inserir primeiro **apenas** o registro da parcela (`PARCELA` ou `REFORCO`) usando `.insert(...).select('id').single()` para obter o `id` gerado.
+2. Se `valorJuros > 0`, montar o registro de `JUROS` com `parcela_origem_id = <id da parcela inserida>` e inserir.
+3. Se `valorMulta > 0`, idem para `MULTA` com o mesmo `parcela_origem_id`.
+4. Em caso de erro na inserção de juros/multa, fazer rollback manual deletando o registro de parcela recém-criado (para não deixar a parcela órfã sem os encargos esperados) e propagar o erro.
 
-**1. Página `Administrador.tsx`** — receberá três blocos editáveis (Empresa Proprietária, Pessoas padrão, Observações), reaproveitando os mesmos componentes de formulário hoje em `Configuracoes.tsx` (inputs, upload de logotipo, selects de pessoa via `LoteSearchSelect`/equivalente). Botões "Salvar/Cancelar" no `DialogHeader` à direita, conforme padrão do projeto. Inclui `AuditFooter`.
+Comportamento visível ao usuário permanece igual: um único clique em "Registrar" gera os 3 lançamentos vinculados, exatamente como descrito (Registro1 = parcela, Registro2 = juros vinculado, Registro3 = multa vinculada).
 
-**2. Página `Configuracoes.tsx`** — removidos os blocos migrados; permanecem apenas Dados bancários/PIX, Mora/Atraso e E-mail. Mantém o mesmo layout/estilo.
+## Escopo
 
-**3. Proteção no banco** — trigger `BEFORE UPDATE` em `public.configuracoes` que rejeita alteração das colunas administrativas quando o usuário não for ADMIN (usa `has_role(auth.uid(),'admin')`). Lista de colunas protegidas: as 15 marcadas acima. SELECT continua livre (Operador precisa ler para exibir, ex.: vendedor padrão em telas de venda).
-
-**4. Quadro de Avisos** (mensagem institucional para extratos) — fica para uma próxima rodada, conforme combinado; não entra agora.
-
----
-
-## Detalhes técnicos
-
-- Não altero `src/integrations/supabase/types.ts` (auto-gerado).
-- Migration única: `CREATE OR REPLACE FUNCTION public.tg_configuracoes_protect_admin_fields()` + `CREATE TRIGGER` em `BEFORE UPDATE`. A função compara `OLD.<col>` vs `NEW.<col>` para cada coluna protegida; se diferente e `NOT has_role(auth.uid(),'admin')` → `RAISE EXCEPTION`.
-- O hook de carregamento das configurações (`useConfiguracoes` ou query equivalente) é reutilizado nas duas páginas — apenas os campos exibidos/editáveis mudam.
-- Os campos `vendedor_pessoa_id`, `representante_legal_*`, `padrao_corretor_pessoa_id` continuam sendo lidos normalmente pelo Operador em outras telas (Vendas, etc.) — só a edição passa a ser exclusiva do Admin.
-
----
-
-## Próximo passo
-
-Aprove o plano para eu (a) aplicar a migration de proteção e (b) reorganizar as duas páginas.
+- Arquivo único alterado: `src/pages/RecebimentoParcela.tsx`
+- Sem mudanças de schema, sem mudanças de UI, sem mudanças em outros fluxos (Conta Corrente do Lote já trata isso corretamente).
