@@ -161,11 +161,25 @@ export default function RecebimentoParcela() {
     setDialogOpen(true);
   };
 
+  // Recalcular juros/multa com base no valor informado (mantém percentuais originais)
+  const multaPercentual = moraConfig?.multa_mora_percentual ?? 2;
+  const valoresRecalculados = useMemo(() => {
+    const valor = parseFloat(valorRecebido);
+    if (!parcelaSelecionada || isNaN(valor) || valor <= 0) {
+      return { valorBase: 0, valorJuros: 0, valorMulta: 0, total: 0 };
+    }
+    const aplicaJuros = parcelaSelecionada.jurosPercentual > 0;
+    const aplicaMulta = parcelaSelecionada.valorMulta > 0;
+    const valorJuros = aplicaJuros ? +(valor * parcelaSelecionada.jurosPercentual / 100).toFixed(2) : 0;
+    const valorMulta = aplicaMulta ? +(valor * multaPercentual / 100).toFixed(2) : 0;
+    return { valorBase: valor, valorJuros, valorMulta, total: valor + valorJuros + valorMulta };
+  }, [valorRecebido, parcelaSelecionada, multaPercentual]);
+
   // Função compartilhada para construir e inserir registros
   const executarRecebimento = useCallback(async () => {
     if (!parcelaSelecionada || !loteId || !venda) throw new Error("Dados inválidos");
-    const valor = parseFloat(valorRecebido);
-    if (isNaN(valor) || valor <= 0) throw new Error("Valor inválido");
+    const valor = valoresRecalculados.valorBase;
+    if (valor <= 0) throw new Error("Valor inválido");
 
     const tipoLabel = parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "Parcela" : "Reforço";
     const referencia = `${tipoLabel} ${parcelaSelecionada.numero} de ${parcelaSelecionada.totalParcelas}`;
@@ -199,7 +213,7 @@ export default function RecebimentoParcela() {
     const parcelaOrigemId = parcelaInserida.id;
 
     const encargos: any[] = [];
-    if (parcelaSelecionada.valorJuros > 0) {
+    if (valoresRecalculados.valorJuros > 0) {
       encargos.push({
         lote_id: loteId,
         venda_id: venda.id,
@@ -207,7 +221,7 @@ export default function RecebimentoParcela() {
         tipo_mov: "JUROS",
         tipo_fluxo: parcelaSelecionada.tipoFluxo,
         descricao: `Juros ${parcelaSelecionada.jurosPercentual.toFixed(0)}% - ${tipoLabel} ${numeroParcela}`,
-        debito: parcelaSelecionada.valorJuros,
+        debito: valoresRecalculados.valorJuros,
         credito: 0,
         referencia,
         percentual_calculo: parcelaSelecionada.jurosPercentual,
@@ -217,17 +231,18 @@ export default function RecebimentoParcela() {
       });
     }
 
-    if (parcelaSelecionada.valorMulta > 0) {
+    if (valoresRecalculados.valorMulta > 0) {
       encargos.push({
         lote_id: loteId,
         venda_id: venda.id,
         data_mov: dataPagamento,
         tipo_mov: "MULTA",
         tipo_fluxo: parcelaSelecionada.tipoFluxo,
-        descricao: `Multa ${moraConfig?.multa_mora_percentual || 2}% - ${tipoLabel} ${numeroParcela}`,
-        debito: parcelaSelecionada.valorMulta,
+        descricao: `Multa ${multaPercentual}% - ${tipoLabel} ${numeroParcela}`,
+        debito: valoresRecalculados.valorMulta,
         credito: 0,
         referencia,
+        percentual_calculo: multaPercentual,
         numero_parcela: numeroParcela,
         sequencia_parcela: seq++,
         parcela_origem_id: parcelaOrigemId,
@@ -245,7 +260,7 @@ export default function RecebimentoParcela() {
       }
     }
 
-  }, [parcelaSelecionada, loteId, venda, valorRecebido, dataPagamento, descricao, modoPagamento, bancoOrigem, cpfCnpjPagador, moraConfig]);
+  }, [parcelaSelecionada, loteId, venda, valoresRecalculados, dataPagamento, descricao, modoPagamento, bancoOrigem, cpfCnpjPagador, multaPercentual]);
 
   const finalizarRecebimento = useCallback(async () => {
     queryClient.invalidateQueries({ queryKey: ["recebimentos-parcela", loteId] });
@@ -471,25 +486,34 @@ export default function RecebimentoParcela() {
                   <span>Venc: {format(parcelaSelecionada.vencimento, "dd/MM/yyyy")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Valor da parcela:</span>
+                  <span>Valor da parcela (sugerido):</span>
                   <span>{formatCurrency(parcelaSelecionada.valorParcela)}</span>
                 </div>
-                {parcelaSelecionada.valorJuros > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>Valor recebido:</span>
+                  <span>{formatCurrency(valoresRecalculados.valorBase)}</span>
+                </div>
+                {valoresRecalculados.valorJuros > 0 && (
                   <div className="flex justify-between text-sm text-destructive">
                     <span>Juros ({parcelaSelecionada.jurosPercentual.toFixed(0)}%):</span>
-                    <span>{formatCurrency(parcelaSelecionada.valorJuros)}</span>
+                    <span>{formatCurrency(valoresRecalculados.valorJuros)}</span>
                   </div>
                 )}
-                {parcelaSelecionada.valorMulta > 0 && (
+                {valoresRecalculados.valorMulta > 0 && (
                   <div className="flex justify-between text-sm text-destructive">
-                    <span>Multa ({moraConfig?.multa_mora_percentual || 2}%):</span>
-                    <span>{formatCurrency(parcelaSelecionada.valorMulta)}</span>
+                    <span>Multa ({multaPercentual}%):</span>
+                    <span>{formatCurrency(valoresRecalculados.valorMulta)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold border-t pt-2">
                   <span>Total:</span>
-                  <span>{formatCurrency(parcelaSelecionada.totalParcela)}</span>
+                  <span>{formatCurrency(valoresRecalculados.total)}</span>
                 </div>
+                {Math.abs(valoresRecalculados.valorBase - parcelaSelecionada.valorParcela) > 0.001 && (
+                  <div className="text-xs text-muted-foreground border-t pt-2">
+                    Divergência de {formatCurrency(valoresRecalculados.valorBase - parcelaSelecionada.valorParcela)} será incorporada ao saldo da conta corrente do lote.
+                  </div>
+                )}
               </div>
 
               {/* Form */}
