@@ -161,11 +161,25 @@ export default function RecebimentoParcela() {
     setDialogOpen(true);
   };
 
+  // Recalcular juros/multa com base no valor informado (mantém percentuais originais)
+  const multaPercentual = moraConfig?.multa_mora_percentual ?? 2;
+  const valoresRecalculados = useMemo(() => {
+    const valor = parseFloat(valorRecebido);
+    if (!parcelaSelecionada || isNaN(valor) || valor <= 0) {
+      return { valorBase: 0, valorJuros: 0, valorMulta: 0, total: 0 };
+    }
+    const aplicaJuros = parcelaSelecionada.jurosPercentual > 0;
+    const aplicaMulta = parcelaSelecionada.valorMulta > 0;
+    const valorJuros = aplicaJuros ? +(valor * parcelaSelecionada.jurosPercentual / 100).toFixed(2) : 0;
+    const valorMulta = aplicaMulta ? +(valor * multaPercentual / 100).toFixed(2) : 0;
+    return { valorBase: valor, valorJuros, valorMulta, total: valor + valorJuros + valorMulta };
+  }, [valorRecebido, parcelaSelecionada, multaPercentual]);
+
   // Função compartilhada para construir e inserir registros
   const executarRecebimento = useCallback(async () => {
     if (!parcelaSelecionada || !loteId || !venda) throw new Error("Dados inválidos");
-    const valor = parseFloat(valorRecebido);
-    if (isNaN(valor) || valor <= 0) throw new Error("Valor inválido");
+    const valor = valoresRecalculados.valorBase;
+    if (valor <= 0) throw new Error("Valor inválido");
 
     const tipoLabel = parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "Parcela" : "Reforço";
     const referencia = `${tipoLabel} ${parcelaSelecionada.numero} de ${parcelaSelecionada.totalParcelas}`;
