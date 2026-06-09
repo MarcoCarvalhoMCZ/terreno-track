@@ -172,28 +172,35 @@ export default function RecebimentoParcela() {
     const numeroParcela = parcelaSelecionada.numero;
 
     let seq = 1;
-    const registros: any[] = [
-      {
-        lote_id: loteId,
-        venda_id: venda.id,
-        data_mov: dataPagamento,
-        tipo_mov: parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "PARCELA" : "REFORCO",
-        tipo_fluxo: parcelaSelecionada.tipoFluxo,
-        descricao: descricao || `${tipoLabel} Recebida`,
-        credito: valor,
-        debito: 0,
-        referencia,
-        vencimento: format(parcelaSelecionada.vencimento, "yyyy-MM-dd"),
-        modo_pagamento: modoPagamento || null,
-        banco_origem: bancoOrigem || null,
-        cpf_cnpj_pagador: cpfCnpjPagador || null,
-        numero_parcela: numeroParcela,
-        sequencia_parcela: seq++,
-      },
-    ];
+    const parcelaRegistro = {
+      lote_id: loteId,
+      venda_id: venda.id,
+      data_mov: dataPagamento,
+      tipo_mov: parcelaSelecionada.tipoFluxo === "PARCELAMENTO" ? "PARCELA" : "REFORCO",
+      tipo_fluxo: parcelaSelecionada.tipoFluxo,
+      descricao: descricao || `${tipoLabel} Recebida`,
+      credito: valor,
+      debito: 0,
+      referencia,
+      vencimento: format(parcelaSelecionada.vencimento, "yyyy-MM-dd"),
+      modo_pagamento: modoPagamento || null,
+      banco_origem: bancoOrigem || null,
+      cpf_cnpj_pagador: cpfCnpjPagador || null,
+      numero_parcela: numeroParcela,
+      sequencia_parcela: seq++,
+    };
 
+    const { data: parcelaInserida, error: errParcela } = await supabase
+      .from("conta_corrente_lote")
+      .insert(parcelaRegistro)
+      .select("id")
+      .single();
+    if (errParcela) throw errParcela;
+    const parcelaOrigemId = parcelaInserida.id;
+
+    const encargos: any[] = [];
     if (parcelaSelecionada.valorJuros > 0) {
-      registros.push({
+      encargos.push({
         lote_id: loteId,
         venda_id: venda.id,
         data_mov: dataPagamento,
@@ -206,11 +213,12 @@ export default function RecebimentoParcela() {
         percentual_calculo: parcelaSelecionada.jurosPercentual,
         numero_parcela: numeroParcela,
         sequencia_parcela: seq++,
+        parcela_origem_id: parcelaOrigemId,
       });
     }
 
     if (parcelaSelecionada.valorMulta > 0) {
-      registros.push({
+      encargos.push({
         lote_id: loteId,
         venda_id: venda.id,
         data_mov: dataPagamento,
@@ -222,13 +230,21 @@ export default function RecebimentoParcela() {
         referencia,
         numero_parcela: numeroParcela,
         sequencia_parcela: seq++,
+        parcela_origem_id: parcelaOrigemId,
       });
     }
 
-    const { error } = await supabase
-      .from("conta_corrente_lote")
-      .insert(registros);
-    if (error) throw error;
+    if (encargos.length > 0) {
+      const { error: errEncargos } = await supabase
+        .from("conta_corrente_lote")
+        .insert(encargos);
+      if (errEncargos) {
+        // rollback manual da parcela
+        await supabase.from("conta_corrente_lote").delete().eq("id", parcelaOrigemId);
+        throw errEncargos;
+      }
+    }
+
   }, [parcelaSelecionada, loteId, venda, valorRecebido, dataPagamento, descricao, modoPagamento, bancoOrigem, cpfCnpjPagador, moraConfig]);
 
   const finalizarRecebimento = useCallback(async () => {
