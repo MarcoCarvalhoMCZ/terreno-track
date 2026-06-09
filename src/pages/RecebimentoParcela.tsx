@@ -486,25 +486,34 @@ export default function RecebimentoParcela() {
                   <span>Venc: {format(parcelaSelecionada.vencimento, "dd/MM/yyyy")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Valor da parcela:</span>
+                  <span>Valor da parcela (sugerido):</span>
                   <span>{formatCurrency(parcelaSelecionada.valorParcela)}</span>
                 </div>
-                {parcelaSelecionada.valorJuros > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>Valor recebido:</span>
+                  <span>{formatCurrency(valoresRecalculados.valorBase)}</span>
+                </div>
+                {valoresRecalculados.valorJuros > 0 && (
                   <div className="flex justify-between text-sm text-destructive">
                     <span>Juros ({parcelaSelecionada.jurosPercentual.toFixed(0)}%):</span>
-                    <span>{formatCurrency(parcelaSelecionada.valorJuros)}</span>
+                    <span>{formatCurrency(valoresRecalculados.valorJuros)}</span>
                   </div>
                 )}
-                {parcelaSelecionada.valorMulta > 0 && (
+                {valoresRecalculados.valorMulta > 0 && (
                   <div className="flex justify-between text-sm text-destructive">
-                    <span>Multa ({moraConfig?.multa_mora_percentual || 2}%):</span>
-                    <span>{formatCurrency(parcelaSelecionada.valorMulta)}</span>
+                    <span>Multa ({multaPercentual}%):</span>
+                    <span>{formatCurrency(valoresRecalculados.valorMulta)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold border-t pt-2">
                   <span>Total:</span>
-                  <span>{formatCurrency(parcelaSelecionada.totalParcela)}</span>
+                  <span>{formatCurrency(valoresRecalculados.total)}</span>
                 </div>
+                {Math.abs(valoresRecalculados.valorBase - parcelaSelecionada.valorParcela) > 0.001 && (
+                  <div className="text-xs text-muted-foreground border-t pt-2">
+                    Divergência de {formatCurrency(valoresRecalculados.valorBase - parcelaSelecionada.valorParcela)} será incorporada ao saldo da conta corrente do lote.
+                  </div>
+                )}
               </div>
 
               {/* Form */}
