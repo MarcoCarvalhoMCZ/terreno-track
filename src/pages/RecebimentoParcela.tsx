@@ -213,7 +213,7 @@ export default function RecebimentoParcela() {
     const parcelaOrigemId = parcelaInserida.id;
 
     const encargos: any[] = [];
-    if (parcelaSelecionada.valorJuros > 0) {
+    if (valoresRecalculados.valorJuros > 0) {
       encargos.push({
         lote_id: loteId,
         venda_id: venda.id,
@@ -221,7 +221,7 @@ export default function RecebimentoParcela() {
         tipo_mov: "JUROS",
         tipo_fluxo: parcelaSelecionada.tipoFluxo,
         descricao: `Juros ${parcelaSelecionada.jurosPercentual.toFixed(0)}% - ${tipoLabel} ${numeroParcela}`,
-        debito: parcelaSelecionada.valorJuros,
+        debito: valoresRecalculados.valorJuros,
         credito: 0,
         referencia,
         percentual_calculo: parcelaSelecionada.jurosPercentual,
@@ -231,17 +231,18 @@ export default function RecebimentoParcela() {
       });
     }
 
-    if (parcelaSelecionada.valorMulta > 0) {
+    if (valoresRecalculados.valorMulta > 0) {
       encargos.push({
         lote_id: loteId,
         venda_id: venda.id,
         data_mov: dataPagamento,
         tipo_mov: "MULTA",
         tipo_fluxo: parcelaSelecionada.tipoFluxo,
-        descricao: `Multa ${moraConfig?.multa_mora_percentual || 2}% - ${tipoLabel} ${numeroParcela}`,
-        debito: parcelaSelecionada.valorMulta,
+        descricao: `Multa ${multaPercentual}% - ${tipoLabel} ${numeroParcela}`,
+        debito: valoresRecalculados.valorMulta,
         credito: 0,
         referencia,
+        percentual_calculo: multaPercentual,
         numero_parcela: numeroParcela,
         sequencia_parcela: seq++,
         parcela_origem_id: parcelaOrigemId,
