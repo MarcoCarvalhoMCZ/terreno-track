@@ -239,39 +239,39 @@ export default function ExportacaoExtratos() {
       return;
     }
 
-    // For folder mode, ask for directory BEFORE starting; if the browser blocks it,
-    // keep the export working by falling back to ZIP for the selected lotes.
-    let modoEfetivo: ModoEntrega = modo;
+    // For folder mode, ask for directory BEFORE starting. If the browser blocks
+    // the picker (typically because the app runs inside an iframe like the Lovable
+    // preview), we DO NOT silently fall back to ZIP — the user explicitly asked
+    // for individual files in a folder. We abort and instruct them to open the
+    // published app in a new tab.
     let dirHandle: FileSystemDirectoryHandleLike | null = null;
     if (modo === "folder") {
       if (!supportsDirectoryPicker) {
-        toast.info(
-          isInIframe
-            ? "A escolha de pasta está bloqueada neste contexto. Gerando ZIP com os lotes selecionados."
-            : "Seu navegador não suporta escolha de pasta. Gerando ZIP com os lotes selecionados."
+        toast.error(
+          "Seu navegador não suporta 'Salvar em pasta'. Use Chrome, Edge ou Opera, ou clique em 'Baixar ZIP'."
         );
-        modoEfetivo = "zip";
+        return;
       }
 
-      if (modoEfetivo === "folder") {
-        try {
-          dirHandle = await (window as WindowWithDirectoryPicker).showDirectoryPicker!({ mode: "readwrite" });
-        } catch (err: unknown) {
-          const errorName = err instanceof Error ? err.name : "";
-          const errorMessage = err instanceof Error ? err.message : "erro desconhecido";
-          // User cancelled the picker
-          if (errorName === "AbortError") return;
-          // Browser blocked the API (iframe sandbox, insecure context, permissions policy)
-          if (errorName === "SecurityError" || errorName === "NotAllowedError" || errorName === "InvalidStateError") {
-            toast.info("O navegador bloqueou a pasta neste contexto. Gerando ZIP com os lotes selecionados.");
-            modoEfetivo = "zip";
-          } else {
-            toast.error(`Não foi possível abrir o seletor de pasta: ${errorMessage || errorName || "erro desconhecido"}`);
-            return;
-          }
+      try {
+        dirHandle = await (window as WindowWithDirectoryPicker).showDirectoryPicker!({ mode: "readwrite" });
+      } catch (err: unknown) {
+        const errorName = err instanceof Error ? err.name : "";
+        const errorMessage = err instanceof Error ? err.message : "erro desconhecido";
+        if (errorName === "AbortError") return;
+        if (errorName === "SecurityError" || errorName === "NotAllowedError" || errorName === "InvalidStateError") {
+          toast.error(
+            isInIframe
+              ? "A escolha de pasta está bloqueada na pré-visualização. Abra o aplicativo publicado em uma nova aba para usar 'Salvar em pasta', ou utilize 'Baixar ZIP'."
+              : "O navegador bloqueou a escolha de pasta neste contexto. Utilize 'Baixar ZIP' ou abra em outra aba."
+          );
+          return;
         }
+        toast.error(`Não foi possível abrir o seletor de pasta: ${errorMessage || errorName || "erro desconhecido"}`);
+        return;
       }
     }
+    const modoEfetivo: ModoEntrega = modo;
 
     setProcessando(true);
     setProgresso(0);
