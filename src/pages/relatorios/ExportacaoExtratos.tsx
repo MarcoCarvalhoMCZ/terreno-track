@@ -215,29 +215,35 @@ export default function ExportacaoExtratos() {
       return;
     }
 
-    // For folder mode, ask for directory BEFORE starting
+    // For folder mode, ask for directory BEFORE starting; if the browser blocks it,
+    // keep the export working by falling back to ZIP for the selected lotes.
+    let modoEfetivo: ModoEntrega = modo;
     let dirHandle: any = null;
     if (modo === "folder") {
       if (!supportsDirectoryPicker) {
-        toast.error(
+        toast.info(
           isInIframe
-            ? "A escolha de pasta não está disponível na pré-visualização. Abra o aplicativo publicado em uma nova aba ou use 'Baixar ZIP'."
-            : "Seu navegador não suporta escolha de pasta. Use o botão 'Baixar ZIP'."
+            ? "A escolha de pasta está bloqueada neste contexto. Gerando ZIP com os lotes selecionados."
+            : "Seu navegador não suporta escolha de pasta. Gerando ZIP com os lotes selecionados."
         );
-        return;
+        modoEfetivo = "zip";
       }
-      try {
-        dirHandle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
-      } catch (err: any) {
-        // User cancelled the picker
-        if (err?.name === "AbortError") return;
-        // Browser blocked the API (iframe sandbox, insecure context, permissions policy)
-        if (err?.name === "SecurityError" || err?.name === "NotAllowedError" || err?.name === "InvalidStateError") {
-          toast.error("O navegador bloqueou a seleção de pasta neste contexto. Abra o app em uma nova aba ou use 'Baixar ZIP'.");
-          return;
+
+      if (modoEfetivo === "folder") {
+        try {
+          dirHandle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
+        } catch (err: any) {
+          // User cancelled the picker
+          if (err?.name === "AbortError") return;
+          // Browser blocked the API (iframe sandbox, insecure context, permissions policy)
+          if (err?.name === "SecurityError" || err?.name === "NotAllowedError" || err?.name === "InvalidStateError") {
+            toast.info("O navegador bloqueou a pasta neste contexto. Gerando ZIP com os lotes selecionados.");
+            modoEfetivo = "zip";
+          } else {
+            toast.error(`Não foi possível abrir o seletor de pasta: ${err?.message || err?.name || "erro desconhecido"}`);
+            return;
+          }
         }
-        toast.error(`Não foi possível abrir o seletor de pasta: ${err?.message || err?.name || "erro desconhecido"}`);
-        return;
       }
     }
 
@@ -275,7 +281,7 @@ export default function ExportacaoExtratos() {
     }
 
     const resultados: ArquivoGerado[] = [];
-    const zip = modo === "zip" ? new JSZip() : null;
+    const zip = modoEfetivo === "zip" ? new JSZip() : null;
 
     for (let i = 0; i < lotesSelecionados.length; i++) {
       const lote = lotesSelecionados[i];
@@ -390,9 +396,9 @@ export default function ExportacaoExtratos() {
 
         const fileName = `Quadra_${lote.quadra}_Lote_${lote.numero_lote}.pdf`;
 
-        if (modo === "zip" && zip) {
+        if (modoEfetivo === "zip" && zip) {
           zip.file(fileName, blob);
-        } else if (modo === "folder" && dirHandle) {
+        } else if (modoEfetivo === "folder" && dirHandle) {
           const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
           const writable = await fileHandle.createWritable();
           await writable.write(blob);
@@ -420,7 +426,7 @@ export default function ExportacaoExtratos() {
     }
 
     // Download zip when done
-    if (modo === "zip" && zip) {
+    if (modoEfetivo === "zip" && zip) {
       try {
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(zipBlob);
