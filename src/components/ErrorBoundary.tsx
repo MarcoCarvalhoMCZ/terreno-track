@@ -12,6 +12,11 @@ interface State {
   error: Error | null;
 }
 
+const isExternalDomMutationError = (error: Error | null) => {
+  const message = error?.message ?? "";
+  return message.includes("insertBefore") || message.includes("removeChild") || message.includes("appendChild");
+};
+
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -19,10 +24,19 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public static getDerivedStateFromError(error: Error): State {
+    if (isExternalDomMutationError(error)) {
+      return { hasError: false, error: null };
+    }
+
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    if (isExternalDomMutationError(error)) {
+      console.warn("External DOM mutation ignored:", error.message);
+      return;
+    }
+
     console.error("ErrorBoundary caught an error:", error, errorInfo);
   }
 
