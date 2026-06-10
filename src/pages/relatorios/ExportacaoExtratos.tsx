@@ -137,7 +137,9 @@ function calcularParcelasEmAtraso(
   return resultado;
 }
 
-const supportsDirectoryPicker = typeof window !== "undefined" && "showDirectoryPicker" in window;
+const isInIframe = typeof window !== "undefined" && window.self !== window.top;
+const supportsDirectoryPicker =
+  typeof window !== "undefined" && "showDirectoryPicker" in window && !isInIframe;
 
 export default function ExportacaoExtratos() {
   const competencias = gerarCompetencias();
