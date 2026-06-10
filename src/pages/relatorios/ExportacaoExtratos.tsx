@@ -137,7 +137,9 @@ function calcularParcelasEmAtraso(
   return resultado;
 }
 
-const supportsDirectoryPicker = typeof window !== "undefined" && "showDirectoryPicker" in window;
+const isInIframe = typeof window !== "undefined" && window.self !== window.top;
+const supportsDirectoryPicker =
+  typeof window !== "undefined" && "showDirectoryPicker" in window && !isInIframe;
 
 export default function ExportacaoExtratos() {
   const competencias = gerarCompetencias();
@@ -217,15 +219,24 @@ export default function ExportacaoExtratos() {
     let dirHandle: any = null;
     if (modo === "folder") {
       if (!supportsDirectoryPicker) {
-        toast.error("Seu navegador não suporta escolha de pasta. Use o botão 'Baixar ZIP'.");
+        toast.error(
+          isInIframe
+            ? "A escolha de pasta não está disponível na pré-visualização. Abra o aplicativo publicado em uma nova aba ou use 'Baixar ZIP'."
+            : "Seu navegador não suporta escolha de pasta. Use o botão 'Baixar ZIP'."
+        );
         return;
       }
       try {
         dirHandle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
       } catch (err: any) {
-        // User cancelled
+        // User cancelled the picker
         if (err?.name === "AbortError") return;
-        toast.error("Não foi possível acessar a pasta selecionada.");
+        // Browser blocked the API (iframe sandbox, insecure context, permissions policy)
+        if (err?.name === "SecurityError" || err?.name === "NotAllowedError" || err?.name === "InvalidStateError") {
+          toast.error("O navegador bloqueou a seleção de pasta neste contexto. Abra o app em uma nova aba ou use 'Baixar ZIP'.");
+          return;
+        }
+        toast.error(`Não foi possível abrir o seletor de pasta: ${err?.message || err?.name || "erro desconhecido"}`);
         return;
       }
     }
