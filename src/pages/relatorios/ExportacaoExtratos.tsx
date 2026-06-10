@@ -438,7 +438,8 @@ export default function ExportacaoExtratos() {
           fileName,
           status: "success",
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
         console.error(`Erro ao gerar extrato para Q${lote.quadra} L${lote.numero_lote}:`, err);
         resultados.push({
           loteId: lote.lote_id,
@@ -446,7 +447,7 @@ export default function ExportacaoExtratos() {
           numero_lote: lote.numero_lote,
           fileName: "",
           status: "error",
-          error: err.message || "Erro desconhecido",
+          error: errorMessage,
         });
       }
     }
@@ -463,7 +464,7 @@ export default function ExportacaoExtratos() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Erro ao gerar ZIP:", err);
         toast.error("Erro ao gerar arquivo ZIP.");
       }
