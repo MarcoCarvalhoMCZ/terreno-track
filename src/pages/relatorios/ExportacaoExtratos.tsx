@@ -203,7 +203,7 @@ export default function ExportacaoExtratos() {
       const uniqueLotes = new Map<string, LoteComAtualizacao>();
       for (const row of data || []) {
         if (!uniqueLotes.has(row.lote_id)) {
-          const lote = row.lotes as any;
+          const lote = row.lotes as { quadra?: string | null; numero_lote?: string | null } | null;
           uniqueLotes.set(row.lote_id, {
             lote_id: row.lote_id,
             quadra: lote?.quadra || "?",
@@ -242,7 +242,7 @@ export default function ExportacaoExtratos() {
     // For folder mode, ask for directory BEFORE starting; if the browser blocks it,
     // keep the export working by falling back to ZIP for the selected lotes.
     let modoEfetivo: ModoEntrega = modo;
-    let dirHandle: any = null;
+    let dirHandle: FileSystemDirectoryHandleLike | null = null;
     if (modo === "folder") {
       if (!supportsDirectoryPicker) {
         toast.info(
@@ -255,16 +255,18 @@ export default function ExportacaoExtratos() {
 
       if (modoEfetivo === "folder") {
         try {
-          dirHandle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
-        } catch (err: any) {
+          dirHandle = await (window as WindowWithDirectoryPicker).showDirectoryPicker!({ mode: "readwrite" });
+        } catch (err: unknown) {
+          const errorName = err instanceof Error ? err.name : "";
+          const errorMessage = err instanceof Error ? err.message : "erro desconhecido";
           // User cancelled the picker
-          if (err?.name === "AbortError") return;
+          if (errorName === "AbortError") return;
           // Browser blocked the API (iframe sandbox, insecure context, permissions policy)
-          if (err?.name === "SecurityError" || err?.name === "NotAllowedError" || err?.name === "InvalidStateError") {
+          if (errorName === "SecurityError" || errorName === "NotAllowedError" || errorName === "InvalidStateError") {
             toast.info("O navegador bloqueou a pasta neste contexto. Gerando ZIP com os lotes selecionados.");
             modoEfetivo = "zip";
           } else {
-            toast.error(`Não foi possível abrir o seletor de pasta: ${err?.message || err?.name || "erro desconhecido"}`);
+            toast.error(`Não foi possível abrir o seletor de pasta: ${errorMessage || errorName || "erro desconhecido"}`);
             return;
           }
         }
@@ -292,7 +294,7 @@ export default function ExportacaoExtratos() {
       vendedorConfig = vendedor;
     }
 
-    let pixConfig: { chave_pix: string | null; nome_beneficiario: string | null; cidade_beneficiario: string | null } = {
+    const pixConfig: { chave_pix: string | null; nome_beneficiario: string | null; cidade_beneficiario: string | null } = {
       chave_pix: config?.chave_pix || null,
       nome_beneficiario: null,
       cidade_beneficiario: null,
