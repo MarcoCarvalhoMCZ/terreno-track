@@ -401,8 +401,17 @@ export default function ExportacaoExtratos() {
           } catch { return null; }
         };
 
-        const movParc12 = (movParc || []).slice(-12);
-        const movRef12 = (movRef || []).slice(-12);
+        // Compute accumulated balance (same as Consulta de Lote) before slicing last 12,
+        // because the DB `saldo` column may be stale/empty for some rows.
+        const withSaldoAcumulado = (movs: any[]) => {
+          let acc = 0;
+          return movs.map((m) => {
+            acc += (m.debito || 0) - (m.credito || 0);
+            return { ...m, saldo: acc };
+          });
+        };
+        const movParc12 = withSaldoAcumulado(movParc || []).slice(-12);
+        const movRef12 = withSaldoAcumulado(movRef || []).slice(-12);
 
         const blob = await generateConsultaLotePDFBlob({
           lote: { quadra: lote.quadra, numero_lote: lote.numero_lote },
