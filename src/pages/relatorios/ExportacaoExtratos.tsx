@@ -36,6 +36,30 @@ import type { TipoConta, ResumoLote } from "@/types/conta-corrente.types";
 import type { ParcelaEmAtraso, ResumoParcelasEmAtraso } from "@/hooks/useParcelasEmAtraso";
 import { addMonths, isBefore, isSameMonth, parseISO } from "date-fns";
 
+interface FileSystemWritableFileStreamLike {
+  write(data: Blob): Promise<void>;
+  close(): Promise<void>;
+}
+
+interface FileSystemFileHandleLike {
+  createWritable(): Promise<FileSystemWritableFileStreamLike>;
+}
+
+interface FileSystemDirectoryHandleLike {
+  getFileHandle(name: string, options: { create: boolean }): Promise<FileSystemFileHandleLike>;
+}
+
+type WindowWithDirectoryPicker = Window & {
+  showDirectoryPicker?: (options: { mode: "readwrite" }) => Promise<FileSystemDirectoryHandleLike>;
+};
+
+interface VendaParcelasConfig {
+  qtd_parcelas?: number | null;
+  qtd_reforcos?: number | null;
+  frequencia_parcelas_meses?: number | null;
+  frequencia_reforcos_meses?: number | null;
+}
+
 interface LoteComAtualizacao {
   lote_id: string;
   quadra: string;
@@ -70,7 +94,7 @@ function gerarCompetencias(): { label: string; value: string }[] {
 // Calculate parcelas em atraso for batch processing (mirrors useParcelasEmAtraso logic)
 function calcularParcelasEmAtraso(
   tipoFluxo: TipoConta,
-  venda: any,
+  venda: VendaParcelasConfig | null | undefined,
   resumo: ResumoLote | null,
   moraConfig: MoraConfig,
   ultimaAtualizacao: Date | null
