@@ -36,6 +36,30 @@ import type { TipoConta, ResumoLote } from "@/types/conta-corrente.types";
 import type { ParcelaEmAtraso, ResumoParcelasEmAtraso } from "@/hooks/useParcelasEmAtraso";
 import { addMonths, isBefore, isSameMonth, parseISO } from "date-fns";
 
+interface FileSystemWritableFileStreamLike {
+  write(data: Blob): Promise<void>;
+  close(): Promise<void>;
+}
+
+interface FileSystemFileHandleLike {
+  createWritable(): Promise<FileSystemWritableFileStreamLike>;
+}
+
+interface FileSystemDirectoryHandleLike {
+  getFileHandle(name: string, options: { create: boolean }): Promise<FileSystemFileHandleLike>;
+}
+
+type WindowWithDirectoryPicker = Window & {
+  showDirectoryPicker?: (options: { mode: "readwrite" }) => Promise<FileSystemDirectoryHandleLike>;
+};
+
+interface VendaParcelasConfig {
+  qtd_parcelas?: number | null;
+  qtd_reforcos?: number | null;
+  frequencia_parcelas_meses?: number | null;
+  frequencia_reforcos_meses?: number | null;
+}
+
 interface LoteComAtualizacao {
   lote_id: string;
   quadra: string;
@@ -70,7 +94,7 @@ function gerarCompetencias(): { label: string; value: string }[] {
 // Calculate parcelas em atraso for batch processing (mirrors useParcelasEmAtraso logic)
 function calcularParcelasEmAtraso(
   tipoFluxo: TipoConta,
-  venda: any,
+  venda: VendaParcelasConfig | null | undefined,
   resumo: ResumoLote | null,
   moraConfig: MoraConfig,
   ultimaAtualizacao: Date | null
@@ -179,7 +203,7 @@ export default function ExportacaoExtratos() {
       const uniqueLotes = new Map<string, LoteComAtualizacao>();
       for (const row of data || []) {
         if (!uniqueLotes.has(row.lote_id)) {
-          const lote = row.lotes as any;
+          const lote = row.lotes as { quadra?: string | null; numero_lote?: string | null } | null;
           uniqueLotes.set(row.lote_id, {
             lote_id: row.lote_id,
             quadra: lote?.quadra || "?",
@@ -215,29 +239,37 @@ export default function ExportacaoExtratos() {
       return;
     }
 
-    // For folder mode, ask for directory BEFORE starting
-    let dirHandle: any = null;
+    // For folder mode, ask for directory BEFORE starting; if the browser blocks it,
+    // keep the export working by falling back to ZIP for the selected lotes.
+    let modoEfetivo: ModoEntrega = modo;
+    let dirHandle: FileSystemDirectoryHandleLike | null = null;
     if (modo === "folder") {
       if (!supportsDirectoryPicker) {
-        toast.error(
+        toast.info(
           isInIframe
-            ? "A escolha de pasta não está disponível na pré-visualização. Abra o aplicativo publicado em uma nova aba ou use 'Baixar ZIP'."
-            : "Seu navegador não suporta escolha de pasta. Use o botão 'Baixar ZIP'."
+            ? "A escolha de pasta está bloqueada neste contexto. Gerando ZIP com os lotes selecionados."
+            : "Seu navegador não suporta escolha de pasta. Gerando ZIP com os lotes selecionados."
         );
-        return;
+        modoEfetivo = "zip";
       }
-      try {
-        dirHandle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
-      } catch (err: any) {
-        // User cancelled the picker
-        if (err?.name === "AbortError") return;
-        // Browser blocked the API (iframe sandbox, insecure context, permissions policy)
-        if (err?.name === "SecurityError" || err?.name === "NotAllowedError" || err?.name === "InvalidStateError") {
-          toast.error("O navegador bloqueou a seleção de pasta neste contexto. Abra o app em uma nova aba ou use 'Baixar ZIP'.");
-          return;
+
+      if (modoEfetivo === "folder") {
+        try {
+          dirHandle = await (window as WindowWithDirectoryPicker).showDirectoryPicker!({ mode: "readwrite" });
+        } catch (err: unknown) {
+          const errorName = err instanceof Error ? err.name : "";
+          const errorMessage = err instanceof Error ? err.message : "erro desconhecido";
+          // User cancelled the picker
+          if (errorName === "AbortError") return;
+          // Browser blocked the API (iframe sandbox, insecure context, permissions policy)
+          if (errorName === "SecurityError" || errorName === "NotAllowedError" || errorName === "InvalidStateError") {
+            toast.info("O navegador bloqueou a pasta neste contexto. Gerando ZIP com os lotes selecionados.");
+            modoEfetivo = "zip";
+          } else {
+            toast.error(`Não foi possível abrir o seletor de pasta: ${errorMessage || errorName || "erro desconhecido"}`);
+            return;
+          }
         }
-        toast.error(`Não foi possível abrir o seletor de pasta: ${err?.message || err?.name || "erro desconhecido"}`);
-        return;
       }
     }
 
@@ -262,7 +294,7 @@ export default function ExportacaoExtratos() {
       vendedorConfig = vendedor;
     }
 
-    let pixConfig: { chave_pix: string | null; nome_beneficiario: string | null; cidade_beneficiario: string | null } = {
+    const pixConfig: { chave_pix: string | null; nome_beneficiario: string | null; cidade_beneficiario: string | null } = {
       chave_pix: config?.chave_pix || null,
       nome_beneficiario: null,
       cidade_beneficiario: null,
@@ -275,7 +307,7 @@ export default function ExportacaoExtratos() {
     }
 
     const resultados: ArquivoGerado[] = [];
-    const zip = modo === "zip" ? new JSZip() : null;
+    const zip = modoEfetivo === "zip" ? new JSZip() : null;
 
     for (let i = 0; i < lotesSelecionados.length; i++) {
       const lote = lotesSelecionados[i];
@@ -390,9 +422,9 @@ export default function ExportacaoExtratos() {
 
         const fileName = `Quadra_${lote.quadra}_Lote_${lote.numero_lote}.pdf`;
 
-        if (modo === "zip" && zip) {
+        if (modoEfetivo === "zip" && zip) {
           zip.file(fileName, blob);
-        } else if (modo === "folder" && dirHandle) {
+        } else if (modoEfetivo === "folder" && dirHandle) {
           const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
           const writable = await fileHandle.createWritable();
           await writable.write(blob);
@@ -406,7 +438,8 @@ export default function ExportacaoExtratos() {
           fileName,
           status: "success",
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
         console.error(`Erro ao gerar extrato para Q${lote.quadra} L${lote.numero_lote}:`, err);
         resultados.push({
           loteId: lote.lote_id,
@@ -414,13 +447,13 @@ export default function ExportacaoExtratos() {
           numero_lote: lote.numero_lote,
           fileName: "",
           status: "error",
-          error: err.message || "Erro desconhecido",
+          error: errorMessage,
         });
       }
     }
 
     // Download zip when done
-    if (modo === "zip" && zip) {
+    if (modoEfetivo === "zip" && zip) {
       try {
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(zipBlob);
@@ -431,7 +464,7 @@ export default function ExportacaoExtratos() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Erro ao gerar ZIP:", err);
         toast.error("Erro ao gerar arquivo ZIP.");
       }
