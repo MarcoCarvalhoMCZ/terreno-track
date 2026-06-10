@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -320,15 +321,14 @@ export default function Lotes() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="custo_contabil">Custo Contábil</Label>
-                    <Input
+                    <CurrencyInput
                       id="custo_contabil"
-                      type="number"
-                      step="0.01"
-                      value={formData.custo_contabil || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, custo_contabil: e.target.value ? Number(e.target.value) : null })
+                      allowNull
+                      value={formData.custo_contabil}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, custo_contabil: v })
                       }
-                      placeholder="Ex: 50000.00"
+                      placeholder="Ex: 50.000,00"
                     />
                   </div>
                 </div>

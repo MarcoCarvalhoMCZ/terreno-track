@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -528,11 +529,10 @@ export default function RecebimentoParcela() {
                 </div>
                 <div>
                   <Label>Valor Recebido *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={valorRecebido}
-                    onChange={(e) => setValorRecebido(e.target.value)}
+                  <CurrencyInput
+                    value={valorRecebido ? Number(valorRecebido) : null}
+                    onValueChange={(v) => setValorRecebido(v == null ? "" : String(v))}
+                    allowNull
                   />
                 </div>
               </div>

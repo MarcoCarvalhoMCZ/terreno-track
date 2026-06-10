@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -511,34 +512,25 @@ export default function Vendas() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="valor_venda">Valor da Venda *</Label>
-                    <Input
+                    <CurrencyInput
                       id="valor_venda"
-                      type="number"
-                      step="0.01"
-                      value={formData.valor_venda || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          valor_venda: e.target.value ? Number(e.target.value) : 0,
-                        })
+                      value={formData.valor_venda}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, valor_venda: v ?? 0 })
                       }
-                      placeholder="Ex: 100000.00"
+                      placeholder="Ex: 100.000,00"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="valor_arras">Valor das Arras (Sinal)</Label>
-                    <Input
+                    <CurrencyInput
                       id="valor_arras"
-                      type="number"
-                      step="0.01"
-                      value={formData.valor_arras || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          valor_arras: e.target.value ? Number(e.target.value) : null,
-                        })
+                      allowNull
+                      value={formData.valor_arras}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, valor_arras: v })
                       }
-                      placeholder="Ex: 10000.00"
+                      placeholder="Ex: 10.000,00"
                     />
                   </div>
                 </div>
@@ -549,18 +541,14 @@ export default function Vendas() {
                   <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="valor_parcelamento">Valor Parcela</Label>
-                      <Input
+                      <CurrencyInput
                         id="valor_parcelamento"
-                        type="number"
-                        step="0.01"
-                        value={formData.valor_parcelamento || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            valor_parcelamento: e.target.value ? Number(e.target.value) : undefined,
-                          })
+                        allowNull
+                        value={formData.valor_parcelamento}
+                        onValueChange={(v) =>
+                          setFormData({ ...formData, valor_parcelamento: v ?? undefined })
                         }
-                        placeholder="Ex: 5000.00"
+                        placeholder="Ex: 5.000,00"
                       />
                     </div>
                     <div className="space-y-2">
@@ -616,18 +604,14 @@ export default function Vendas() {
                   <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="valor_reforco">Valor Reforço</Label>
-                      <Input
+                      <CurrencyInput
                         id="valor_reforco"
-                        type="number"
-                        step="0.01"
-                        value={formData.valor_reforco || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            valor_reforco: e.target.value ? Number(e.target.value) : undefined,
-                          })
+                        allowNull
+                        value={formData.valor_reforco}
+                        onValueChange={(v) =>
+                          setFormData({ ...formData, valor_reforco: v ?? undefined })
                         }
-                        placeholder="Ex: 10000.00"
+                        placeholder="Ex: 10.000,00"
                       />
                     </div>
                     <div className="space-y-2">
