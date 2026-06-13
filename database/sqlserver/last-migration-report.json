@@ -1,0 +1,282 @@
+{
+  "runAt": "2026-06-10T13:46:05.290Z",
+  "summary": [
+    {
+      "table": "profiles",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "user_roles",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "user_menu_permissions",
+      "fetched": 0,
+      "inserted": 0,
+      "error": "HTTP 401 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"permission denied for function has_role\"}",
+      "insertError": null
+    },
+    {
+      "table": "pessoas",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "enderecos",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "modos_pagamento",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "contas_contabeis",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "eventos_contabeis",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "eventos_contabeis_itens",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "lotes",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "indicadores_atualizacao",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "indicadores_atualizacao_valores",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "configuracoes",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "vendas",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "conta_corrente_lote",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "parcelas",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "parcelas_controle",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "parcelas_abertas",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "venda_documentos",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "contas_recebimento_vendedor",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "planos_pagamento",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "mapa_movimento_conta",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "consolidacao_contabil",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "auditoria_mora_override",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    },
+    {
+      "table": "mensagem_extrato_historico",
+      "fetched": 0,
+      "inserted": 0,
+      "error": null,
+      "insertError": null
+    }
+  ],
+  "counts": [
+    {
+      "table": "profiles",
+      "total": 0
+    },
+    {
+      "table": "user_roles",
+      "total": 0
+    },
+    {
+      "table": "user_menu_permissions",
+      "total": 0
+    },
+    {
+      "table": "pessoas",
+      "total": 0
+    },
+    {
+      "table": "enderecos",
+      "total": 0
+    },
+    {
+      "table": "modos_pagamento",
+      "total": 0
+    },
+    {
+      "table": "contas_contabeis",
+      "total": 0
+    },
+    {
+      "table": "eventos_contabeis",
+      "total": 0
+    },
+    {
+      "table": "eventos_contabeis_itens",
+      "total": 0
+    },
+    {
+      "table": "lotes",
+      "total": 0
+    },
+    {
+      "table": "indicadores_atualizacao",
+      "total": 0
+    },
+    {
+      "table": "indicadores_atualizacao_valores",
+      "total": 0
+    },
+    {
+      "table": "configuracoes",
+      "total": 0
+    },
+    {
+      "table": "vendas",
+      "total": 0
+    },
+    {
+      "table": "conta_corrente_lote",
+      "total": 0
+    },
+    {
+      "table": "parcelas",
+      "total": 0
+    },
+    {
+      "table": "parcelas_controle",
+      "total": 0
+    },
+    {
+      "table": "parcelas_abertas",
+      "total": 0
+    },
+    {
+      "table": "venda_documentos",
+      "total": 0
+    },
+    {
+      "table": "contas_recebimento_vendedor",
+      "total": 0
+    },
+    {
+      "table": "planos_pagamento",
+      "total": 0
+    },
+    {
+      "table": "mapa_movimento_conta",
+      "total": 0
+    },
+    {
+      "table": "consolidacao_contabil",
+      "total": 0
+    },
+    {
+      "table": "auditoria_mora_override",
+      "total": 0
+    },
+    {
+      "table": "mensagem_extrato_historico",
+      "total": 0
+    }
+  ]
+}

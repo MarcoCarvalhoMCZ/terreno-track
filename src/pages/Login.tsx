@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,16 +11,36 @@ import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
 import { ForgotPasswordDialog } from "@/components/login/ForgotPasswordDialog";
 
+const REMEMBER_LOGIN_KEY = "ebl_loteamentos_remember_login";
+
+type RememberedLogin = {
+  email: string;
+};
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
   const [loading, setLoading] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
+  const [rememberLogin, setRememberLogin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordRegister, setShowPasswordRegister] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const saved = localStorage.getItem(REMEMBER_LOGIN_KEY);
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved) as RememberedLogin;
+      setEmail(parsed.email || "");
+      setRememberLogin(Boolean(parsed.email));
+    } catch {
+      localStorage.removeItem(REMEMBER_LOGIN_KEY);
+    }
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +51,11 @@ export default function Login() {
     if (error) {
       toast.error("Erro ao entrar: " + error.message);
     } else {
+      if (rememberLogin) {
+        localStorage.setItem(REMEMBER_LOGIN_KEY, JSON.stringify({ email }));
+      } else {
+        localStorage.removeItem(REMEMBER_LOGIN_KEY);
+      }
       toast.success("Login realizado com sucesso!");
       navigate("/");
     }
@@ -99,6 +125,16 @@ export default function Login() {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="remember-login"
+                    checked={rememberLogin}
+                    onCheckedChange={(checked) => setRememberLogin(checked === true)}
+                  />
+                  <Label htmlFor="remember-login" className="cursor-pointer text-sm font-normal">
+                    Lembrar e-mail neste dispositivo
+                  </Label>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
